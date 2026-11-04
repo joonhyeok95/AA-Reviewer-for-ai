@@ -1,0 +1,11 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+  jpa:
+    show-sql: false
+eureka:
+  client:
+    enabled: false
