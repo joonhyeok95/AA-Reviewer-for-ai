@@ -43,6 +43,9 @@ public class User extends AssignedIdEntity<String> {
   @Column(name = "COMPANY_NM", length = 200)
   private String companyNm; // 소속회사명
 
+  @Column(name = "LANG_CD", length = 10)
+  private String langCd; // 사용자 설정 언어 (공통코드 LANG, NULL = 기본 언어)
+
   @Column(name = "USE_YN", length = 1, nullable = false)
   private String useYn; // 사용여부
 
@@ -89,5 +92,14 @@ public class User extends AssignedIdEntity<String> {
    */
   public void linkIdpSubject(String idpSubject) {
     this.idpSubject = idpSubject;
+  }
+
+  /**
+   * 사용자 설정 언어를 변경한다.
+   *
+   * @param langCd 언어코드 (공통코드 LANG, 사용 중인 코드만)
+   */
+  public void changeLang(String langCd) {
+    this.langCd = langCd;
   }
 }

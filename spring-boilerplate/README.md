@@ -6,7 +6,8 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 |---|---|
 | 포트 | 서비스 **9091** / 관리(Actuator) **9191** (127.0.0.1 전용) |
 | 진입점 | [spring-gateway](../spring-gateway) **9909**, `/cm/**` → 9091 (`/cm` 제거) |
-| 테스트 | `./mvnw test` **81/81** · `./mvnw test -Poracle-it` (실제 Oracle) **1/1** · 실연동 E2E **40/40** |
+| 테스트 | `./mvnw test` **110/110** · `./mvnw test -Poracle-it` (실제 Oracle) **2/2** · 실연동 E2E **49/49** |
+| 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일 |
 | CI | `.github/workflows/ci.yml` (build: `./mvnw -B verify`, oracle: `-Poracle-it`) |
 
 ## 실행
@@ -31,6 +32,10 @@ docker compose -f infra/keycloak/docker-compose.yml up -d
 | http://localhost:9909/cm/api/v1/samples | 샘플 API (인증 + scope 필요) |
 | http://localhost:9909/cm/api/v1/auth/me | 현재 로그인 사용자 |
 | http://localhost:9909/cm/api/v1/menus/me | 내 메뉴 트리 (유효 권한, 다국어, 메뉴별 list/add/edit/del) |
+| http://localhost:9909/cm/api/v1/notices | 공지사항 (목록/상세/등록/수정/삭제, 첨부, 메일 이력) — `notice.*` 권한 |
+| http://localhost:9909/cm/api/v1/langs | 지원 언어 (LANG 코드 기반, 에디터 언어팩) |
+| http://localhost:9909/cm/api/v1/org/tree | 조직도 (인사 마스터 사업장 → 부서, 국문/영문) |
+| `PUT` http://localhost:9909/cm/api/v1/users/me/lang | 내 언어 설정 변경 |
 | http://localhost:9909/cm/saml2/authenticate/keycloak | SAML 로그인 시작 |
 | http://localhost:9091/h2-console | H2 Console (직접 접속만, Gateway 는 `/cm/h2-console` 차단) |
 | http://127.0.0.1:9191/actuator/health · `/prometheus` | Health / 메트릭 (관리 포트) |
@@ -62,6 +67,16 @@ docker compose -f infra/keycloak/docker-compose.yml up -d
 | `APP_TRUSTED_PROXIES` | Gateway IP 정규식 |
 | `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` | Oracle (dev / prod) |
 
+공지사항 (선택, 기본값 있음):
+
+| 변수 | 설명 |
+|---|---|
+| `NOTICE_FILE_PATH` | 첨부 저장 경로 (기본 `./data/notice-files`, 웹 경로 밖) |
+| `NOTICE_MAIL_SCHEDULER_ENABLED` / `NOTICE_MAIL_POLL_INTERVAL` / `NOTICE_MAIL_BATCH_SIZE` | 메일 스케줄러 사용 / 주기(60s) / BCC 묶음 크기(100) |
+| `MAIL_FROM` / `NOTICE_LINK_TEMPLATE` | 발신 주소 / 메일 속 공지 링크(`{id}`) |
+| `spring.mail.host` 등 (`SPRING_MAIL_HOST` …) | SMTP. 미설정이면 메일은 로그로 대체 |
+| `UPLOAD_MAX_FILE_SIZE` / `UPLOAD_MAX_REQUEST_SIZE` | 업로드 크기 (20MB / 100MB) |
+
 prod 프로필은 기동 시 IdP URL https, 세션 쿠키 Secure, local 기본 시크릿 미사용을 검사해 위반 시 기동 실패한다. (`SecurityStartupValidator`)
 
 ## 응답 형식
@@ -79,11 +94,12 @@ prod 프로필은 기동 시 IdP URL https, 세션 쿠키 Secure, local 기본 �
 }
 ```
 
-다국어: `Accept-Language: ko-KR` (기본) / `en-US`
+다국어: 사용자 설정 언어(`TB_USER.LANG_CD`) → `Accept-Language: ko-KR` / `en-US` → 기본(ko). 지원 언어는 공통코드 `LANG` 으로 확장 (코드 수정 없음)
 
 ## 문서
 
 - [개발 가이드](docs/DEVELOPMENT_GUIDE.md)
 - [설계 01 - 권한/메뉴/공통코드](docs/design/01_auth_menu_code.md)
 - [설계 02 - 인증 (Keycloak OAuth2/SAML2)](docs/design/02_auth_keycloak.md)
+- [설계 03 - 공지사항 다국어 (v0.4)](docs/design/03_notice.md)
 - [테스트 결과](docs/reports/TEST_REPORT.md) / [인증 E2E 결과](docs/reports/AUTH_E2E_REPORT.md) / [보안 점검 및 조치](docs/reports/SECURITY_REVIEW.md)

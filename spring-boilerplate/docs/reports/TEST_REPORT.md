@@ -1,6 +1,6 @@
 # 테스트 결과 리포트
 
-- 실행일시: 2026-11-05 (KST) — 보안 점검 18건 조치 후
+- 실행일시: 2026-11-05 (KST) — v0.4 공지사항 다국어 반영 후
 - 실행 명령: `mvnw clean test` (기본) / `mvnw test -Poracle-it` (실제 Oracle)
 - 환경: Java 17.0.12 / Spring Boot 4.1.2 / Spring Security 7.1.2 / Spring Session / H2 (Oracle 호환 모드) · Oracle Free 23ai (Testcontainers)
 
@@ -8,8 +8,8 @@
 
 | 구분 | 전체 | 성공 | 실패 | 결과 |
 |---|---|---|---|---|
-| 기본 (`mvnw test`) | 81 | 81 | 0 | ✅ BUILD SUCCESS |
-| Oracle (`-Poracle-it`) | 1 | 1 | 0 | ✅ BUILD SUCCESS |
+| 기본 (`mvnw test`) | 110 | 110 | 0 | ✅ BUILD SUCCESS |
+| Oracle (`-Poracle-it`) | 2 | 2 | 0 | ✅ BUILD SUCCESS |
 
 | 테스트 클래스 | 유형 | 대상 | 건수 | 결과 |
 |---|---|---|---|---|
@@ -17,10 +17,12 @@
 | `SampleServiceTest` | 단위 (Mockito) | SampleService 비즈니스 로직 | 3 | ✅ |
 | `SampleApiIntegrationTest` | 통합 (MockMvc + H2) | 샘플 API, 표준 응답, 예외 처리, 다국어 | 15 | ✅ |
 | `AuthMenuCodeRepositoryTest` | 통합 (JPA + H2) | 공통코드 / 사용자·부서 / 권한 / 메뉴 Entity·Repository | 21 | ✅ |
-| `SecurityIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | Bearer / BFF / SAML2, sub 매핑, scope ∩ DB 권한, 기본 거부, 메뉴 API, Forwarded 헤더 | 31 | ✅ |
+| `SecurityIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | Bearer / BFF / SAML2, sub 매핑, scope ∩ DB 권한, 기본 거부, 메뉴 API(사용자 언어 우선), Forwarded 헤더 | 32 | ✅ |
+| `NoticeApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 공지 다국어 NT-60~66, 지원 언어(LANG), 사용자 언어, 조직도, 첨부, 권한 | 23 | ✅ |
+| `NoticeMailServiceTest` | 통합 (H2, MailGateway Mock) | 메일 NT-47~4A, 발송 시점 인사 마스터, 중복 발송 방지, 실패 이력 | 5 | ✅ |
 | `SessionSerializationTest` | 단위 | 세션 AES-GCM 암호화 + 허용목록 직렬화 (복원·위변조·다른 키·차단 클래스) | 7 | ✅ |
 | `SecurityStartupValidatorTest` | 단위 | prod 기동 보안 검사 | 3 | ✅ |
-| `OracleSchemaTest` | 통합 (Oracle 컨테이너, `@Tag("oracle")`) | DDL·초기데이터·`validate`·권한/메뉴 쿼리 | 1 | ✅ |
+| `OracleSchemaTest` | 통합 (Oracle 컨테이너, `@Tag("oracle")`) | DDL·초기데이터·`validate`·권한/메뉴 쿼리·공지 네이티브 검색 | 2 | ✅ |
 
 ## SpringBoilerplateApplicationTests
 
@@ -71,8 +73,8 @@ SampleService 비즈니스 로직 — 단위 (Mockito)
 | 결과 | 테스트 | 검증 내용 | 시간(s) |
 |---|---|---|---|
 | ✅ PASS | `codeWithoutGroup_violatesForeignKey` | FK 제약 - 존재하지 않는 그룹의 코드는 저장 불가 | 0.005 |
-| ✅ PASS | `findCodeLang` | 코드명 다국어 - USER_TYPE 의 en_US 이름 | 0.032 |
-| ✅ PASS | `findCodes` | 초기 코드그룹 5개와 MODULE 코드(TX, WS)를 정렬순서대로 조회 | 0.015 |
+| ✅ PASS | `findCodeLang` | 코드명 다국어 - USER_TYPE 의 en 이름 | 0.032 |
+| ✅ PASS | `findCodes` | 초기 코드그룹 10개(공지 포함, WORKPLACE 그룹 없음)와 MODULE 코드(TX, WS)를 정렬순서대로 조회 | 0.015 |
 | ✅ PASS | `saveNewNaturalKeyEntity` | 자연키 Entity 신규 저장 - SELECT 없이 INSERT, Auditing 값 세팅 | 0.029 |
 
 ### 권한
@@ -167,7 +169,8 @@ SampleService 비즈니스 로직 — 단위 (Mockito)
 | 결과 | 테스트 | 검증 내용 | 시간(s) |
 |---|---|---|---|
 | ✅ PASS | `viewerMenus` | tx.viewer - 유효 권한(부서 부여)의 메뉴만, 시스템관리 메뉴 없음, 거래목록은 조회만 | 0.024 |
-| ✅ PASS | `adminMenus_english` | 시스템관리자 - 전체 메뉴/전체 권한, Accept-Language en-US 메뉴명 | 0.105 |
+| ✅ PASS | `adminMenus_userLangFirst` | 시스템관리자 - 전체 메뉴/전체 권한. 메뉴명은 사용자 설정 언어(ko)가 Accept-Language 보다 우선 | 0.041 |
+| ✅ PASS | `managerMenus_english` | 사용자 설정 언어 en (tx.manager) - 영문 메뉴명 | 0.100 |
 | ✅ PASS | `noMenus` | 서비스 계정 / 미등록 사용자 - 빈 메뉴 | 0.013 |
 
 ### Forwarded 헤더 (Gateway 뒤 동작)
@@ -201,13 +204,83 @@ Redis 세션 저장 형식 - AES-256-GCM 암호화 + 허용목록 JDK 직렬화 
 | ✅ PASS | `insecureProdSettings` | prod - http IdP URL, Secure 아닌 쿠키, local 기본 시크릿/키는 기동 실패 | 0.001 |
 | ✅ PASS | `secureProdSettings` | prod - https + Secure 쿠키 + 운영 시크릿이면 정상 기동 | 0.0 |
 
-## OracleSchemaTest (`-Poracle-it`)
+## NoticeApiIntegrationTest
 
-실제 Oracle Free 23ai 컨테이너 — DDL·초기 데이터 실행, Entity 검증(`ddl-auto=validate`), 권한/메뉴 쿼리
+공지사항 다국어 API — 통합 (Spring Security + MockMvc + H2). 사용자 언어: admin=ko, tx.manager=en, tx.viewer=미설정
+
+### 지원 언어 (LANG 공통코드 기반 - 하드코딩 없음)
 
 | 결과 | 테스트 | 검증 내용 | 시간(s) |
 |---|---|---|---|
-| ✅ PASS | `schemaAndQueries` | Oracle - DDL/초기 데이터 실행, Entity 검증(validate) 통과, 권한·메뉴 조회 쿼리 동작 | 0.932 |
+| ✅ PASS | `langs` | 언어 목록 = LANG 코드(USE_YN=Y) : ko/en, 에디터 언어팩 = ATTR1, 언어명은 사용자 언어 | 0.017 |
+| ✅ PASS | `addLanguageWithoutCodeChange` | LANG 코드에 ja 를 추가하면 코드 수정 없이 언어 목록·공지 입력에 바로 반영 | 0.062 |
+| ✅ PASS | `changeUserLang` | 사용자 언어 변경 - 이후 조회 언어에 반영, 지원하지 않는 언어는 B3002 | 0.054 |
+
+### 등록 규칙 (NT-60 ~ NT-62)
+
+| 결과 | 테스트 | 검증 내용 | 시간(s) |
+|---|---|---|---|
+| ✅ PASS | `englishOnly_baseLangIsFirst` | 영어만 입력 - 대표 언어 미지정 시 처음 입력한 언어(en) | 0.038 |
+| ✅ PASS | `bothLanguages_explicitBase` | 둘 다 입력 + 대표 언어 지정(en) | 0.038 |
+| ✅ PASS | `contentRequired` | NT-61 - 어떤 언어도 제목·본문이 없으면 B2002, 제목만 있으면 B2003 | 0.031 |
+| ✅ PASS | `invalidLanguage` | 지원하지 않는 언어 B2004, 입력하지 않은 언어를 대표 언어로 지정 B2006 | 0.038 |
+| ✅ PASS | `sanitizeHtml` | 본문 HTML 정화 - script/이벤트 핸들러/javascript: 링크 제거, 서식은 유지 | 0.089 |
+| ✅ PASS | `mailTargets` | 메일 대상 지정 발송 - 대상 없으면 B2009, 인사 마스터에 없는 부서 B2010, 정상이면 READY | 0.251 |
+| ✅ PASS | `popupAndCodes` | 팝업 사용 시 기간 필수 (B2008), 분류 코드 오류 (B2007) | 0.028 |
+
+### 조회 언어 / 배지 / 검색 (NT-64 ~ NT-66)
+
+| 결과 | 테스트 | 검증 내용 | 시간(s) |
+|---|---|---|---|
+| ✅ PASS | `englishUserList` | NT-64 영어 사용자 목록 - 영어 버전 우선, 한국어만 있는 공지는 대표 언어(ko)로 대체 표시 | 0.097 |
+| ✅ PASS | `koreanUserList` | NT-64 언어 미설정 사용자 - Accept-Language(ko) → 한국어 버전, 영어만 있는 공지는 대체 | 0.026 |
+| ✅ PASS | `searchByDisplayedVersion` | NT-66 검색 - 사용자 언어로 표시되는 버전 기준 (대표 언어로 대체 표시되는 공지 포함) | 0.057 |
+| ✅ PASS | `detailLanguageSwitch` | NT-65 상세 - 제공 언어 배지 + 언어 전환(lang=en), 없는 언어 요청은 사용자 언어/대표 언어로 | 0.037 |
+| ✅ PASS | `scheduledNotice` | 예약 공지(게시 전) - 일반 사용자 목록/상세 제외(404), 관리자는 includeScheduled 로 조회 | 0.050 |
+| ✅ PASS | `viewCountOncePerDay` | 조회수 - 같은 사용자는 하루 1회만 증가 | 0.045 |
+| ✅ PASS | `popups` | 팝업 공지 - 기간 내 팝업만 | 0.026 |
+
+### 수정 / 삭제 / 권한
+
+| 결과 | 테스트 | 검증 내용 | 시간(s) |
+|---|---|---|---|
+| ✅ PASS | `update` | 수정 - 언어 버전 교체 (영어 추가, 대표 언어 변경), 수정 화면에 전체 버전 | 0.041 |
+| ✅ PASS | `permissions` | 권한 - 조회 전용 403(등록), 매니저 등록 가능·삭제 불가, 관리자 삭제 후 404 | 0.050 |
+
+### 첨부파일 (게시물 공통)
+
+| 결과 | 테스트 | 검증 내용 | 시간(s) |
+|---|---|---|---|
+| ✅ PASS | `uploadDownloadDelete` | 업로드 → 상세에 표시 → 다운로드(attachment, 원본 파일명) → 삭제 | 0.069 |
+| ✅ PASS | `rejectExtension` | 허용되지 않은 확장자(.exe, 경로 포함 이름) 거부 - B2012 | 0.028 |
+
+### 인사 마스터 조직도 / 공통코드
+
+| 결과 | 테스트 | 검증 내용 | 시간(s) |
+|---|---|---|---|
+| ✅ PASS | `orgTreeEnglish` | 조직도 - 사업장별 부서 트리, 영어 사용자에게 영문 명칭 (영문명 없으면 국문) | 0.025 |
+| ✅ PASS | `codes` | 공통코드 목록 - 사용자 언어 코드명 | 0.020 |
+
+## NoticeMailServiceTest
+
+공지 메일 발송 (NT-47 ~ NT-4A) — 통합 (H2, `MailGateway` Mock). 수원 사업장 = TF_TEAM(tx.viewer, ko) + TF_LAB(partner01, en)
+
+| 결과 | 테스트 | 검증 내용 | 시간(s) |
+|---|---|---|---|
+| ✅ PASS | `groupByRecipientLanguage` | 수신자 언어별 그룹 일괄 발송 - 템플릿은 수신자 언어, 내용은 해당 언어 없으면 대표 언어(ko) | 0.027 |
+| ✅ PASS | `noDuplicateAndScheduledSkipped` | 다시 실행해도 중복 발송 없음 (상태 선점), 예약 공지(2099)는 발송 안 함 | 0.026 |
+| ✅ PASS | `recipientsAtSendTime` | 수신자는 발송 시점 인사 마스터 기준 - 등록 후 수원으로 이동한 사용자(emp01)도 포함 | 0.027 |
+| ✅ PASS | `sendFailure` | 발송 실패 - 수신자별 FAIL 이력, 공지 상태 FAIL | 0.118 |
+| ✅ PASS | `englishVersionForEnglishRecipient` | 영어 버전이 있으면 영어 수신자에게 영어 본문 | 0.034 |
+
+## OracleSchemaTest (`-Poracle-it`)
+
+실제 Oracle Free 23ai 컨테이너 — DDL·초기 데이터 실행(01, 02_notice), Entity 검증(`ddl-auto=validate`), 권한/메뉴 쿼리, 공지 검색
+
+| 결과 | 테스트 | 검증 내용 | 시간(s) |
+|---|---|---|---|
+| ✅ PASS | `schemaAndQueries` | Oracle - DDL/초기 데이터 실행, Entity 검증(validate) 통과, 권한·메뉴 조회 쿼리 동작 | 0.285 |
+| ✅ PASS | `noticeSearch` | Oracle - 공지 검색 (사용자 언어 버전 → 대표 언어 대체, CLOB 본문 LIKE 검색) | 0.772 |
 
 ## 참고
 
@@ -218,4 +291,6 @@ Redis 세션 저장 형식 - AES-256-GCM 암호화 + 허용목록 JDK 직렬화 
   테스트 사용자의 sub 는 realm import 와 같은 고정 ID 이다. 실제 Keycloak 왕복은 [AUTH_E2E_REPORT.md](AUTH_E2E_REPORT.md).
 - 기본 거부 적용으로 인가 규칙 밖의 경로는 404 가 아니라 403 이다. `pathNotFound` 는 규칙 범위 안의 없는 경로(`/api/v1/samples/1/unknown`)로 검증한다.
 - `OracleSchemaTest` 로 H2 에서는 통과하던 `ALTER SEQUENCE ... RESTART WITH` 가 Oracle 에서 실패(ORA-03048)함을 발견 → `RESTART START WITH` 로 수정.
+- 공지 검색은 CLOB 본문의 `LOWER/LIKE` 를 Hibernate JPQL 이 허용하지 않아 네이티브 SQL 로 구현했고, Oracle 실DB 에서 `noticeSearch` 로 검증했다.
+- `NoticeMailServiceTest` 는 `MailGateway` 만 Mock 하고 수신자 추출(인사 마스터)·템플릿·이력 저장은 실제로 동작한다.
 - 상세 리포트: `target/surefire-reports/`

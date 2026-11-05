@@ -158,7 +158,11 @@
         "sample.list",
         "sample.add",
         "sample.edit",
-        "sample.del"
+        "sample.del",
+        "notice.list",
+        "notice.add",
+        "notice.edit",
+        "notice.del"
       ]
     },
     {
@@ -180,7 +184,11 @@
         "sample.list",
         "sample.add",
         "sample.edit",
-        "sample.del"
+        "sample.del",
+        "notice.list",
+        "notice.add",
+        "notice.edit",
+        "notice.del"
       ]
     },
     {
@@ -201,7 +209,10 @@
       "realmRoles": [
         "sample.list",
         "sample.add",
-        "sample.edit"
+        "sample.edit",
+        "notice.list",
+        "notice.add",
+        "notice.edit"
       ]
     },
     {
@@ -220,7 +231,8 @@
         }
       ],
       "realmRoles": [
-        "sample.list"
+        "sample.list",
+        "notice.list"
       ]
     },
     {
@@ -239,7 +251,8 @@
         }
       ],
       "realmRoles": [
-        "sample.list"
+        "sample.list",
+        "notice.list"
       ]
     },
     {
@@ -258,7 +271,8 @@
         }
       ],
       "realmRoles": [
-        "sample.list"
+        "sample.list",
+        "notice.list"
       ]
     },
     {
@@ -305,6 +319,22 @@
       {
         "name": "sample.del",
         "description": "샘플 삭제 (scope sample.del 발급 조건)"
+      },
+      {
+        "name": "notice.list",
+        "description": "공지 조회 (scope notice.list 발급 조건)"
+      },
+      {
+        "name": "notice.add",
+        "description": "공지 등록 (scope notice.add 발급 조건)"
+      },
+      {
+        "name": "notice.edit",
+        "description": "공지 수정 (scope notice.edit 발급 조건)"
+      },
+      {
+        "name": "notice.del",
+        "description": "공지 삭제 (scope notice.del 발급 조건)"
       }
     ]
   },

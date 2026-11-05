@@ -606,16 +606,26 @@ class SecurityIntegrationTest {
     }
 
     @Test
-    @DisplayName("시스템관리자 - 전체 메뉴/전체 권한, Accept-Language en-US 메뉴명")
-    void adminMenus_english() throws Exception {
+    @DisplayName("시스템관리자 - 전체 메뉴/전체 권한. 메뉴명은 사용자 설정 언어(ko)가 Accept-Language 보다 우선")
+    void adminMenus_userLangFirst() throws Exception {
       String token = bearer("menu-admin", "admin", "flowlog-bff", "openid");
 
       mockMvc.perform(get(MENU_URL).header(HttpHeaders.AUTHORIZATION, token)
               .header(HttpHeaders.ACCEPT_LANGUAGE, "en-US"))
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.result.length()").value(5))
-          .andExpect(jsonPath("$.result[0].children[0].menuNm").value("Trades"))
+          .andExpect(jsonPath("$.result[0].children[0].menuNm").value("거래관리"))
           .andExpect(jsonPath("$.result[0].children[0].permission.del").value(true));
+    }
+
+    @Test
+    @DisplayName("사용자 설정 언어 en (tx.manager) - 영문 메뉴명")
+    void managerMenus_english() throws Exception {
+      String token = bearer("menu-manager", "tx.manager", "flowlog-bff", "openid");
+
+      mockMvc.perform(get(MENU_URL).header(HttpHeaders.AUTHORIZATION, token))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.result[0].children[0].menuNm").value("Trades"));
     }
 
     @Test

@@ -39,3 +39,6 @@ logs/
 ### Python ###
 __pycache__/
 *.pyc
+
+# 공지 첨부파일 (local 저장소)
+data/

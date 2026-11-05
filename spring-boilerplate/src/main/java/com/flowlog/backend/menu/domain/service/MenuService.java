@@ -1,5 +1,6 @@
 package com.flowlog.backend.menu.domain.service;
 
+import com.flowlog.backend.code.domain.service.LangService;
 import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.constant.YesNo;
 import com.flowlog.backend.menu.domain.model.Menu;
@@ -19,7 +20,6 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -46,7 +46,6 @@ public class MenuService {
   /** 시스템관리자 권한코드. */
   public static final String SYS_ADMIN = "SYS_ADMIN";
 
-  private static final String DEFAULT_LANG = "ko_KR";
   private static final ZoneId ZONE_ID = ZoneId.of("Asia/Seoul");
 
   private final UserRepository userRepository;
@@ -54,15 +53,16 @@ public class MenuService {
   private final RoleMenuRepository roleMenuRepository;
   private final MenuRepository menuRepository;
   private final MenuLangRepository menuLangRepository;
+  private final LangService langService;
 
   /**
    * 로그인 사용자 메뉴 트리.
    *
    * @param subject IdP 사용자 고유ID (미등록이면 빈 목록)
-   * @param locale 요청 언어
+   * @param langCd 사용자 언어 (LangService.resolveUserLang)
    * @return 최상위 메뉴 목록 (정렬순서)
    */
-  public List<MenuTreeResponse> getMyMenus(String subject, Locale locale) {
+  public List<MenuTreeResponse> getMyMenus(String subject, String langCd) {
     Optional<User> user = StringUtils.isBlank(subject) ? Optional.empty()
         : userRepository.findByIdpSubjectAndUseYn(subject, YesNo.Y);
     List<MenuTreeResponse> tree = List.of();
@@ -72,7 +72,7 @@ public class MenuService {
       List<Menu> menus = menuRepository.findByUseYnOrderBySortOrderAscIdAsc(YesNo.Y).stream()
           .filter(menu -> YesNo.isYes(menu.getDisplayYn()))
           .toList();
-      tree = buildTree(menus, permissionsOf(roles, menus), menuNames(locale), null);
+      tree = buildTree(menus, permissionsOf(roles, menus), menuNames(langCd), null);
     }
     return tree;
   }
@@ -95,12 +95,13 @@ public class MenuService {
     return permissions;
   }
 
-  private Map<Long, String> menuNames(Locale locale) {
-    Map<Long, String> names = menuLangRepository.findByIdLangCd(DEFAULT_LANG).stream()
+  /** 메뉴명 : 사용자 언어 → 없으면 기본 언어. */
+  private Map<Long, String> menuNames(String langCd) {
+    String defaultLang = langService.defaultLang();
+    Map<Long, String> names = menuLangRepository.findByIdLangCd(defaultLang).stream()
         .collect(Collectors.toMap(lang -> lang.getId().getMenuId(), MenuLang::getMenuNm,
             (a, b) -> a, HashMap::new));
-    String langCd = locale == null ? DEFAULT_LANG : locale.toString();
-    if (!DEFAULT_LANG.equals(langCd)) {
+    if (!defaultLang.equals(langCd)) {
       menuLangRepository.findByIdLangCd(langCd)
           .forEach(lang -> names.put(lang.getId().getMenuId(), lang.getMenuNm()));
     }

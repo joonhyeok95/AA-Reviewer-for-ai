@@ -1,6 +1,6 @@
 # 인증 · 세션 · Gateway E2E 점검 리포트 (실제 연동)
 
-- 실행일시: 2026-11-05 (KST) — 보안 점검 18건 조치 후 재실행
+- 실행일시: 2026-11-05 (KST) — v0.4 공지사항 다국어 반영 후 재실행
 - 실행 명령: `python infra/keycloak/e2e/auth_e2e.py` (Gateway 경유 `http://localhost:9909/cm`, 세션 공유 대상 `http://localhost:9092`)
 - 환경: Keycloak 26.8.1 (127.0.0.1:7000, realm 재import) · Redis 8.10.3 (127.0.0.1:6379) · spring-gateway (:9909, 관리 :9910) ·
   spring-boilerplate 인스턴스 2개 (:9091 / :9092, 관리 :9191 / :9192)
@@ -10,7 +10,7 @@
 
 | 구분 | 결과 |
 |---|---|
-| 인증·세션·인가·Rate Limit·보안 점검 | ✅ 40/40 |
+| 인증·세션·인가·Rate Limit·보안 점검·공지 다국어 | ✅ 49/49 |
 | 서킷브레이커 (실제 앱 중지) | ✅ 5건 G0002 → OPEN → G0004, Prometheus `state="open"` 1 (조치 후 재확인) |
 
 ### 요구사항별 확인
@@ -25,6 +25,7 @@
 | Rate Limit (Lua) | IP 60건 → 429 G0005. **요청마다 위조 SESSION 쿠키 60건도 IP 버킷으로 429** (우회 불가) |
 | Gateway 경로 보안 | `/cm/h2-console`, `/cm/actuator/*` 404 G0001, 우회 형식(`/./`, `//`) 400 G0006, 9909 `/actuator/gateway` 404 |
 | 관리 포트 | 9191 / 9910 `/actuator/prometheus` 200 (127.0.0.1), 9091 서비스 포트 actuator 404 |
+| 공지 다국어 (v0.4) | 언어 목록(LANG/ATTR1), 대표 언어 대체 표시·배지, 대체 표시분 검색, 언어 전환, 조직도 영문 명칭, XSS 정화, Gateway 경유 첨부, 권한, 수신자 언어별 메일 (수원 사업장 → ko 1명 / en 1명) |
 | 무차별 대입 | 비밀번호 5회 실패 후 올바른 비밀번호도 로그인 불가 (Keycloak 일시 잠금) |
 
 ## 공통 — 미인증
@@ -79,6 +80,30 @@
 | ✅ PASS | DELETE (sample.del 없음) → 403 | status=403 |
 | ✅ PASS | Redis 에 SAML 세션 저장 |  |
 | ✅ PASS | 다른 인스턴스(http://localhost:9092)에 같은 SESSION 쿠키 → SAML2 세션 공유 | status=200 |
+
+## 공지 — 다국어 공지 (tx.manager = 언어 en / tx.viewer = 언어 미설정 → ko)
+
+| 결과 | 점검 내용 | 상세 |
+|---|---|---|
+| ✅ PASS | 언어 목록 = LANG 코드(ko, en) + 에디터 언어팩(ATTR1), 언어명은 사용자 언어(en) | langs=[('ko', 'Korean'), ('en', 'English')] |
+| ✅ PASS | 목록(en 사용자) - 1번 영어 버전, 2번(한국어만)은 대표 언어 대체 표시, 배지 KO/EN | titles=[(3, 'Global town hall', 'en'), (2, '정기 점검 안내', 'ko'), (1, 'System launch', 'en')] |
+| ✅ PASS | 검색(en 사용자) - 대표 언어로 대체 표시되는 한국어 공지도 검색됨 |  |
+| ✅ PASS | 상세 언어 전환(lang=ko) → 한국어 버전 |  |
+| ✅ PASS | 조직도(인사 마스터) - 사업장 → 부서 트리, 영문 명칭 | ['Seoul Headquarters', 'Suwon Campus'] |
+| ✅ PASS | 등록(한국어만, 대표 언어 자동 ko, 메일 대상 수원 사업장) → 201, 메일 READY, script 제거 | status=201, id=101 |
+| ✅ PASS | 첨부 업로드(Gateway 경유 multipart) → 다운로드 내용 일치 | fileId=1, status=200 |
+| ✅ PASS | tx.viewer(조회 전용) 등록 → 403 | status=403 |
+| ✅ PASS | 메일 - 수원 사업장 소속(발송 시점 인사 마스터)을 수신자 언어별 그룹으로 발송, 수신자당 1건 | histories=[('partner01', 'en', 'SUCCESS'), ('tx.viewer', 'ko', 'SUCCESS')] |
+
+메일 발송 로그 (SMTP 미설정 → 로그 대체, 스케줄러 `NOTICE_MAIL_POLL_INTERVAL=5s`):
+
+```
+[Mail] (SMTP 미설정 - 로그 대체) subject=[Notice] E2E 메일 공지 lang=en bcc=1건
+[Mail] (SMTP 미설정 - 로그 대체) subject=[공지] E2E 메일 공지 lang=ko bcc=1건
+[NoticeMail] noticeId=101 결과=DONE 수신자=2명
+```
+
+> local 인스턴스 2대는 H2 가 각자 분리되어 있어 "다중 인스턴스 중복 발송 방지"는 E2E 가 아닌 `NoticeMailServiceTest.noDuplicateAndScheduledSkipped`(상태 선점)로 검증했다.
 
 ## Gateway — Rate Limit (Redis Lua 토큰 버킷, IP 키: 초당 20 / 최대 40)
 

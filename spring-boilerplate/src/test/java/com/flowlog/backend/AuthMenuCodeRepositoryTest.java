@@ -90,11 +90,12 @@ class AuthMenuCodeRepositoryTest {
   class CodeTest {
 
     @Test
-    @DisplayName("초기 코드그룹 5개와 MODULE 코드(TX, WS)를 정렬순서대로 조회")
+    @DisplayName("초기 코드그룹 10개(공지 포함, WORKPLACE 그룹 없음)와 MODULE 코드(TX, WS)를 정렬순서대로 조회")
     void findCodes() {
       assertThat(codeGroupRepository.findByUseYnOrderBySortOrderAsc(YesNo.Y))
           .extracting(CodeGroup::getGroupCd)
-          .containsExactly("LANG", "MODULE", "ROLE_TYPE", "USER_TYPE", "MENU_VIEW_TYPE");
+          .containsExactly("LANG", "MODULE", "ROLE_TYPE", "USER_TYPE", "MENU_VIEW_TYPE",
+              "NOTICE_CATEGORY", "NOTICE_TAG", "MAIL_SEND_TYPE", "MAIL_TARGET_TYPE", "MAIL_STATUS");
 
       assertThat(codeRepository.findByIdGroupCdAndUseYnOrderBySortOrderAsc("MODULE", YesNo.Y))
           .extracting(code -> code.getId().getCode())
@@ -102,10 +103,10 @@ class AuthMenuCodeRepositoryTest {
     }
 
     @Test
-    @DisplayName("코드명 다국어 - USER_TYPE 의 en_US 이름")
+    @DisplayName("코드명 다국어 - USER_TYPE 의 en 이름")
     void findCodeLang() {
       Map<String, String> names = codeLangRepository
-          .findByIdGroupCdAndIdLangCd("USER_TYPE", "en_US").stream()
+          .findByIdGroupCdAndIdLangCd("USER_TYPE", "en").stream()
           .collect(Collectors.toMap(l -> l.getId().getCode(), CodeLang::getCodeNm));
 
       assertThat(names).hasSize(5).containsEntry("PARTNER", "Partner");
@@ -120,7 +121,7 @@ class AuthMenuCodeRepositoryTest {
 
       // when
       codeGroupRepository.save(group);
-      codeGroupLangRepository.save(new CodeGroupLang("NEW_GROUP", "ko_KR", "신규그룹"));
+      codeGroupLangRepository.save(new CodeGroupLang("NEW_GROUP", "ko", "신규그룹"));
       codeRepository.save(Code.builder()
           .groupCd("NEW_GROUP").code("A").sortOrder(1).useYn(YesNo.Y).build());
       em.flush();
@@ -246,7 +247,7 @@ class AuthMenuCodeRepositoryTest {
     void roleLang() {
       Long roleId = roleRepository.findByRoleCd("TX_MANAGER_READ").orElseThrow().getId();
 
-      assertThat(roleLangRepository.findByIdRoleIdInAndIdLangCd(List.of(roleId), "en_US"))
+      assertThat(roleLangRepository.findByIdRoleIdInAndIdLangCd(List.of(roleId), "en"))
           .singleElement()
           .satisfies(l -> assertThat(l.getRoleNm()).isEqualTo("TX Manager (Read-only)"));
     }
@@ -261,7 +262,7 @@ class AuthMenuCodeRepositoryTest {
     void buildMenuTree() {
       // given
       List<Menu> menus = menuRepository.findByUseYnOrderBySortOrderAscIdAsc(YesNo.Y);
-      Map<Long, String> names = menuLangRepository.findByIdLangCd("ko_KR").stream()
+      Map<Long, String> names = menuLangRepository.findByIdLangCd("ko").stream()
           .collect(Collectors.toMap(l -> l.getId().getMenuId(), MenuLang::getMenuNm));
       Map<Long, Menu> byId = menus.stream()
           .collect(Collectors.toMap(Menu::getId, Function.identity()));
@@ -299,7 +300,7 @@ class AuthMenuCodeRepositoryTest {
     @Test
     @DisplayName("본문(CONTENT) 메뉴 - 언어별 CLOB 본문 조회")
     void contentMenu() {
-      MenuLang en = menuLangRepository.findById(new MenuLangId(6L, "en_US")).orElseThrow();
+      MenuLang en = menuLangRepository.findById(new MenuLangId(6L, "en")).orElseThrow();
 
       assertThat(en.getMenuNm()).isEqualTo("TX Guide");
       assertThat(en.getMenuContent()).contains("How to use the TX module");
@@ -312,7 +313,7 @@ class AuthMenuCodeRepositoryTest {
           .parentMenuId(9L).moduleCd("WS").viewTypeCd("MENU").menuUrl("/ws/status/list/sub")
           .newWindowYn(YesNo.N).sortOrder(1).adminMenuYn(YesNo.N).sideMenuYn(YesNo.N)
           .displayYn(YesNo.Y).useYn(YesNo.Y).build());
-      menuLangRepository.saveAndFlush(new MenuLang(saved.getId(), "ko_KR", "4뎁스 메뉴", null));
+      menuLangRepository.saveAndFlush(new MenuLang(saved.getId(), "ko", "4뎁스 메뉴", null));
 
       assertThat(saved.getId()).isGreaterThan(100L); // 시퀀스는 롤백되지 않으므로 범위로 검증
       assertThat(menuRepository.existsByParentMenuId(9L)).isTrue();

@@ -324,7 +324,14 @@ public class Sample extends BaseEntity {
 
 ### 5.5 다국어
 - **[변경]** Locale 은 커스텀 헤더(`LIS-Locale-ID`) 대신 표준 **`Accept-Language`** 헤더로 받는다.
-- 지원: `ko_KR` (기본), `en_US`. 미지원 언어는 `ko_KR` 로 응답.
+- 응답 메시지 Locale: `ko_KR` (기본), `en_US`. 미지원 언어는 `ko_KR` 로 응답 (표준 응답 `locale` 필드).
+- **데이터 다국어 (v0.4)** — 상세 [design/03_notice.md](design/03_notice.md)
+  - 지원 언어는 공통코드 **`LANG`** (ISO 639-1: `ko`, `en`, USE_YN='Y', 정렬순서 첫 번째 = 기본 언어). **언어 목록을 하드코딩하지 않는다** — `LangService` 사용
+  - `LANG.ATTR1` = 에디터 언어팩 (`ko-KR`, `en-US`). 화면 언어 탭/선택 목록/에디터 매핑은 `GET /api/v1/langs` 로 동적 생성
+  - `*_LANG` 테이블(코드/메뉴/권한/공지)의 `LANG_CD` 는 `ko`/`en`
+  - 사용자 언어 = `TB_USER.LANG_CD` → `Accept-Language` → 기본 언어 (`LangService.resolveUserLang`). 변경: `PUT /api/v1/users/me/lang`
+  - 이름이 없는 언어는 기본 언어 이름으로 대체. 인사 마스터 명칭은 ko = 국문, 그 외 = 영문명(없으면 국문)
+  - 새 언어 = LANG 코드 + 코드 다국어 + `messages_{locale}.properties` + 메일 템플릿(`TB_MAIL_TEMPLATE`) 등록 (코드 수정 없음)
 - 메시지는 `resources/messages/messages_{locale}.properties` 에 정의한다.
   - Key: `{messageId}.title`, `{messageId}.content`
   - 치환 인자: `{0}`, `{1}` … (기존 `#` 치환 방식 → MessageFormat 방식) **[변경]**
@@ -357,7 +364,9 @@ throw new BusinessException(SampleErrorCode.SAMPLE_NOT_FOUND, String.valueOf(id)
 | C0001~ | 공통 요청 오류 (검증, 형식, 경로, 인증/인가) | `CommonErrorCode` |
 | B0001~B0999 | 공통 비즈니스 오류 | `CommonErrorCode` |
 | B1001~B1999 | sample 도메인 | `SampleErrorCode` |
-| B2001~ | 다음 도메인부터 1000 단위로 할당 | `{도메인}ErrorCode` |
+| B2001~B2999 | notice 도메인 (공지/첨부/메일 대상) | `NoticeErrorCode` |
+| B3001~B3999 | user 도메인 (사용자 설정) | `UserErrorCode` |
+| B4001~ | 다음 도메인부터 1000 단위로 할당 | `{도메인}ErrorCode` |
 | E0001~ | 시스템 오류 | `CommonErrorCode` |
 
 | 예외 | Status | messageId |

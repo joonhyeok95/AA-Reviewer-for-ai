@@ -97,8 +97,11 @@ Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 �
 | `POST /api/v1/samples/**` | `SCOPE_sample.add` |
 | `PUT, PATCH /api/v1/samples/**` | `SCOPE_sample.edit` |
 | `DELETE /api/v1/samples/**` | `SCOPE_sample.del` |
+| `GET /api/v1/notices/*/edit`, `GET /api/v1/notices/*/mail-histories`, `DELETE /api/v1/notices/*/files/*` | `SCOPE_notice.edit` |
+| `POST /api/v1/notices/*/files` | `SCOPE_notice.add` 또는 `SCOPE_notice.edit` |
+| `GET / POST / PUT / DELETE /api/v1/notices/**` | `SCOPE_notice.list / add / edit / del` |
 | 위 전체 | 또는 `ROLE_SYS_ADMIN` |
-| `GET /api/v1/auth/me`, `GET /api/v1/menus/me` | 로그인만 |
+| `GET /api/v1/auth/me`, `/api/v1/menus/me`, `/api/v1/langs`, `/api/v1/codes/*`, `/api/v1/org/tree`, `PUT /api/v1/users/me/lang` | 로그인만 |
 | `/actuator/health·info·prometheus`(관리 포트), `/swagger-ui/**`, `/v3/api-docs/**`, `/h2-console/**`, `/error` | 공개 |
 | **그 외** | **거부 (`denyAll`)** |
 
@@ -121,6 +124,12 @@ Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 �
 | `sample.add` | O | O | O |  |  |  |  |  |
 | `sample.edit` | O | O | O |  |  |  |  |  |
 | `sample.del` | O | O |  |  |  |  |  | O |
+| `notice.list` | O | O | O | O | O | O |  |  |
+| `notice.add` | O | O | O |  |  |  |  |  |
+| `notice.edit` | O | O | O |  |  |  |  |  |
+| `notice.del` | O | O |  |  |  |  |  |  |
+
+- `notice.*` (v0.4): realm 역할 + 같은 이름 client scope (`setup/setup.sh`), BFF 요청 scope 에 추가. DB 권한은 메뉴 15(`PERM_CD=notice`)의 `TB_ROLE_MENU` (모듈마스터 전체, TX 모듈매니저 삭제 제외, 일반 사용자 조회). 상세 [03_notice.md](03_notice.md)
 
 - client scope 에 같은 이름 realm 역할을 **scope mapping** → 역할이 있는 사용자/서비스계정에게만 발급.
 - SAML client mapper: `role list`(→ `Role` 속성), **`subject id`**(user property `id` → `sub` 속성, 권한 매핑 기준).

@@ -14,3 +14,11 @@ logging:
   level:
     org.hibernate.SQL: INFO
     org.hibernate.orm.jdbc.bind: INFO
+
+# 테스트 : 메일 스케줄러 비활성 (테스트에서 직접 호출), 첨부는 임시 디렉터리
+app:
+  notice:
+    file:
+      storage-path: ${java.io.tmpdir}/flowlog-test-notice-files
+    mail:
+      scheduler-enabled: false

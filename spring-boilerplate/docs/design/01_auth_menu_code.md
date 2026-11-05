@@ -6,7 +6,8 @@
 | 작성일 | 2026-11-05 |
 | DDL (Oracle) | [`src/main/resources/db/ddl/01_auth_menu_code.sql`](../../src/main/resources/db/ddl/01_auth_menu_code.sql) |
 | 초기 데이터 (local) | [`src/main/resources/db/data/01_auth_menu_code.sql`](../../src/main/resources/db/data/01_auth_menu_code.sql) |
-| 테스트 결과 | [`docs/reports/TEST_REPORT.md`](../reports/TEST_REPORT.md) — 40건 전체 성공 |
+| 테스트 결과 | [`docs/reports/TEST_REPORT.md`](../reports/TEST_REPORT.md) |
+| 관련 | 공지사항 다국어 / 인사 마스터 활용: [03_notice.md](03_notice.md) |
 
 - 공통 컬럼 `CREATED_BY, CREATED_AT, UPDATED_BY, UPDATED_AT` 은 아래 표에서 생략
 
@@ -97,17 +98,28 @@ erDiagram
 ### 초기 코드 그룹
 | GROUP_CD | 코드 | 비고 |
 |---|---|---|
-| `LANG` | ko_KR, en_US | 지원 언어 |
+| `LANG` | **ko**(ATTR1 `ko-KR`), **en**(ATTR1 `en-US`) | 지원 언어 (ISO 639-1). ATTR1 = 에디터 언어팩. **v0.4 에서 `ko_KR/en_US` → `ko/en` 으로 변경**, 모든 `*_LANG.LANG_CD` 도 이관. 언어 목록은 이 코드(USE_YN='Y')로만 만든다 (하드코딩 금지) |
 | `MODULE` | TX, WS | 모듈 (N개 확장) |
 | `ROLE_TYPE` | SYSTEM_ADMIN, MODULE_MASTER, MODULE_MANAGER, GENERAL_USER | 권한 유형 |
 | `USER_TYPE` | EMP(임직원), SAIT_GPA, AFFILIATE(관계사), PARTNER(협력사), NON_REAL(비실명계정) | 사용자 유형 |
 | `MENU_VIEW_TYPE` | MENU, LINK, CONTENT(본문), IFRAME | 메뉴 조회유형 |
+| `NOTICE_CATEGORY` / `NOTICE_TAG` / `MAIL_SEND_TYPE` / `MAIL_TARGET_TYPE` / `MAIL_STATUS` | | 공지사항 (v0.4) — [03_notice.md](03_notice.md) |
+
+> 사업장은 공통코드(WORKPLACE 그룹)가 아니라 인사 마스터 `TB_WORKPLACE` 를 참조한다. (WORKPLACE 공통코드 그룹은 원래 없음)
 
 ---
 
-## 4. 사용자 / 부서
+## 4. 인사 마스터 : 사업장 / 부서 / 사용자
 
-> 인사 시스템·Keycloak 에서 동기화되는 대상으로 가정하고, **권한 매핑에 필요한 최소 컬럼만** 정의했다.
+> 인사 시스템·Keycloak 에서 동기화되는 대상으로 가정한다. 업무 테이블(공지 등)에는 사업장/부서 **코드만** 저장하고 명칭은 조회 시점에 이 테이블에서 가져온다. 명칭은 국문/영문을 제공하며 `ko` 이외 언어는 영문명(없으면 국문명)을 쓴다.
+
+### TB_WORKPLACE (사업장, v0.4 신규)
+| 컬럼 | 타입 | Null | 설명 |
+|---|---|---|---|
+| **WORKPLACE_CD** (PK) | VARCHAR2(50) | N | 사업장코드 |
+| WORKPLACE_NM | VARCHAR2(200) | N | 사업장명 (국문) |
+| WORKPLACE_NM_EN | VARCHAR2(200) | Y | 사업장명 (영문) |
+| SORT_ORDER, USE_YN | | N | |
 
 ### TB_USER (사용자)
 | 컬럼 | 타입 | Null | 설명 |
@@ -118,14 +130,17 @@ erDiagram
 | EMAIL | VARCHAR2(200) | Y | 이메일 |
 | USER_TYPE_CD | VARCHAR2(50) | N | 사용자유형 (코드 `USER_TYPE`) |
 | COMPANY_NM | VARCHAR2(200) | Y | 소속회사 (관계사/협력사) |
+| LANG_CD | VARCHAR2(10) | Y | 사용자 설정 언어 (코드 `LANG`, NULL = 기본 언어). 화면·공지 조회·메일 수신 언어. `Accept-Language` 보다 우선 (v0.4) |
 | USE_YN | VARCHAR2(1) | N | 사용여부 |
 
 ### TB_DEPT (부서)
 | 컬럼 | 타입 | Null | 설명 |
 |---|---|---|---|
 | **DEPT_CD** (PK) | VARCHAR2(50) | N | 부서코드 |
-| DEPT_NM | VARCHAR2(200) | N | 부서명 |
-| PARENT_DEPT_CD (FK) | VARCHAR2(50) | Y | 상위부서 |
+| DEPT_NM | VARCHAR2(200) | N | 부서명 (국문) |
+| DEPT_NM_EN | VARCHAR2(200) | Y | 부서명 (영문, v0.4) |
+| WORKPLACE_CD (FK) | VARCHAR2(50) | Y | 사업장 (`TB_WORKPLACE`, v0.4) |
+| PARENT_DEPT_CD (FK) | VARCHAR2(50) | Y | 상위부서 (상위 부서가 다른 사업장이면 조직도에서 해당 사업장의 최상위로 표시) |
 | SORT_ORDER, USE_YN | | N | |
 
 ### TB_USER_DEPT (사용자 소속부서, N개)
@@ -220,7 +235,7 @@ SELECT R.*
 | MODULE_CD | VARCHAR2(50) | Y | 모듈 (공통 메뉴는 NULL) |
 | VIEW_TYPE_CD | VARCHAR2(50) | N | 조회유형 (코드 `MENU_VIEW_TYPE`) |
 | MENU_URL | VARCHAR2(1000) | Y | MENU: 화면경로 / LINK·IFRAME: 대상 URL / CONTENT: NULL |
-| PERM_CD | VARCHAR2(100) | Y | API 권한 리소스코드 (예: `sample`). 이 메뉴의 `TB_ROLE_MENU` 플래그가 `{PERM_CD}.{list\|add\|edit\|del}` API 권한이 된다 |
+| PERM_CD | VARCHAR2(100) | Y | API 권한 리소스코드 (예: `sample`, 메뉴 15 공지사항 = `notice`). 이 메뉴의 `TB_ROLE_MENU` 플래그가 `{PERM_CD}.{list\|add\|edit\|del}` API 권한이 된다 |
 | NEW_WINDOW_YN | VARCHAR2(1) | N | 새창여부 (LINK) |
 | SORT_ORDER | NUMBER(5) | N | 정렬순서 (같은 상위메뉴 내) |
 | ADMIN_MENU_YN | VARCHAR2(1) | N | 관리자메뉴 (상위메뉴 하위에 붙는 관리자 전용 메뉴) |
@@ -300,7 +315,7 @@ SELECT T.LVL, M.*, NVL(L.MENU_NM, K.MENU_NM) AS MENU_NM
    → 사용자 유형에 따라 일반사용자 권한을 **자동 부여**할지, 관리자가 **수동 부여**할지 결정 필요.
 4. **메뉴의 모듈 소속**: 메뉴에 `MODULE_CD` 를 두어 모듈 마스터/매니저가 자기 모듈 메뉴만 관리하도록 했다.
 5. **관리자메뉴**: `ADMIN_MENU_YN='Y'` 인 메뉴는 일반 메뉴 트리에서 숨기고, 해당 메뉴권한이 있는 사용자(주로 모듈 마스터/매니저)에게만 노출한다.
-6. **사용자/부서 테이블**은 인사·Keycloak 연동 전 최소 정의다. 원천 시스템(인사 I/F 등) 확정 시 컬럼 보강.
+6. **사용자/부서 테이블**은 인사·Keycloak 연동 전 최소 정의다. 원천 시스템(인사 I/F 등) 확정 시 컬럼 보강. (v0.4: 사업장 `TB_WORKPLACE`, 영문 명칭, 사용자 언어 추가. 인사 연동 배치는 미구현)
 
 ---
 

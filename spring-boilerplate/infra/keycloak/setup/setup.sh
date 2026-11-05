@@ -54,7 +54,8 @@ ensure_scope() {
 BFF=$(client_uuid flowlog-bff)
 BATCH=$(client_uuid flowlog-batch)
 
-for entry in "sample.list:샘플 조회" "sample.add:샘플 등록" "sample.edit:샘플 수정" "sample.del:샘플 삭제"; do
+for entry in "sample.list:샘플 조회" "sample.add:샘플 등록" "sample.edit:샘플 수정" "sample.del:샘플 삭제" \
+    "notice.list:공지 조회" "notice.add:공지 등록" "notice.edit:공지 수정" "notice.del:공지 삭제"; do
   name="${entry%%:*}"
   sid=$(ensure_scope "$name" "${entry#*:}")
   # scope 를 같은 이름의 realm 역할에 매핑 → 해당 역할이 있는 사용자/서비스계정에게만 scope 발급

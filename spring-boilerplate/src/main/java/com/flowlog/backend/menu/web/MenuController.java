@@ -1,5 +1,6 @@
 package com.flowlog.backend.menu.web;
 
+import com.flowlog.backend.code.domain.service.LangService;
 import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.common.model.MessageResponse;
 import com.flowlog.backend.global.component.MessageHttpResponse;
@@ -32,22 +33,24 @@ public class MenuController {
 
   private final MenuService menuService;
   private final MessageHttpResponse messageHttpResponse;
+  private final LangService langService;
 
   /**
    * 로그인 사용자 메뉴 트리.
    *
    * @param authentication 인증 객체
-   * @param locale 요청 언어 (Accept-Language)
+   * @param locale 요청 언어 (Accept-Language, 사용자 설정 언어가 없을 때)
    * @return 메뉴 트리
    */
   @Operation(
       summary = "내 메뉴 트리 조회",
       description = "유효 권한(직접+부서, 기간 내)의 메뉴를 트리로 반환합니다. "
-          + "메뉴명은 Accept-Language(ko_KR/en_US), 메뉴별 작업 권한(list/add/edit/del) 포함.")
+          + "메뉴명은 사용자 설정 언어 → Accept-Language → 기본 언어, 메뉴별 작업 권한(list/add/edit/del) 포함.")
   @GetMapping("/me")
   public ResponseEntity<MessageResponse<List<MenuTreeResponse>>> getMyMenus(
       Authentication authentication, Locale locale) {
     return messageHttpResponse.success(
-        menuService.getMyMenus(AuthenticationSubjects.subjectOf(authentication), locale));
+        menuService.getMyMenus(AuthenticationSubjects.subjectOf(authentication),
+            langService.resolveUserLang(authentication, locale)));
   }
 }

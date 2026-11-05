@@ -19,4 +19,12 @@ public interface DeptRepository extends JpaRepository<Dept, String> {
    * @return 하위 부서 목록
    */
   List<Dept> findByParentDeptCdOrderBySortOrderAsc(String parentDeptCd);
+
+  /**
+   * 사용 중인 부서 목록. (조직도 트리 구성)
+   *
+   * @param useYn 사용여부
+   * @return 부서 목록 (정렬순서)
+   */
+  List<Dept> findByUseYnOrderBySortOrderAscDeptCdAsc(String useYn);
 }

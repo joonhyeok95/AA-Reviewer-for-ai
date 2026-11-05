@@ -17,6 +17,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - 공통: `global/{aop,common,component,config,constant,exception,interceptor,security,util,web}`
 - 도메인: `{domain}/web`, `{domain}/exception`, `{domain}/domain/{model,repository,service/dto}`
 - 신규 도메인은 `sample` 패키지 구조/코드 스타일을 그대로 따른다.
+- 도메인: `sample`, `auth`, `code`(공통코드·지원 언어 API), `user`(인사 마스터 조직도·사용자 언어), `role`, `menu`, `notice`(공지 다국어·첨부·메일), `mail`(메일 템플릿·발송). 공지 설계 `docs/design/03_notice.md`
 
 ## 필수 규칙
 - 응답은 항상 `MessageHttpResponse` 로 생성 → `ResponseEntity<MessageResponse<T>>`
@@ -29,7 +30,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - DTO 는 record (`XxxCreateRequest`, `XxxUpdateRequest`, `XxxSearchRequest`, `XxxResponse`), Validation 은 DTO 에
 - Entity: `@Setter`/`@Data` 금지, 시퀀스 PK(`SQ_테이블`), 테이블 `TB_`, 컬럼 대문자 snake, FK 컬럼 직접 매핑
 - Oracle 호환 유지 (H2 Oracle 모드). Oracle 예약어 금지
-- 스키마 기준은 `src/main/resources/db/ddl/*.sql` (Oracle DDL). 테이블 추가 = DDL 파일 + `application-local.yml` schema-locations 등록 + Entity + 테스트. local 초기 데이터는 `db/data/*.sql`
+- 스키마 기준은 `src/main/resources/db/ddl/*.sql` (Oracle DDL). 테이블 추가 = DDL 파일 + `application-local.yml` schema/data-locations 등록 + `OracleSchemaTest` 의 `spring.sql.init.*-locations` 에도 등록 + Entity + 테스트. local 초기 데이터는 `db/data/*.sql`. 시퀀스 재설정은 Oracle 문법 `ALTER SEQUENCE ... RESTART START WITH n`
 - 설계 문서는 `docs/design/` (ERD, 컬럼 정의). 자연키/복합키 Entity 는 `AssignedIdEntity` 상속 + `@EmbeddedId`
 - 코드 스타일: Google Java Style, 2칸 들여쓰기, 100자, 와일드카드 import 금지, switch default 필수
 - `java.time` 만 사용, null 체크는 Apache Commons Utils
@@ -41,4 +42,8 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - 사용자 매핑은 `sub`(Keycloak user id = `TB_USER.IDP_SUBJECT`) 기준. `preferred_username`/NameID 로 권한을 매핑하지 말 것. 서비스 계정은 `app.security.service-account-clients` 의 azp 만
 - 세션: Spring Session Redis (`spring.session.data.redis.*` - Boot 4 속성명), flush-mode immediate. 값은 AES-256-GCM 암호화 + 허용목록 JDK 직렬화(`SessionStoreConfig`, 키 `SESSION_ENCRYPTION_KEY`). 세션에 넣는 객체는 Serializable 이고 허용목록 패키지(`java.lang/util/time`, `org.springframework.security/session`, `com.flowlog.backend`) 안에 있어야 함
 - 인증 감사 로그는 logger `AUDIT` (`AuthAuditLogger`: 로그인 성공/실패, 로그아웃, 401/403). 토큰·비밀번호 기록 금지
+- **다국어**: 언어는 공통코드 `LANG`(ko, en … USE_YN='Y', ATTR1 = 에디터 언어팩)만 기준. 언어 목록/코드를 하드코딩하지 말고 `LangService`(`activeLangs`, `isActive`, `defaultLang`, `resolveUserLang`)를 사용. 사용자 언어 = `TB_USER.LANG_CD` → `Accept-Language` → 기본 언어. 데이터 언어코드는 `ko`/`en`(응답 `locale` 필드는 메시지 Locale 로 `ko_KR` 형식 유지)
+- 인사 마스터(사업장/부서) 명칭은 업무 테이블에 저장하지 말고 코드만 저장, 조회 시 `OrgService` 로 (ko = 국문, 그 외 = 영문명)
+- 사용자 입력 HTML(에디터 본문)은 반드시 `HtmlSanitizer.sanitize` 후 저장, 메일 템플릿 치환값은 `HtmlSanitizer.escape`. 첨부는 `NoticeFileService` 방식(웹 경로 밖 UUID 저장, 확장자 허용목록, 저장소 밖 경로 거부)
+- 현재 시각은 `Clock` Bean 주입 (`LocalDateTime.now(clock)`)
 - API 통합 테스트는 `springSecurity()` + `jwt()`/`authentication()` post-processor 로 인증을 붙인다 (SampleApiIntegrationTest 참고). 세션 기반 변경 요청은 `csrf()` 필요

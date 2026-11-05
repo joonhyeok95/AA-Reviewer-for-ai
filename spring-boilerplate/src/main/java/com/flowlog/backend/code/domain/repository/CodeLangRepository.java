@@ -30,4 +30,12 @@ public interface CodeLangRepository extends JpaRepository<CodeLang, CodeLangId> 
    * @return 다국어 목록
    */
   List<CodeLang> findByIdGroupCdAndIdCode(String groupCd, String code);
+
+  /**
+   * 그룹의 코드명 다국어 전체를 조회한다.
+   *
+   * @param groupCd 그룹코드
+   * @return 코드 다국어 목록
+   */
+  List<CodeLang> findByIdGroupCd(String groupCd);
 }

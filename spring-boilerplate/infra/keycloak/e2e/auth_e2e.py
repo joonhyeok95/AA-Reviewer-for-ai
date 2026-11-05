@@ -20,6 +20,9 @@ Keycloak · Redis · Gateway · spring-boilerplate 인증 E2E 점검 (Python 표
   [SAML2]   SP-initiated SSO - sub/Role 속성 → scope ∩ DB 권한, Redis 세션 공유
   [보안]    Redis 세션 암호화, 사용자 메뉴, 관리 포트 분리, 로그인 무차별 대입 잠금
   [Gateway] Rate Limit (위조 세션 쿠키 우회 불가), 차단 경로, actuator 비노출 (Gateway 경유 시)
+  [공지]    다국어 표시/대체/배지/검색, 언어 목록·조직도, 첨부 업로드/다운로드,
+            메일(수신자 언어별 그룹, 발송 시점 인사 마스터 기준 수신자)
+            ※ 메일 확인은 앱을 NOTICE_MAIL_POLL_INTERVAL=5s 로 실행했을 때 (SMTP 미설정 = 로그 대체)
 """
 import base64
 import html
@@ -98,6 +101,8 @@ def call(opener, method, url, data=None, headers=None):
     elif isinstance(data, str):
         body = data.encode()
         hdrs.setdefault("Content-Type", "application/json")
+    elif isinstance(data, bytes):
+        body = data
     req = urllib.request.Request(url, data=body, method=method, headers=hdrs)
     try:
         with opener.open(req) as resp:
@@ -372,6 +377,79 @@ def scenario_gateway_rate_limit():
     time.sleep(3)
 
 
+def scenario_notice():
+    print("\n[공지] 다국어 공지 (tx.manager = 언어 en / tx.viewer = 언어 미설정 → ko)")
+    opener, jar, _, _, _ = bff_login("tx.manager")
+    status, text, _ = call(opener, "GET", APP + "/api/v1/langs")
+    langs = as_json(text).get("result", [])
+    check("언어 목록 = LANG 코드(ko, en) + 에디터 언어팩(ATTR1), 언어명은 사용자 언어(en)",
+          status == 200 and [x["langCd"] for x in langs] == ["ko", "en"]
+          and [x["editorLocale"] for x in langs] == ["ko-KR", "en-US"]
+          and langs[0]["langNm"] == "Korean", f"langs={[(x['langCd'], x['langNm']) for x in langs]}")
+
+    status, text, _ = call(opener, "GET", APP + "/api/v1/notices")
+    rows = {r["noticeId"]: r for r in as_json(text).get("result", {}).get("content", [])}
+    check("목록(en 사용자) - 1번 영어 버전, 2번(한국어만)은 대표 언어 대체 표시, 배지 KO/EN",
+          rows.get(1, {}).get("title") == "System launch"
+          and rows.get(2, {}).get("fallback") is True
+          and [b["badge"] for b in rows.get(1, {}).get("langs", [])] == ["KO", "EN"],
+          f"titles={[(k, v.get('title'), v.get('displayLangCd')) for k, v in rows.items()]}")
+    status, text, _ = call(opener, "GET", APP + "/api/v1/notices?keyword="
+                           + urllib.parse.quote("정기 점검"))
+    check("검색(en 사용자) - 대표 언어로 대체 표시되는 한국어 공지도 검색됨",
+          as_json(text).get("result", {}).get("totalElements") == 1)
+    status, text, _ = call(opener, "GET", APP + "/api/v1/notices/1?lang=ko")
+    check("상세 언어 전환(lang=ko) → 한국어 버전",
+          as_json(text).get("result", {}).get("title") == "시스템 오픈 안내")
+    status, text, _ = call(opener, "GET", APP + "/api/v1/org/tree")
+    tree = as_json(text).get("result", [])
+    check("조직도(인사 마스터) - 사업장 → 부서 트리, 영문 명칭",
+          [w["workplaceNm"] for w in tree] == ["Seoul Headquarters", "Suwon Campus"],
+          f"{[w['workplaceNm'] for w in tree]}")
+
+    body = json.dumps({"categoryCd": "GENERAL", "mailSendTypeCd": "TARGET",
+                       "mailTargets": [{"targetType": "WORKPLACE", "targetCd": "SUWON"}],
+                       "i18n": [{"langCd": "ko", "title": "E2E 메일 공지",
+                                 "contentHtml": "<p>본문<script>alert(1)</script></p>"}]},
+                      ensure_ascii=False)
+    status, text, _ = call(opener, "POST", APP + "/api/v1/notices", body, xsrf(jar))
+    created = as_json(text).get("result", {})
+    notice_id = created.get("noticeId")
+    check("등록(한국어만, 대표 언어 자동 ko, 메일 대상 수원 사업장) → 201, 메일 READY, script 제거",
+          status == 201 and created.get("baseLangCd") == "ko"
+          and created.get("mailStatusCd") == "READY"
+          and "script" not in created.get("i18n", [{}])[0].get("contentHtml", "script"),
+          f"status={status}, id={notice_id}")
+
+    boundary = "----flowlog" + str(time.time_ns())
+    multipart = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"files\"; "
+                 f"filename=\"안내.txt\"\r\nContent-Type: text/plain\r\n\r\nhello-e2e\r\n"
+                 f"--{boundary}--\r\n").encode()
+    status, text, _ = call(opener, "POST", APP + f"/api/v1/notices/{notice_id}/files", multipart,
+                           {**xsrf(jar), "Content-Type": f"multipart/form-data; boundary={boundary}"})
+    file_id = (as_json(text).get("result") or [{}])[0].get("fileId")
+    status, text, _ = call(opener, "GET", APP + f"/api/v1/notices/{notice_id}/files/{file_id}")
+    check("첨부 업로드(Gateway 경유 multipart) → 다운로드 내용 일치", text == "hello-e2e",
+          f"fileId={file_id}, status={status}")
+
+    viewer, viewer_jar, _, _, _ = bff_login("tx.viewer")
+    status, _, _ = call(viewer, "POST", APP + "/api/v1/notices", body, xsrf(viewer_jar))
+    check("tx.viewer(조회 전용) 등록 → 403", status == 403, f"status={status}")
+
+    print("  ...   메일 스케줄러 대기 (최대 20초)")
+    histories = []
+    for _ in range(20):
+        time.sleep(1)
+        status, text, _ = call(opener, "GET", APP + f"/api/v1/notices/{notice_id}/mail-histories")
+        histories = as_json(text).get("result") or []
+        if histories:
+            break
+    pairs = sorted((h["receiverId"], h["langCd"], h["statusCd"]) for h in histories)
+    check("메일 - 수원 사업장 소속(발송 시점 인사 마스터)을 수신자 언어별 그룹으로 발송, 수신자당 1건",
+          pairs == [("partner01", "en", "SUCCESS"), ("tx.viewer", "ko", "SUCCESS")],
+          f"histories={pairs}")
+
+
 def scenario_gateway_security():
     print("\n[Gateway] 보안 - 위조 세션 쿠키 Rate Limit 우회 불가, 차단 경로, actuator 비노출")
     opener, _ = new_session()
@@ -426,7 +504,7 @@ if __name__ == "__main__":
         sys.stdout.reconfigure(encoding="utf-8")
     print(f"APP={APP}  SECOND={SECOND}  gateway={VIA_GATEWAY}  quick={QUICK}")
     scenarios = [scenario_anonymous, scenario_bearer, scenario_bff, scenario_bff_roles,
-                 scenario_saml]
+                 scenario_saml, scenario_notice]
     if VIA_GATEWAY:
         scenarios += [scenario_gateway_rate_limit, scenario_gateway_security]
     scenarios += [scenario_management_ports, scenario_brute_force]

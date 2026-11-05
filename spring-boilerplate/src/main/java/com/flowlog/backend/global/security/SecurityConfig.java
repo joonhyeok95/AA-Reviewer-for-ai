@@ -85,8 +85,12 @@ public class SecurityConfig {
 
   /** 인증 사용자 공통 API (권한 scope 와 무관하게 로그인만 필요). */
   private static final String[] AUTHENTICATED_GET_PATHS = {
-      "/api/v1/auth/me", "/api/v1/menus/me"
+      "/api/v1/auth/me", "/api/v1/menus/me", "/api/v1/langs", "/api/v1/codes/*",
+      "/api/v1/org/tree"
   };
+
+  /** 공지사항 API. */
+  private static final String NOTICE_API = "/api/v1/notices/**";
 
   /** 시스템관리자 (모든 API 허용). */
   private static final String SYS_ADMIN = "ROLE_SYS_ADMIN";
@@ -123,6 +127,23 @@ public class SecurityConfig {
         .authorizeHttpRequests(auth -> auth
             .requestMatchers(PUBLIC_PATHS).permitAll()
             .requestMatchers(HttpMethod.GET, AUTHENTICATED_GET_PATHS).authenticated()
+            .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/lang").authenticated()
+            // 공지사항 : 관리 기능(수정 화면, 메일 이력, 첨부 삭제)은 notice.edit
+            .requestMatchers(HttpMethod.GET, "/api/v1/notices/*/edit",
+                "/api/v1/notices/*/mail-histories")
+            .hasAnyAuthority("SCOPE_notice.edit", SYS_ADMIN)
+            .requestMatchers(HttpMethod.POST, "/api/v1/notices/*/files")
+            .hasAnyAuthority("SCOPE_notice.add", "SCOPE_notice.edit", SYS_ADMIN)
+            .requestMatchers(HttpMethod.DELETE, "/api/v1/notices/*/files/*")
+            .hasAnyAuthority("SCOPE_notice.edit", SYS_ADMIN)
+            .requestMatchers(HttpMethod.GET, NOTICE_API)
+            .hasAnyAuthority("SCOPE_notice.list", SYS_ADMIN)
+            .requestMatchers(HttpMethod.POST, NOTICE_API)
+            .hasAnyAuthority("SCOPE_notice.add", SYS_ADMIN)
+            .requestMatchers(HttpMethod.PUT, NOTICE_API)
+            .hasAnyAuthority("SCOPE_notice.edit", SYS_ADMIN)
+            .requestMatchers(HttpMethod.DELETE, NOTICE_API)
+            .hasAnyAuthority("SCOPE_notice.del", SYS_ADMIN)
             .requestMatchers(HttpMethod.GET, SAMPLE_API)
             .hasAnyAuthority("SCOPE_sample.list", SYS_ADMIN)
             .requestMatchers(HttpMethod.POST, SAMPLE_API)
