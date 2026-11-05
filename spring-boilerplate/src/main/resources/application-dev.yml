@@ -1,0 +1,23 @@
+# ============================================================
+# dev : Oracle (예정)
+#  - 접속 정보는 환경변수로 주입: DB_URL, DB_USERNAME, DB_PASSWORD
+#    예) DB_URL=jdbc:oracle:thin:@//host:1521/SERVICE_NAME
+# ============================================================
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    hibernate:
+      ddl-auto: validate
+  sql:
+    init:
+      mode: never
+
+logging:
+  level:
+    com.flowlog.backend: DEBUG

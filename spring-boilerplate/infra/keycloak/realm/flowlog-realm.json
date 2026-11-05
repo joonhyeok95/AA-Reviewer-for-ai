@@ -1,0 +1,320 @@
+{
+  "realm": "flowlog",
+  "displayName": "Flowlog (local)",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": false,
+  "duplicateEmailsAllowed": false,
+  "accessTokenLifespan": 300,
+  "ssoSessionIdleTimeout": 1800,
+  "internationalizationEnabled": true,
+  "supportedLocales": [
+    "ko",
+    "en"
+  ],
+  "defaultLocale": "ko",
+  "clients": [
+    {
+      "clientId": "flowlog-bff",
+      "name": "Flowlog BFF - OAuth2 Authorization Code + PKCE (confidential)",
+      "description": "브라우저 로그인용. 토큰 교환/보관은 서버(spring-boilerplate 세션=Redis)에서만 수행. 브라우저는 SESSION 쿠키만 가진다.",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "flowlog-bff-local-secret",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [
+        "http://localhost:9909/cm/login/oauth2/code/keycloak",
+        "http://localhost:9091/login/oauth2/code/keycloak"
+      ],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "access.token.lifespan": "60",
+        "post.logout.redirect.uris": "+"
+      },
+      "protocolMappers": [
+        {
+          "name": "audience-flowlog-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "flowlog-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "flowlog-batch",
+      "name": "Flowlog Batch - OAuth2 Client Credentials (confidential)",
+      "description": "서버 간 호출(배치/연계) 용. 사용자 없이 client 자격으로 Access Token 발급",
+      "protocol": "openid-connect",
+      "enabled": true,
+      "publicClient": false,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "flowlog-batch-local-secret",
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "audience-flowlog-api",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "config": {
+            "included.custom.audience": "flowlog-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "http://localhost:9909/cm/saml2/service-provider-metadata/keycloak",
+      "name": "Flowlog SAML2 Service Provider",
+      "description": "Spring Security SAML2 SP. clientId = SP entityId (Gateway 공개 URL 기준 고정). ACS 는 Gateway 경유/직접 둘 다 허용",
+      "protocol": "saml",
+      "enabled": true,
+      "frontchannelLogout": true,
+      "redirectUris": [
+        "http://localhost:9909/cm/login/saml2/sso/keycloak",
+        "http://localhost:9091/login/saml2/sso/keycloak"
+      ],
+      "attributes": {
+        "saml_assertion_consumer_url_post": "http://localhost:9909/cm/login/saml2/sso/keycloak",
+        "saml.client.signature": "false",
+        "saml.server.signature": "true",
+        "saml.assertion.signature": "false",
+        "saml.signature.algorithm": "RSA_SHA256",
+        "saml.force.post.binding": "true",
+        "saml.authnstatement": "true",
+        "saml.encrypt": "false",
+        "saml_force_name_id_format": "true",
+        "saml_name_id_format": "username"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "saml",
+          "protocolMapper": "saml-user-property-mapper",
+          "config": {
+            "user.attribute": "email",
+            "attribute.name": "email",
+            "friendly.name": "email",
+            "attribute.nameformat": "Basic"
+          }
+        },
+        {
+          "name": "role list",
+          "protocol": "saml",
+          "protocolMapper": "saml-role-list-mapper",
+          "config": {
+            "single": "false",
+            "attribute.nameformat": "Basic",
+            "attribute.name": "Role",
+            "friendly.name": "Role"
+          }
+        },
+        {
+          "name": "subject id",
+          "protocol": "saml",
+          "protocolMapper": "saml-user-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "id",
+            "attribute.name": "sub",
+            "attribute.nameformat": "Basic",
+            "friendly.name": "sub"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "username": "admin",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "관리자",
+      "lastName": "시스템",
+      "email": "admin@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "sample.list",
+        "sample.add",
+        "sample.edit",
+        "sample.del"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "username": "tx.master",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "마스터",
+      "lastName": "TX",
+      "email": "tx.master@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "sample.list",
+        "sample.add",
+        "sample.edit",
+        "sample.del"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000003",
+      "username": "tx.manager",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "매니저",
+      "lastName": "TX",
+      "email": "tx.manager@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "sample.list",
+        "sample.add",
+        "sample.edit"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000004",
+      "username": "tx.viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "조회매니저",
+      "lastName": "TX",
+      "email": "tx.viewer@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "sample.list"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000005",
+      "username": "emp01",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "01",
+      "lastName": "임직원",
+      "email": "emp01@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "sample.list"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000006",
+      "username": "partner01",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "01",
+      "lastName": "협력사",
+      "email": "partner01@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "sample.list"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000007",
+      "username": "guest01",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "01",
+      "lastName": "미등록",
+      "email": "guest01@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": []
+    },
+    {
+      "username": "service-account-flowlog-batch",
+      "enabled": true,
+      "serviceAccountClientId": "flowlog-batch",
+      "realmRoles": [
+        "sample.list",
+        "sample.del"
+      ]
+    }
+  ],
+  "roles": {
+    "realm": [
+      {
+        "name": "sample.list",
+        "description": "샘플 조회 (scope sample.list 발급 조건)"
+      },
+      {
+        "name": "sample.add",
+        "description": "샘플 등록 (scope sample.add 발급 조건)"
+      },
+      {
+        "name": "sample.edit",
+        "description": "샘플 수정 (scope sample.edit 발급 조건)"
+      },
+      {
+        "name": "sample.del",
+        "description": "샘플 삭제 (scope sample.del 발급 조건)"
+      }
+    ]
+  },
+  "editUsernameAllowed": false,
+  "bruteForceProtected": true,
+  "permanentLockout": false,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "minimumQuickLoginWaitSeconds": 60,
+  "quickLoginCheckMilliSeconds": 1000,
+  "maxDeltaTimeSeconds": 43200
+}

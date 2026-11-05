@@ -1,0 +1,46 @@
+# spring-boilerplate CI
+#  - build : 빌드 + 전체 테스트 (H2 Oracle 모드)
+#  - oracle : 실제 Oracle(Free) 컨테이너로 DDL·초기 데이터·Entity 검증 (-Poracle-it, Testcontainers)
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Build & Test
+        run: ./mvnw -B verify
+      - name: Test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports
+          if-no-files-found: ignore
+
+  oracle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - name: Oracle schema test
+        run: ./mvnw -B test -Poracle-it

@@ -1,0 +1,38 @@
+# ============================================================
+# Keycloak (Community) - local 개발용
+#  - 실행 : docker compose -f infra/keycloak/docker-compose.yml up -d
+#  - 콘솔 : http://localhost:7000  (master 관리자 admin / KC_ADMIN_PASSWORD, 기본값은 local 전용)
+#  - Realm: flowlog (realm/flowlog-realm.json 자동 import + setup/setup.sh 로 client scope 구성)
+#  - dev 모드(H2 내장)라 컨테이너를 지우면 설정이 초기화되고, 다시 올리면 동일하게 재구성된다.
+# ============================================================
+name: flowlog-keycloak
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.8.1
+    container_name: flowlog-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      # localhost 에만 바인딩 (dev 모드 + 기본 관리자 계정이므로 외부 노출 금지)
+      - "127.0.0.1:7000:8080"
+    volumes:
+      - ./realm:/opt/keycloak/data/import:ro
+
+  # realm import 이후 client scope(sample.list/add/edit/del) 생성 및 client 에 연결 (1회 실행 후 종료)
+  keycloak-setup:
+    image: quay.io/keycloak/keycloak:26.8.1
+    container_name: flowlog-keycloak-setup
+    depends_on:
+      - keycloak
+    entrypoint: ["/bin/bash", "/opt/setup/setup.sh"]
+    environment:
+      KC_SERVER: http://keycloak:8080
+      KC_ADMIN: admin
+      KC_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
+    volumes:
+      - ./setup:/opt/setup:ro
+    restart: "no"
