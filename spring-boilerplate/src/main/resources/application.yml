@@ -117,6 +117,15 @@ app:
       from: ${MAIL_FROM:noreply@flowlog.local}
       link-template: ${NOTICE_LINK_TEMPLATE:http://localhost:9909/notices/{id}}
 
+# MyBatis : 매퍼 XML 은 resources/mapper/{도메인}/*.xml (JPA 와 같은 DataSource/트랜잭션 사용)
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    # Oracle 은 NULL 바인딩 시 타입이 필요
+    jdbc-type-for-null: VARCHAR
+    default-statement-timeout: 30
+
 # 단독 실행 포트. 외부 진입점은 spring-gateway (http://localhost:9909/cm/**)
 server:
   port: 9091

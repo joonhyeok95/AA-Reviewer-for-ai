@@ -19,6 +19,7 @@ import com.flowlog.backend.notice.domain.repository.NoticeI18nRepository;
 import com.flowlog.backend.notice.domain.repository.NoticeMailHistRepository;
 import com.flowlog.backend.notice.domain.repository.NoticeMailTargetRepository;
 import com.flowlog.backend.notice.domain.repository.NoticeRepository;
+import com.flowlog.backend.notice.domain.repository.NoticeSearchMapper;
 import com.flowlog.backend.notice.domain.repository.NoticeViewLogRepository;
 import com.flowlog.backend.notice.domain.service.dto.NoticeResponses.LangBadge;
 import com.flowlog.backend.notice.domain.service.dto.NoticeResponses.MailTargetResponse;
@@ -32,6 +33,7 @@ import com.flowlog.backend.notice.domain.service.dto.NoticeSaveRequest;
 import com.flowlog.backend.notice.domain.service.dto.NoticeSaveRequest.MailTargetRequest;
 import com.flowlog.backend.notice.domain.service.dto.NoticeSaveRequest.NoticeI18nRequest;
 import com.flowlog.backend.notice.domain.service.dto.NoticeSearchRequest;
+import com.flowlog.backend.notice.domain.service.dto.NoticeSearchRow;
 import com.flowlog.backend.notice.domain.service.dto.NoticeViewer;
 import com.flowlog.backend.notice.exception.NoticeErrorCode;
 import com.flowlog.backend.user.domain.service.OrgService;
@@ -52,7 +54,7 @@ import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -65,7 +67,8 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>NT-63 : 첨부파일은 게시물 공통 ({@link NoticeFileService})</li>
  *   <li>NT-64 : 표시 언어 = 요청(전환) 언어 → 사용자 언어 → 대표 언어 순으로 존재하는 버전</li>
  *   <li>NT-65 : 목록/상세에 제공 언어 배지</li>
- *   <li>NT-66 : 검색은 사용자 언어로 표시되는 버전 기준 (대표 언어 대체 표시분 포함)</li>
+ *   <li>NT-66 : 검색은 사용자 언어로 표시되는 버전 기준 (대표 언어 대체 표시분 포함)
+ *       - 목록 검색 SQL 은 MyBatis {@link NoticeSearchMapper}</li>
  *   <li>본문 HTML 은 저장 시 정화(XSS)하고, 검색용 텍스트를 함께 저장</li>
  * </ul>
  *
@@ -89,6 +92,7 @@ public class NoticeService {
 
   private final NoticeRepository noticeRepository;
   private final NoticeI18nRepository noticeI18nRepository;
+  private final NoticeSearchMapper noticeSearchMapper;
   private final NoticeFileRepository noticeFileRepository;
   private final NoticeMailTargetRepository noticeMailTargetRepository;
   private final NoticeMailHistRepository noticeMailHistRepository;
@@ -112,20 +116,24 @@ public class NoticeService {
       NoticeSearchRequest condition, Pageable pageable, NoticeViewer viewer) {
     boolean includeScheduled =
         viewer.manager() && Boolean.TRUE.equals(condition.includeScheduled());
-    Page<NoticeI18n> page = noticeI18nRepository.searchDisplayed(
-        viewer.langCd(), StringUtils.trimToNull(condition.categoryCd()),
-        likePattern(condition.keyword()), includeScheduled ? YesNo.Y : YesNo.N, now(),
-        PageRequest.of(pageable.getPageNumber(), pageable.getPageSize()));
-    List<Long> ids = page.getContent().stream().map(i -> i.getId().getNoticeId()).toList();
+    String categoryCd = StringUtils.trimToNull(condition.categoryCd());
+    String keyword = likePattern(condition.keyword());
+    LocalDateTime now = now();
+    List<NoticeSearchRow> rows = noticeSearchMapper.searchDisplayed(viewer.langCd(), categoryCd,
+        keyword, includeScheduled, now, pageable.getOffset(), pageable.getPageSize());
+    long total = noticeSearchMapper.countDisplayed(viewer.langCd(), categoryCd, keyword,
+        includeScheduled, now);
+    Page<NoticeSearchRow> page = new PageImpl<>(rows, pageable, total);
+    List<Long> ids = rows.stream().map(NoticeSearchRow::noticeId).toList();
     Map<Long, Notice> notices = noticeRepository.findAllById(ids).stream()
         .collect(Collectors.toMap(Notice::getId, Function.identity()));
     Map<Long, List<String>> langs = availableLangs(ids);
     Map<Long, Long> fileCounts = noticeFileRepository.findByNoticeIdIn(ids).stream()
         .collect(Collectors.groupingBy(NoticeFile::getNoticeId, Collectors.counting()));
     Labels labels = labels(viewer.langCd());
-    return PageResponse.from(page, i18n -> toSummary(notices.get(i18n.getId().getNoticeId()), i18n,
-        langs.getOrDefault(i18n.getId().getNoticeId(), List.of()), viewer, labels,
-        fileCounts.getOrDefault(i18n.getId().getNoticeId(), 0L).intValue()));
+    return PageResponse.from(page, row -> toSummary(notices.get(row.noticeId()), row.title(),
+        row.langCd(), langs.getOrDefault(row.noticeId(), List.of()), viewer, labels,
+        fileCounts.getOrDefault(row.noticeId(), 0L).intValue()));
   }
 
   /**
@@ -145,7 +153,8 @@ public class NoticeService {
       List<NoticeI18n> list = versions.getOrDefault(notice.getId(), List.of());
       if (!list.isEmpty()) {
         NoticeI18n shown = select(list, null, viewer.langCd(), notice.getBaseLangCd());
-        result.add(toSummary(notice, shown, langCodes(list), viewer, labels, 0));
+        result.add(toSummary(notice, shown.getTitle(), shown.getLangCd(), langCodes(list),
+            viewer, labels, 0));
       }
     }
     return result;
@@ -483,11 +492,11 @@ public class NoticeService {
   }
 
   private NoticeSummaryResponse toSummary(
-      Notice notice, NoticeI18n shown, List<String> langs, NoticeViewer viewer, Labels labels,
-      int fileCnt) {
+      Notice notice, String title, String displayLangCd, List<String> langs,
+      NoticeViewer viewer, Labels labels, int fileCnt) {
     return new NoticeSummaryResponse(notice.getId(), notice.getCategoryCd(),
         labels.category(notice.getCategoryCd()), notice.getTagCd(), labels.tag(notice.getTagCd()),
-        shown.getTitle(), shown.getLangCd(), !shown.getLangCd().equals(viewer.langCd()),
+        title, displayLangCd, !displayLangCd.equals(viewer.langCd()),
         badges(langs), notice.getPostDate(), notice.getPostDate().isAfter(now()),
         notice.getPopupYn(), notice.getViewCnt(), fileCnt);
   }

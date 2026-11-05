@@ -25,6 +25,7 @@ Keycloak · Redis · Gateway · spring-boilerplate 인증 E2E 점검 (Python 표
             ※ 메일 확인은 앱을 NOTICE_MAIL_POLL_INTERVAL=5s 로 실행했을 때 (SMTP 미설정 = 로그 대체)
 """
 import base64
+import concurrent.futures
 import html
 import http.cookiejar
 import json
@@ -360,15 +361,14 @@ def scenario_saml():
 def scenario_gateway_rate_limit():
     print("\n[Gateway] Rate Limit (Redis Lua 토큰 버킷, IP 키: 초당 20 / 최대 40)")
     opener, _ = new_session()
-    statuses = []
-    body429 = None
-    for _ in range(60):
-        status, text, _ = call(opener, "GET", APP + "/api/v1/auth/me")
-        statuses.append(status)
-        if status == 429 and body429 is None:
-            body429 = as_json(text)
+    # 순차 요청은 응답 시간에 따라 버킷이 다시 충전될 수 있으므로 동시에 보낸다 (10개 스레드)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:
+        results = list(pool.map(
+            lambda _: call(opener, "GET", APP + "/api/v1/auth/me")[:2], range(60)))
+    statuses = [status for status, _ in results]
+    body429 = next((as_json(text) for status, text in results if status == 429), None)
     limited = statuses.count(429)
-    check("60건 연속 요청 → 버킷 소진 후 429 G0005 표준 응답",
+    check("60건 동시 요청 → 버킷 소진 후 429 G0005 표준 응답",
           limited > 0 and body429 and body429.get("messageId") == "G0005",
           f"401(통과)={statuses.count(401)}, 429={limited}")
     keys = redis("KEYS", "request_rate_limiter.{cm.ip:*").split()

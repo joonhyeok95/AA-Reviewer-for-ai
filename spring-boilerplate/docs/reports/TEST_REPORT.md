@@ -22,7 +22,7 @@
 | `NoticeMailServiceTest` | 통합 (H2, MailGateway Mock) | 메일 NT-47~4A, 발송 시점 인사 마스터, 중복 발송 방지, 실패 이력 | 5 | ✅ |
 | `SessionSerializationTest` | 단위 | 세션 AES-GCM 암호화 + 허용목록 직렬화 (복원·위변조·다른 키·차단 클래스) | 7 | ✅ |
 | `SecurityStartupValidatorTest` | 단위 | prod 기동 보안 검사 | 3 | ✅ |
-| `OracleSchemaTest` | 통합 (Oracle 컨테이너, `@Tag("oracle")`) | DDL·초기데이터·`validate`·권한/메뉴 쿼리·공지 네이티브 검색 | 2 | ✅ |
+| `OracleSchemaTest` | 통합 (Oracle 컨테이너, `@Tag("oracle")`) | DDL·초기데이터·`validate`·권한/메뉴 쿼리·공지 MyBatis 검색 | 2 | ✅ |
 
 ## SpringBoilerplateApplicationTests
 
@@ -291,6 +291,6 @@ Redis 세션 저장 형식 - AES-256-GCM 암호화 + 허용목록 JDK 직렬화 
   테스트 사용자의 sub 는 realm import 와 같은 고정 ID 이다. 실제 Keycloak 왕복은 [AUTH_E2E_REPORT.md](AUTH_E2E_REPORT.md).
 - 기본 거부 적용으로 인가 규칙 밖의 경로는 404 가 아니라 403 이다. `pathNotFound` 는 규칙 범위 안의 없는 경로(`/api/v1/samples/1/unknown`)로 검증한다.
 - `OracleSchemaTest` 로 H2 에서는 통과하던 `ALTER SEQUENCE ... RESTART WITH` 가 Oracle 에서 실패(ORA-03048)함을 발견 → `RESTART START WITH` 로 수정.
-- 공지 검색은 CLOB 본문의 `LOWER/LIKE` 를 Hibernate JPQL 이 허용하지 않아 네이티브 SQL 로 구현했고, Oracle 실DB 에서 `noticeSearch` 로 검증했다.
+- 공지 검색은 CLOB 본문의 `LOWER/LIKE` 를 Hibernate JPQL 이 허용하지 않아 MyBatis 매퍼(`NoticeSearchMapper`)로 구현했고, Oracle 실DB 에서 `noticeSearch` 로 검증했다.
 - `NoticeMailServiceTest` 는 `MailGateway` 만 Mock 하고 수신자 추출(인사 마스터)·템플릿·이력 저장은 실제로 동작한다.
 - 상세 리포트: `target/surefire-reports/`

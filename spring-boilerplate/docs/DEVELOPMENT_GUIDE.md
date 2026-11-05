@@ -208,8 +208,12 @@ public class SampleService {
 
 - `JpaRepository<Entity, ID>` 를 상속한다.
 - 단순 조건은 Query Method (`findByName`, `existsByNameAndIdNot` …), 선택 조건 검색은 `@Query`(JPQL) 로 작성한다.
-- 복잡한 동적 쿼리/통계가 많아지면 QueryDSL 또는 MyBatis 도입을 검토한다.
-  (MyBatis 도입 시 기존 가이드의 CommonService / CommonDao 패턴을 따른다.)
+- 기본 영속성은 JPA. **DB 종속 SQL·복잡한 조회(동적 조건, CLOB 검색, 통계)는 MyBatis** 로 작성한다.
+  - 매퍼 인터페이스 `@Mapper` : `{domain}/domain/repository/XxxMapper.java`, SQL : `resources/mapper/{domain}/XxxMapper.xml`
+  - 결과는 DTO record (resultMap constructor 매핑), 조회 전용으로 사용 (변경은 JPA)
+  - Oracle/H2 공통 SQL 로 작성하고 `OracleSchemaTest`(`-Poracle-it`)로 실DB 검증
+  - JPA 와 같은 트랜잭션을 공유하지만, 같은 트랜잭션에서 JPA 로 변경한 내용은 flush 전에는 MyBatis 조회에 보이지 않는다
+  - 예시: `notice/domain/repository/NoticeSearchMapper` (공지 목록 검색)
 
 | 키워드 | 예시 |
 |---|---|

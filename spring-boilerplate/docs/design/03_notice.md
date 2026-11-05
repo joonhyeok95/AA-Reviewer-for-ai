@@ -18,9 +18,9 @@
 | NT-61 | 최소 1개 언어 제목·본문 필수 | `NoticeService.versionsOf` — 제목·본문이 모두 빈 탭은 미입력으로 무시, 하나만 있으면 B2003, 입력 언어 0개면 B2002 | 등록 규칙 `contentRequired` |
 | NT-62 | 대표 언어 (기본 = 처음 입력 언어) | `baseLangCd` 미지정 시 요청 `i18n` 배열에서 첫 번째로 입력된 언어. 입력하지 않은 언어 지정 시 B2006 | `englishOnly_baseLangIsFirst`, `bothLanguages_explicitBase`, `invalidLanguage` |
 | NT-63 | 첨부파일 공통 관리 | `TB_NOTICE_FILE` 은 공지 단위 (언어 컬럼 없음) — **언어별 분리 여부는 확인 필요** | 첨부파일 2건, E2E 업로드/다운로드 |
-| NT-64 | 조회 언어 = 사용자 언어 → 대표 언어 | 목록: 공지마다 표시 버전 1건 선택 (네이티브 SQL). 상세: `?lang=` → 사용자 언어 → 대표 언어 → 첫 버전 (`NoticeService.select`) | `englishUserList`, `koreanUserList`, E2E |
+| NT-64 | 조회 언어 = 사용자 언어 → 대표 언어 | 목록: 공지마다 표시 버전 1건 선택 (MyBatis `NoticeSearchMapper`). 상세: `?lang=` → 사용자 언어 → 대표 언어 → 첫 버전 (`NoticeService.select`) | `englishUserList`, `koreanUserList`, E2E |
 | NT-65 | KO/EN 배지 + 상세 언어 전환 | 목록/상세 `langs[{langCd, badge}]` (LANG 정렬순서), 상세 `?lang=en`, `fallback` 플래그 | `detailLanguageSwitch`, E2E |
-| NT-66 | 사용자 언어 버전 기준 검색 (대체 표시분 포함) | 검색어를 **표시 버전**의 제목/본문 텍스트에 적용 (`NoticeI18nRepository.searchDisplayed`) | `searchByDisplayedVersion`, Oracle `noticeSearch`, E2E |
+| NT-66 | 사용자 언어 버전 기준 검색 (대체 표시분 포함) | 검색어를 **표시 버전**의 제목/본문 텍스트에 적용 (MyBatis `NoticeSearchMapper.searchDisplayed` / `mapper/notice/NoticeSearchMapper.xml`) | `searchByDisplayedVersion`, Oracle `noticeSearch`, E2E |
 | NT-47 | 수신 언어 = 사용자 설정 언어 | `TB_USER.LANG_CD` (미설정/사용 중지 언어 → 기본 언어) | `NoticeMailServiceTest` |
 | NT-48 | 해당 언어 버전 없으면 대표 언어 버전 | `NoticeMailService.compose` | `groupByRecipientLanguage`, `englishVersionForEnglishRecipient` |
 | NT-49 | 템플릿은 수신자 언어 | `TB_MAIL_TEMPLATE` (언어별 머리글/안내/바닥글), 없으면 기본 언어 템플릿 | `groupByRecipientLanguage` |
@@ -187,7 +187,9 @@ local 데이터: SEOUL(서울 본사 / Seoul Headquarters) — HQ, TX_TEAM, WS_T
 | 인사 마스터 명칭 | ko = 국문, 그 외 = 영문명(없으면 국문) |
 | 배지 | 공지가 가진 언어를 LANG 정렬순서로, 대문자 (KO, EN) |
 
-> CLOB 본문의 `LOWER/LIKE` 는 Hibernate JPQL 이 허용하지 않아 검색은 **네이티브 SQL** (Oracle / H2 Oracle 모드 공통, Oracle 실DB 검증 완료).
+> CLOB 본문의 `LOWER/LIKE` 는 Hibernate JPQL 이 허용하지 않아 목록 검색은 **MyBatis** 매퍼로 작성했다.
+> (`resources/mapper/notice/NoticeSearchMapper.xml`, 동적 조건 `<if>`, `OFFSET/FETCH` 페이징 - Oracle 12c+ / H2 Oracle 모드 공통,
+> Oracle 실DB 검증 완료). MyBatis 는 JPA 와 같은 DataSource·트랜잭션을 쓰며, 같은 트랜잭션에서 JPA 로 변경한 내용은 flush 전에는 보이지 않는다.
 
 ---
 
@@ -277,5 +279,5 @@ local 데이터: SEOUL(서울 본사 / Seoul Headquarters) — HQ, TX_TEAM, WS_T
 |---|---|---|
 | `NoticeApiIntegrationTest` | 23 | 지원 언어 3, 등록 규칙 7, 조회 언어/배지/검색 7, 수정/삭제/권한 2, 첨부 2, 조직도/공통코드 2 |
 | `NoticeMailServiceTest` | 5 | 언어별 그룹 발송, 중복 발송 없음·예약 미발송, 발송 시점 인사 마스터, 실패 이력, 영어 버전 |
-| `OracleSchemaTest` | 2 | Oracle DDL/데이터/validate + 공지 네이티브 검색 (CLOB LIKE) |
+| `OracleSchemaTest` | 2 | Oracle DDL/데이터/validate + 공지 MyBatis 검색 (CLOB LIKE, NULL 바인딩, 페이징) |
 | E2E `scenario_notice` | 9 | 언어 목록, 대체 표시·배지, 대체 표시분 검색, 언어 전환, 조직도 영문, 등록(XSS 정화), Gateway 경유 첨부, 권한, 메일 언어별 발송 |

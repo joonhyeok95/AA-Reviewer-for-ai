@@ -3,7 +3,8 @@ package com.flowlog.backend;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.flowlog.backend.menu.domain.service.MenuService;
-import com.flowlog.backend.notice.domain.repository.NoticeI18nRepository;
+import com.flowlog.backend.notice.domain.repository.NoticeSearchMapper;
+import com.flowlog.backend.notice.domain.service.dto.NoticeSearchRow;
 import com.flowlog.backend.role.domain.service.UserAuthorityService;
 import com.flowlog.backend.role.domain.service.dto.UserAuthority;
 import com.flowlog.backend.sample.domain.repository.SampleRepository;
@@ -14,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -66,7 +66,7 @@ class OracleSchemaTest {
   private SampleRepository sampleRepository;
 
   @Autowired
-  private NoticeI18nRepository noticeI18nRepository;
+  private NoticeSearchMapper noticeSearchMapper;
 
   @Test
   @DisplayName("Oracle - DDL/초기 데이터 실행, Entity 검증(validate) 통과, 권한·메뉴 조회 쿼리 동작")
@@ -83,18 +83,19 @@ class OracleSchemaTest {
   }
 
   @Test
-  @DisplayName("Oracle - 공지 검색 (사용자 언어 버전 → 대표 언어 대체, CLOB 본문 LIKE 검색)")
+  @DisplayName("Oracle - 공지 검색 MyBatis (언어 대체, CLOB 본문 LIKE, NULL 바인딩, OFFSET/FETCH 페이징)")
   void noticeSearch() {
     LocalDateTime now = LocalDateTime.of(2026, 11, 5, 12, 0);
 
-    assertThat(noticeI18nRepository.searchDisplayed("en", null, null, "N", now,
-            PageRequest.of(0, 10)).getContent())
-        .extracting(i -> i.getId().getNoticeId() + ":" + i.getLangCd())
+    assertThat(noticeSearchMapper.searchDisplayed("en", null, null, false, now, 0, 10))
+        .extracting(row -> row.noticeId() + ":" + row.langCd())
         .containsExactly("3:en", "2:ko", "1:en");
-    assertThat(noticeI18nRepository.searchDisplayed("en", null, "%정기 점검%", "N", now,
-            PageRequest.of(0, 10)).getContent())
-        .extracting(i -> i.getId().getNoticeId()).containsExactly(2L);
-    assertThat(noticeI18nRepository.searchDisplayed("ko", null, "%town hall%", "Y", now,
-            PageRequest.of(0, 10)).getTotalElements()).isEqualTo(1);
+    assertThat(noticeSearchMapper.searchDisplayed("en", null, null, false, now, 1, 1))
+        .extracting(NoticeSearchRow::noticeId).containsExactly(2L);
+    assertThat(noticeSearchMapper.searchDisplayed("en", null, "%정기 점검%", false, now, 0, 10))
+        .extracting(NoticeSearchRow::noticeId).containsExactly(2L);
+    assertThat(noticeSearchMapper.countDisplayed("ko", null, "%town hall%", true, now))
+        .isEqualTo(1);
+    assertThat(noticeSearchMapper.countDisplayed("ko", "SYSTEM", null, false, now)).isEqualTo(1);
   }
 }

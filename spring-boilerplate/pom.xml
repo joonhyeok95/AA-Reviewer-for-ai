@@ -33,6 +33,7 @@
 		<springdoc.version>3.2.0</springdoc.version>
 		<commons-collections4.version>4.6.0</commons-collections4.version>
 		<jsoup.version>1.21.2</jsoup.version>
+		<mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -78,6 +79,12 @@
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-session-data-redis</artifactId>
+		</dependency>
+		<!-- MyBatis : DB 종속/복잡 조회 쿼리 전용 (기본 영속성은 JPA, 같은 트랜잭션 공유) -->
+		<dependency>
+			<groupId>org.mybatis.spring.boot</groupId>
+			<artifactId>mybatis-spring-boot-starter</artifactId>
+			<version>${mybatis-spring-boot.version}</version>
 		</dependency>
 		<!-- 공지 메일 발송 (spring.mail.host 미설정 시 로그로 대체) -->
 		<dependency>

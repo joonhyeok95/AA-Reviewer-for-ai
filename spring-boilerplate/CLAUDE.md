@@ -30,6 +30,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - DTO 는 record (`XxxCreateRequest`, `XxxUpdateRequest`, `XxxSearchRequest`, `XxxResponse`), Validation 은 DTO 에
 - Entity: `@Setter`/`@Data` 금지, 시퀀스 PK(`SQ_테이블`), 테이블 `TB_`, 컬럼 대문자 snake, FK 컬럼 직접 매핑
 - Oracle 호환 유지 (H2 Oracle 모드). Oracle 예약어 금지
+- 영속성: 기본 JPA. DB 종속/복잡 조회(동적 조건, CLOB 검색, 통계)는 MyBatis (`@Mapper` 인터페이스 + `resources/mapper/{domain}/*.xml`, 결과 DTO record, 조회 전용). 예: `NoticeSearchMapper`
 - 스키마 기준은 `src/main/resources/db/ddl/*.sql` (Oracle DDL). 테이블 추가 = DDL 파일 + `application-local.yml` schema/data-locations 등록 + `OracleSchemaTest` 의 `spring.sql.init.*-locations` 에도 등록 + Entity + 테스트. local 초기 데이터는 `db/data/*.sql`. 시퀀스 재설정은 Oracle 문법 `ALTER SEQUENCE ... RESTART START WITH n`
 - 설계 문서는 `docs/design/` (ERD, 컬럼 정의). 자연키/복합키 Entity 는 `AssignedIdEntity` 상속 + `@EmbeddedId`
 - 코드 스타일: Google Java Style, 2칸 들여쓰기, 100자, 와일드카드 import 금지, switch default 필수
