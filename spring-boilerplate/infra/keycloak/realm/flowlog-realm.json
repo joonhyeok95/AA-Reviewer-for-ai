@@ -174,7 +174,11 @@
         "role.list",
         "role.add",
         "role.edit",
-        "role.del"
+        "role.del",
+        "board.list",
+        "board.write",
+        "board.update",
+        "board.delete"
       ]
     },
     {
@@ -305,6 +309,94 @@
       "realmRoles": []
     },
     {
+      "id": "00000000-0000-4000-8000-000000000008",
+      "username": "board.manager",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "관리자",
+      "lastName": "게시판",
+      "email": "board.manager@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "notice.list",
+        "board.list",
+        "board.write",
+        "board.update",
+        "board.delete"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000009",
+      "username": "board.writer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "작성자",
+      "lastName": "게시판",
+      "email": "board.writer@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "notice.list",
+        "board.list",
+        "board.write",
+        "board.update"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000010",
+      "username": "board.reader",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "열람자",
+      "lastName": "게시판",
+      "email": "board.reader@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "notice.list",
+        "board.list"
+      ]
+    },
+    {
+      "id": "00000000-0000-4000-8000-000000000011",
+      "username": "board.limited",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "제한사용자",
+      "lastName": "게시판",
+      "email": "board.limited@example.com",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "Passw0rd!",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "notice.list",
+        "board.list",
+        "board.write",
+        "board.update",
+        "board.delete"
+      ]
+    },
+    {
       "username": "service-account-flowlog-batch",
       "enabled": true,
       "serviceAccountClientId": "flowlog-batch",
@@ -395,6 +487,22 @@
       {
         "name": "role.del",
         "description": "권한 삭제 (scope role.del 발급 조건, 관리 기능)"
+      },
+      {
+        "name": "board.list",
+        "description": "게시판 조회 (scope board.list 발급 조건)"
+      },
+      {
+        "name": "board.write",
+        "description": "게시판 작성 (scope board.write 발급 조건)"
+      },
+      {
+        "name": "board.update",
+        "description": "게시판 수정 (scope board.update 발급 조건)"
+      },
+      {
+        "name": "board.delete",
+        "description": "게시판 삭제 (scope board.delete 발급 조건)"
       }
     ]
   },

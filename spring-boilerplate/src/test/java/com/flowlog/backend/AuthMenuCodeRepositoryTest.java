@@ -177,7 +177,7 @@ class AuthMenuCodeRepositoryTest {
   class RoleTest {
 
     @Test
-    @DisplayName("레벨 모델 - 시스템관리자 1, 모듈마스터/매니저는 모듈별, 일반사용자 5종")
+    @DisplayName("레벨 모델 - 시스템관리자 1, 모듈마스터/매니저는 모듈별, 일반사용자 5종 + 게시판 작성자·열람자")
     void roleLevels() {
       assertThat(roleRepository.findByRoleCd("SYS_ADMIN").orElseThrow().isSystemAdmin()).isTrue();
       assertThat(roleRepository.findByModuleCdOrderByRoleLevelAscSortOrderAsc("TX"))
@@ -185,7 +185,7 @@ class AuthMenuCodeRepositoryTest {
           .containsExactly("TX_MASTER", "TX_MANAGER", "TX_MANAGER_READ");
       assertThat(roleRepository.findAll())
           .filteredOn(r -> r.getRoleLevel() == Role.LEVEL_GENERAL_USER)
-          .hasSize(5);
+          .hasSize(7);
     }
 
     @Test
@@ -276,7 +276,7 @@ class AuthMenuCodeRepositoryTest {
       }
 
       // then
-      assertThat(menus).hasSize(16);
+      assertThat(menus).hasSize(17);
       assertThat(path).containsExactly("TX", "거래관리", "거래목록", "거래상세");
       assertThat(menuRepository.findByParentMenuIdOrderBySortOrderAsc(2L))
           .extracting(Menu::getMenuUrl)
@@ -293,7 +293,7 @@ class AuthMenuCodeRepositoryTest {
       assertThat(byId.get(4L).getDisplayYn()).isEqualTo(YesNo.N);
       assertThat(byId.values()).filteredOn(m -> YesNo.isYes(m.getSideMenuYn()))
           .extracting(Menu::getViewTypeCd)
-          .containsExactlyInAnyOrder("MENU", "LINK");
+          .containsExactlyInAnyOrder("MENU", "LINK", "MENU");
       assertThat(byId.get(10L).getViewTypeCd()).isEqualTo("IFRAME");
     }
 

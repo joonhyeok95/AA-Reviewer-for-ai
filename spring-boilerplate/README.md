@@ -8,7 +8,7 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 | 진입점 | [spring-gateway](../spring-gateway) **9909**, `/cm/**` → 9091 (`/cm` 제거), 그 외 `/**` → 화면 |
 | 화면 | [vue-frontend](../vue-frontend) (Vue 3) — **http://localhost:9909** 접속, 모든 API 연동 |
 | 영속성 | JPA (기본) + MyBatis (DB 종속/복잡 조회 - `resources/mapper/**/*.xml`, 예: 공지 목록 검색) |
-| 테스트 | `./mvnw test` **136/136** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **48/48** (`--quick`) · 화면 E2E **50/50** |
+| 테스트 | `./mvnw test` **142/142** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **52/52** (`--quick`) · 화면 E2E **50/50** |
 | 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **관리 API (공통코드·메뉴·권한 - 언어별 이름, 메뉴 접근, 사용자/부서 부여)**, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일 |
 | CI | `.github/workflows/ci.yml` (build: `./mvnw -B verify`, oracle: `-Poracle-it`) |
 
@@ -58,7 +58,7 @@ docker compose -f infra/keycloak/docker-compose.yml up -d
 - 사용자 매핑은 Keycloak user id(`sub` = `TB_USER.IDP_SUBJECT`) 기준. 사용자명은 표시용.
 - 규칙이 없는 경로는 **기본 거부**.
 
-테스트 계정: `admin`, `tx.master`, `tx.manager`, `tx.viewer`, `emp01`, `partner01`, `guest01` (비밀번호는 realm import 파일 참조, local 전용) — 상세는 [인증 설계](docs/design/02_auth_keycloak.md)
+테스트 계정: `admin`, `tx.master`, `tx.manager`, `tx.viewer`, `emp01`, `partner01`, `guest01`, 게시판 scope 용 `board.manager` · `board.writer` · `board.reader` · `board.limited` (비밀번호는 realm import 파일 참조, local 전용) — 상세는 [인증 설계](docs/design/02_auth_keycloak.md)
 
 ### 환경변수 (local 외 필수)
 

@@ -40,7 +40,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - 테스트: given-when-then, `@DisplayName` 한글. Service 단위 테스트 + API 통합 테스트
 - 화면(`../vue-frontend`)은 Gateway `/**` 로 서비스 (API 와 같은 Origin). 로그인 `?returnTo=` (`LoginReturnUrlFilter`, 같은 호스트 절대 경로만), CSRF 쿠키 경로 `/` + 첫 요청 발급(`CsrfCookieFilter`), 요청 캐시 미사용(익명 요청이 세션을 만들지 않게). `/auth/me` 에 표시 언어(`langCd`)
 - 인증: 브라우저는 **BFF**(oauth2Login, 토큰은 Redis 세션에만, 클라이언트는 SESSION 쿠키만) 또는 SAML2 세션. 서버 간은 Client Credentials Bearer. **토큰 값을 응답/로그/쿠키에 절대 노출하지 말 것**
-- 인가: API 는 `SCOPE_{리소스}.{list|add|edit|del}` (+ `ROLE_SYS_ADMIN`). **SCOPE = IdP scope ∩ DB 권한** (`AuthorityResolver` / `UserAuthorityService`, 캐시 60s). DB 권한 = 유효 권한의 `TB_ROLE_MENU` 플래그 × `TB_MENU.PERM_CD`
+- 인가: API 는 `SCOPE_{리소스}.{list|add|edit|del}` (+ `ROLE_SYS_ADMIN`). 동사 동의어 `write`=add, `update`=edit, `delete`=del 허용(`ScopeActions`, 예: board.write) - 권한 이름은 scope 그대로. **SCOPE = IdP scope ∩ DB 권한** (`AuthorityResolver` / `UserAuthorityService`, 캐시 60s). DB 권한 = 유효 권한의 `TB_ROLE_MENU` 플래그 × `TB_MENU.PERM_CD`
 - **기본 거부** (`anyRequest().denyAll()`). 새 API = SecurityConfig 규칙 + 메뉴 `PERM_CD`/`TB_ROLE_MENU` + Keycloak 같은 이름 역할/client scope(setup.sh). 상세 `docs/design/02_auth_keycloak.md`
 - 사용자 매핑은 `sub`(Keycloak user id = `TB_USER.IDP_SUBJECT`) 기준. `preferred_username`/NameID 로 권한을 매핑하지 말 것. 서비스 계정은 `app.security.service-account-clients` 의 azp 만
 - 세션: Spring Session Redis (`spring.session.data.redis.*` - Boot 4 속성명), flush-mode immediate. 값은 AES-256-GCM 암호화 + 허용목록 JDK 직렬화(`SessionStoreConfig`, 키 `SESSION_ENCRYPTION_KEY`). 세션에 넣는 객체는 Serializable 이고 허용목록 패키지(`java.lang/util/time`, `org.springframework.security/session`, `com.flowlog.backend`) 안에 있어야 함

@@ -504,6 +504,7 @@ Oracle 이관을 전제로 작성한다.
     Redis 를 읽어도 토큰이 보이지 않고, 위·변조 값은 복호화 단계에서 거부된다. 키 변경 = 전체 재로그인.
 - 사용자 식별은 **`sub`(Keycloak user id = `TB_USER.IDP_SUBJECT`)**. `preferred_username`/NameID 는 표시용이며 권한 매핑에 쓰지 않는다.
 - 인가는 **scope 기준** — `SCOPE_{리소스}.{list|add|edit|del}`, **최종 scope = IdP scope ∩ DB 업무 권한**
+  - 동사 동의어 : `write`=add, `update`=edit, `delete`=del (`ScopeActions`). 예) `board.write` 는 메뉴 권한의 ADD 와 교집합, 권한 이름은 `SCOPE_board.write`
   - IdP scope: BFF 세션 토큰 scope(요청마다, 만료 임박 시 refresh) / SAML `Role` 속성 / Bearer JWT scope. Keycloak 역할로 제한
   - DB 권한: 유효 권한(직접+부서, 기간 내)의 `TB_ROLE_MENU` LIST/ADD/EDIT/DEL × 메뉴 `PERM_CD` (`UserAuthorityService`, 캐시 60초)
     → 커스텀 권한(예: 조회 전용 매니저)이 API 에 그대로 반영된다. DB 미등록 사용자는 API 권한 없음

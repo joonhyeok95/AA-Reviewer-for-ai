@@ -234,6 +234,28 @@ def bff_login(username):
     return opener, jar, status, as_json(text).get("result", {}), final
 
 
+def scenario_board():
+    print("\n[BFF] 게시판 scope (board.list/write/update/delete) = Keycloak 역할 ∩ DB 업무 권한")
+    expected = {
+        "board.manager": ["SCOPE_board.delete", "SCOPE_board.list", "SCOPE_board.update",
+                          "SCOPE_board.write"],
+        "board.writer": ["SCOPE_board.list", "SCOPE_board.update", "SCOPE_board.write"],
+        "board.reader": ["SCOPE_board.list"],
+        "board.limited": ["SCOPE_board.list"],
+    }
+    notes = {
+        "board.manager": "Keycloak 4개 · DB 전체",
+        "board.writer": "Keycloak list/write/update · DB 삭제 없음",
+        "board.reader": "Keycloak list · DB 조회",
+        "board.limited": "Keycloak 4개 · DB 조회만 → 교집합 list",
+    }
+    for username, scopes in expected.items():
+        _, _, status, r, _ = bff_login(username)
+        got = sorted(a for a in r.get("authorities", []) if a.startswith("SCOPE_board."))
+        check(f"{username} ({notes[username]}) → {', '.join(s[6:] for s in scopes)}",
+              status == 200 and got == scopes, f"got={got}")
+
+
 def scenario_bff():
     print("\n[BFF] OAuth2 로그인 (flowlog-bff) - 토큰은 서버 세션(Redis)에만")
     start = len(app_responses)
@@ -508,7 +530,7 @@ if __name__ == "__main__":
         sys.stdout.reconfigure(encoding="utf-8")
     print(f"APP={APP}  SECOND={SECOND}  gateway={VIA_GATEWAY}  quick={QUICK}")
     scenarios = [scenario_anonymous, scenario_bearer, scenario_bff, scenario_bff_roles,
-                 scenario_saml, scenario_notice]
+                 scenario_board, scenario_saml, scenario_notice]
     if VIA_GATEWAY:
         scenarios += [scenario_gateway_rate_limit, scenario_gateway_security]
     scenarios += [scenario_management_ports, scenario_brute_force]

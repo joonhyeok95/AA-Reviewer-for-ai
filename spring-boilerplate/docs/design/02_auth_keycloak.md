@@ -92,7 +92,7 @@ Browser                    Gateway/App                                Keycloak  
 
 | 구분 | 내용 |
 |---|---|
-| IdP scope | Keycloak 이 발급한 scope (BFF/Bearer) 또는 SAML `Role` 속성 중 `xxx.list\|add\|edit\|del` 형식 |
+| IdP scope | Keycloak 이 발급한 scope (BFF/Bearer) 또는 SAML `Role` 속성 중 `xxx.list\|add\|edit\|del` 형식 (동의어 `write`=add, `update`=edit, `delete`=del) |
 | DB 권한 | 유효 권한(직접+부서, 기간 내)의 `TB_ROLE_MENU` 플래그 × `TB_MENU.PERM_CD` → `{PERM_CD}.{list\|add\|edit\|del}` ([설계 01](01_auth_menu_code.md)) |
 | 최종 `SCOPE_*` | 둘 다 있는 것만. DB 미등록/미사용 사용자는 없음 |
 | `ROLE_*` | DB 유효 권한코드 (예: `ROLE_SYS_ADMIN` = 전체 허용) |
@@ -143,6 +143,22 @@ Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 �
 | `notice.edit` | O | O | O |  |  |  |  |  |
 | `notice.del` | O | O |  |  |  |  |  |  |
 | `code.*` `menu.*` `role.*` (관리, 12개) | O |  |  |  |  |  |  |  |
+| `board.list` `board.write` `board.update` `board.delete` | O |  |  |  |  |  |  |  |
+
+### 게시판 테스트 계정 (board scope)
+
+scope 동사 `write`/`update`/`delete` 는 DB 작업 ADD/EDIT/DEL 에 대응한다 (`ScopeActions`). 권한 이름은 scope 그대로 (`SCOPE_board.write`).
+DB : 게시판 메뉴(17, `/support/boards`, PERM_CD `board`) + 권한 BOARD_MANAGER(전체) / BOARD_WRITER(삭제 제외) / BOARD_READER(조회).
+
+| 사용자 | Keycloak 역할 (= 토큰 scope) | DB 권한 | 최종 API 권한 (교집합) |
+|---|---|---|---|
+| `board.manager` | board.list/write/update/delete | BOARD_MANAGER | list, write, update, delete |
+| `board.writer` | board.list/write/update | BOARD_WRITER | list, write, update |
+| `board.reader` | board.list | BOARD_READER | list |
+| `board.limited` | board.list/write/update/delete | BOARD_READER | **list 만** (DB 가 상한) |
+| `admin` | board.* 전체 | SYS_ADMIN | 전체 (시스템관리자) |
+
+모두 `notice.list` 역할도 가진다. Keycloak user id 는 `00000000-0000-4000-8000-0000000000{08~11}` (TB_USER.IDP_SUBJECT 와 동일).
 
 - `notice.*` (v0.4): realm 역할 + 같은 이름 client scope (`setup/setup.sh`), BFF 요청 scope 에 추가. DB 권한은 메뉴 15(`PERM_CD=notice`)의 `TB_ROLE_MENU` (모듈마스터 전체, TX 모듈매니저 삭제 제외, 일반 사용자 조회). 상세 [03_notice.md](03_notice.md)
 

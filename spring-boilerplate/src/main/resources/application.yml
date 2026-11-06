@@ -77,7 +77,8 @@ app:
       scopes: openid, profile, sample.list, sample.add, sample.edit, sample.del,
         notice.list, notice.add, notice.edit, notice.del,
         code.list, code.add, code.edit, code.del, menu.list, menu.add, menu.edit, menu.del,
-        role.list, role.add, role.edit, role.del
+        role.list, role.add, role.edit, role.del,
+        board.list, board.write, board.update, board.delete
       success-url: /api/v1/auth/me
       # Access Token 만료 10초 전부터 refresh token 으로 갱신
       refresh-skew: 10s

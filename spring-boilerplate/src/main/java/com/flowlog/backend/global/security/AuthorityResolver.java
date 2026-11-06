@@ -48,7 +48,7 @@ public class AuthorityResolver {
     UserAuthority user = userAuthorityService.loadBySubject(subject);
     Set<GrantedAuthority> authorities = new LinkedHashSet<>();
     grantedScopes.stream()
-        .filter(user.permissions()::contains)
+        .filter(scope -> user.permissions().contains(ScopeActions.toPermission(scope)))
         .sorted()
         .forEach(scope -> authorities.add(new SimpleGrantedAuthority(SCOPE_PREFIX + scope)));
     user.roleCds().forEach(roleCd -> authorities.add(new SimpleGrantedAuthority(

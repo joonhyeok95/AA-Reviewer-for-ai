@@ -5,7 +5,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.opensaml.core.xml.XMLObject;
 import org.opensaml.core.xml.schema.XSAny;
@@ -23,7 +22,8 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>{@code sub} 속성(Keycloak user id, 변경 불가) → DB 권한 매핑 기준.
  *       NameID(사용자명)는 표시용으로만 사용한다.</li>
- *   <li>{@code Role} 속성 중 API 권한 형식({@code xxx.list|add|edit|del}) = IdP 허용 scope.
+ *   <li>{@code Role} 속성 중 API 권한 형식({@code xxx.list|add|edit|del},
+ *       동의어 write/update/delete - {@link ScopeActions}) = IdP 허용 scope.
  *       SAML 에는 OAuth2 scope 가 없으므로 Keycloak 의 같은 이름 역할로 대신한다.</li>
  *   <li>최종 권한은 {@link AuthorityResolver} (IdP scope ∩ DB 권한)</li>
  * </ul>
@@ -43,10 +43,6 @@ public class SamlRoleAuthoritiesConverter
 
   /** Keycloak user id 속성 이름 (user property mapper: id). */
   public static final String SUBJECT_ATTRIBUTE = "sub";
-
-  /** API 권한 역할 형식. (Keycloak default-roles, offline_access 등은 제외) */
-  private static final Pattern API_PERMISSION =
-      Pattern.compile("^[a-z0-9-]+\\.(list|add|edit|del)$");
 
   private final AuthorityResolver authorityResolver;
 
@@ -83,7 +79,7 @@ public class SamlRoleAuthoritiesConverter
   }
 
   private static List<String> apiScopes(List<String> roles) {
-    return roles.stream().filter(role -> API_PERMISSION.matcher(role).matches()).toList();
+    return roles.stream().filter(ScopeActions::isApiScope).toList();
   }
 
   private static String textOf(XMLObject value) {
