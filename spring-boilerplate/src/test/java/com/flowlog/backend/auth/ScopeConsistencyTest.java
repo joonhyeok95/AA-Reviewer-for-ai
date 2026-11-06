@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.flowlog.backend.global.security.ApiAuthorizationRules;
 import com.flowlog.backend.global.security.AppSecurityProperties;
 import com.flowlog.backend.global.security.ScopeActions;
 import com.flowlog.backend.menu.domain.model.Menu;
@@ -32,7 +33,7 @@ import org.springframework.boot.test.context.SpringBootTest;
  *   <li>Keycloak realm 역할 ({@code infra/keycloak/realm/flowlog-realm.json})</li>
  *   <li>Keycloak client scope ({@code infra/keycloak/setup/setup.sh})</li>
  *   <li>BFF 요청 scope ({@code app.security.oauth2.scopes})</li>
- *   <li>SecurityConfig 규칙 ({@code SCOPE_xxx})</li>
+ *   <li>인가 규칙표 ({@link ApiAuthorizationRules})</li>
  *   <li>메뉴 PERM_CD (DB 업무 권한 리소스)</li>
  * </ol>
  *
@@ -44,8 +45,6 @@ class ScopeConsistencyTest {
 
   private static final Path REALM = Path.of("infra/keycloak/realm/flowlog-realm.json");
   private static final Path SETUP = Path.of("infra/keycloak/setup/setup.sh");
-  private static final Path SECURITY_CONFIG =
-      Path.of("src/main/java/com/flowlog/backend/global/security/SecurityConfig.java");
   private static final Pattern SETUP_SCOPE = Pattern.compile("\"([a-z0-9-]+\\.[a-z]+):");
 
   @Autowired
@@ -57,7 +56,6 @@ class ScopeConsistencyTest {
   private Set<String> realmScopes;
   private Set<String> setupScopes;
   private Set<String> bffScopes;
-  private String securityConfig;
 
   @BeforeEach
   void setUp() throws Exception {
@@ -76,7 +74,6 @@ class ScopeConsistencyTest {
     }
     bffScopes = properties.oauth2().scopes().stream().map(String::trim)
         .filter(ScopeActions::isApiScope).collect(Collectors.toCollection(TreeSet::new));
-    securityConfig = Files.readString(SECURITY_CONFIG, StandardCharsets.UTF_8);
   }
 
   @Test
@@ -88,11 +85,26 @@ class ScopeConsistencyTest {
   }
 
   @Test
-  @DisplayName("모든 scope 가 SecurityConfig 규칙에 쓰임 (규칙이 없으면 기본 거부)")
+  @DisplayName("Keycloak scope = 인가 규칙표 scope (규칙이 없으면 기본 거부, 규칙만 있으면 발급 안 됨)")
   void everyScopeHasSecurityRule() {
-    assertThat(realmScopes).allSatisfy(scope ->
-        assertThat(securityConfig).as("SecurityConfig 에 SCOPE_%s 규칙", scope)
-            .contains("SCOPE_" + scope));
+    assertThat(ApiAuthorizationRules.scopes()).as("ApiAuthorizationRules").isEqualTo(realmScopes);
+  }
+
+  @Test
+  @DisplayName("규칙표 - 예외 규칙이 같은 메서드의 CRUD 규칙보다 앞에 있음 (뒤에 있으면 가려짐)")
+  void specificRulesFirst() {
+    var rules = ApiAuthorizationRules.RULES;
+    for (int i = 0; i < rules.size(); i++) {
+      for (int j = 0; j < i; j++) {
+        var earlier = rules.get(j);
+        var later = rules.get(i);
+        boolean shadowed = earlier.method().equals(later.method())
+            && earlier.patternList().stream().anyMatch(pattern -> pattern.endsWith("/**")
+                && later.patternList().stream().allMatch(path ->
+                    path.startsWith(pattern.substring(0, pattern.length() - 2))));
+        assertThat(shadowed).as("%s 가 %s 에 가려짐", later, earlier).isFalse();
+      }
+    }
   }
 
   @Test

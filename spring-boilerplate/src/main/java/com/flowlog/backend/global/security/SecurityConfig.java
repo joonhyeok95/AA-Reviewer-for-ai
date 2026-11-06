@@ -68,6 +68,7 @@ import org.springframework.session.SessionRepository;
  * Keycloak 은 사용자 역할에 매핑된 scope 만 발급하므로, 같은 scope 를 요청해도 사용자마다 다르게 받는다.
  * 최종 권한 = IdP scope ∩ DB 업무 권한 ({@link AuthorityResolver}).
  * 시스템관리자({@code ROLE_SYS_ADMIN}, DB 권한)는 모든 API 허용. 규칙이 없는 경로는 거부한다.
+ * 업무 API 의 경로·메서드별 scope 는 {@link ApiAuthorizationRules} 규칙표에 둔다.
  *
  * @author flowlog
  * @since 2026-11-05
@@ -93,25 +94,6 @@ public class SecurityConfig {
       "/api/v1/auth/me", "/api/v1/menus/me", "/api/v1/langs", "/api/v1/codes/*",
       "/api/v1/org/tree"
   };
-
-  /** 공지사항(게시판) API. 권한 리소스는 board (메뉴 PERM_CD=board). */
-  private static final String NOTICE_API = "/api/v1/notices/**";
-
-  private static final String BOARD_WRITE = "SCOPE_board.write";
-
-  private static final String BOARD_UPDATE = "SCOPE_board.update";
-
-  private static final String CODE_ADMIN_API = "/api/v1/code-groups/**";
-
-  private static final String[] MENU_ADMIN_API = {"/api/v1/menus", "/api/v1/menus/*"};
-
-  private static final String ROLE_ADMIN_API = "/api/v1/roles/**";
-
-  /** 시스템관리자 (모든 API 허용). */
-  private static final String SYS_ADMIN = "ROLE_SYS_ADMIN";
-
-  /** 샘플 API 경로. */
-  private static final String SAMPLE_API = "/api/v1/samples/**";
 
   /** Bearer 토큰 요청 (Stateless - CSRF 대상 아님). */
   private static final RequestMatcher BEARER_TOKEN_REQUEST = SecurityConfig::hasBearerToken;
@@ -139,73 +121,16 @@ public class SecurityConfig {
     http
         // [인가] API 권한 = scope (시스템관리자는 전체 허용).
         // 규칙이 없는 경로는 기본 거부(denyAll) - 새 API 는 반드시 규칙을 추가해야 호출 가능
-        .authorizeHttpRequests(auth -> auth
-            .requestMatchers(PUBLIC_PATHS).permitAll()
-            .requestMatchers(HttpMethod.GET, AUTHENTICATED_GET_PATHS).authenticated()
-            .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/lang").authenticated()
-            // 본문 메뉴 내용 : 로그인 사용자 (메뉴 접근 권한은 서비스에서 확인)
-            .requestMatchers(HttpMethod.GET, "/api/v1/menus/*/content").authenticated()
-            // 공통코드 관리
-            .requestMatchers(HttpMethod.GET, CODE_ADMIN_API)
-            .hasAnyAuthority("SCOPE_code.list", SYS_ADMIN)
-            .requestMatchers(HttpMethod.POST, CODE_ADMIN_API)
-            .hasAnyAuthority("SCOPE_code.add", SYS_ADMIN)
-            .requestMatchers(HttpMethod.PUT, CODE_ADMIN_API)
-            .hasAnyAuthority("SCOPE_code.edit", SYS_ADMIN)
-            .requestMatchers(HttpMethod.DELETE, CODE_ADMIN_API)
-            .hasAnyAuthority("SCOPE_code.del", SYS_ADMIN)
-            // 메뉴 관리 (/api/v1/menus/me 는 위 AUTHENTICATED_GET_PATHS, 순서 변경은 menu.edit)
-            .requestMatchers(HttpMethod.GET, MENU_ADMIN_API)
-            .hasAnyAuthority("SCOPE_menu.list", SYS_ADMIN)
-            .requestMatchers(HttpMethod.POST, MENU_ADMIN_API)
-            .hasAnyAuthority("SCOPE_menu.add", SYS_ADMIN)
-            .requestMatchers(HttpMethod.PUT, MENU_ADMIN_API)
-            .hasAnyAuthority("SCOPE_menu.edit", SYS_ADMIN)
-            .requestMatchers(HttpMethod.DELETE, MENU_ADMIN_API)
-            .hasAnyAuthority("SCOPE_menu.del", SYS_ADMIN)
-            // 권한 관리 : 메뉴 접근 저장·부여·부여 변경·회수는 role.edit (권한 자체 삭제만 role.del)
-            .requestMatchers(HttpMethod.GET, "/api/v1/users")
-            .hasAnyAuthority("SCOPE_role.list", SYS_ADMIN)
-            .requestMatchers(HttpMethod.POST, "/api/v1/roles/*/grants")
-            .hasAnyAuthority("SCOPE_role.edit", SYS_ADMIN)
-            .requestMatchers(HttpMethod.DELETE, "/api/v1/roles/*/grants/**")
-            .hasAnyAuthority("SCOPE_role.edit", SYS_ADMIN)
-            .requestMatchers(HttpMethod.GET, ROLE_ADMIN_API)
-            .hasAnyAuthority("SCOPE_role.list", SYS_ADMIN)
-            .requestMatchers(HttpMethod.POST, ROLE_ADMIN_API)
-            .hasAnyAuthority("SCOPE_role.add", SYS_ADMIN)
-            .requestMatchers(HttpMethod.PUT, ROLE_ADMIN_API)
-            .hasAnyAuthority("SCOPE_role.edit", SYS_ADMIN)
-            .requestMatchers(HttpMethod.DELETE, ROLE_ADMIN_API)
-            .hasAnyAuthority("SCOPE_role.del", SYS_ADMIN)
-            // 공지사항(게시판) : scope board.list / write / update / delete
-            //  - 수정 화면·메일 이력·첨부 삭제 = update, 첨부 업로드 = write 또는 update
-            .requestMatchers(HttpMethod.GET, "/api/v1/notices/*/edit",
-                "/api/v1/notices/*/mail-histories")
-            .hasAnyAuthority(BOARD_UPDATE, SYS_ADMIN)
-            .requestMatchers(HttpMethod.POST, "/api/v1/notices/*/files")
-            .hasAnyAuthority(BOARD_WRITE, BOARD_UPDATE, SYS_ADMIN)
-            .requestMatchers(HttpMethod.DELETE, "/api/v1/notices/*/files/*")
-            .hasAnyAuthority(BOARD_UPDATE, SYS_ADMIN)
-            .requestMatchers(HttpMethod.GET, NOTICE_API)
-            .hasAnyAuthority("SCOPE_board.list", SYS_ADMIN)
-            .requestMatchers(HttpMethod.POST, NOTICE_API)
-            .hasAnyAuthority(BOARD_WRITE, SYS_ADMIN)
-            .requestMatchers(HttpMethod.PUT, NOTICE_API)
-            .hasAnyAuthority(BOARD_UPDATE, SYS_ADMIN)
-            .requestMatchers(HttpMethod.DELETE, NOTICE_API)
-            .hasAnyAuthority("SCOPE_board.delete", SYS_ADMIN)
-            .requestMatchers(HttpMethod.GET, SAMPLE_API)
-            .hasAnyAuthority("SCOPE_sample.list", SYS_ADMIN)
-            .requestMatchers(HttpMethod.POST, SAMPLE_API)
-            .hasAnyAuthority("SCOPE_sample.add", SYS_ADMIN)
-            .requestMatchers(HttpMethod.PUT, SAMPLE_API)
-            .hasAnyAuthority("SCOPE_sample.edit", SYS_ADMIN)
-            .requestMatchers(HttpMethod.PATCH, SAMPLE_API)
-            .hasAnyAuthority("SCOPE_sample.edit", SYS_ADMIN)
-            .requestMatchers(HttpMethod.DELETE, SAMPLE_API)
-            .hasAnyAuthority("SCOPE_sample.del", SYS_ADMIN)
-            .anyRequest().denyAll())
+        .authorizeHttpRequests(auth -> {
+          auth.requestMatchers(PUBLIC_PATHS).permitAll()
+              .requestMatchers(HttpMethod.GET, AUTHENTICATED_GET_PATHS).authenticated()
+              .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/lang").authenticated()
+              // 본문 메뉴 내용 : 로그인 사용자 (메뉴 접근 권한은 서비스에서 확인)
+              .requestMatchers(HttpMethod.GET, "/api/v1/menus/*/content").authenticated();
+          // 업무 API : 경로·메서드별 scope 규칙표 (ApiAuthorizationRules)
+          ApiAuthorizationRules.apply(auth);
+          auth.anyRequest().denyAll();
+        })
         // 로그인 시작 시 화면 복귀 경로(returnTo) 저장 - 같은 호스트 절대 경로만 (OAuth2 / SAML2 공통)
         .addFilterBefore(new LoginReturnUrlFilter(), OAuth2AuthorizationRequestRedirectFilter.class)
         // [OAuth2 BFF] 브라우저 로그인 - 토큰은 세션(Redis)에만 보관

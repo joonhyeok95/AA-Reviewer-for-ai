@@ -102,7 +102,7 @@ Browser                    Gateway/App                                Keycloak  
 예) tx.viewer — Keycloak 은 `sample.list` 만 발급, DB 는 `TX_MANAGER_READ`(조회) → `SCOPE_sample.list`.
 Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 등록 403 (커스텀 권한 반영).
 
-### 3.4 인가 규칙 (`SecurityConfig`)
+### 3.4 인가 규칙 (`ApiAuthorizationRules` 규칙표 + `SecurityConfig`)
 
 | 요청 | 필요 권한 |
 |---|---|
@@ -119,7 +119,7 @@ Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 �
 | `/actuator/health·info·prometheus`(관리 포트), `/swagger-ui/**`, `/v3/api-docs/**`, `/h2-console/**`, `/error` | 공개 |
 | **그 외** | **거부 (`denyAll`)** |
 
-> 새 API = SecurityConfig 규칙 + 메뉴 `PERM_CD` / `TB_ROLE_MENU` + Keycloak 같은 이름 역할·client scope(setup.sh).
+> 새 API = `ApiAuthorizationRules` 규칙표(crud / 예외 rule, 구체적인 규칙을 앞에) + 메뉴 `PERM_CD` / `TB_ROLE_MENU` + Keycloak 같은 이름 역할·client scope(setup.sh) + BFF scope. 누락은 `ScopeConsistencyTest` 가 검사.
 
 ### 3.5 로그아웃
 
