@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+    "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<!--
+  공지 목록 검색 (NT-64, NT-66) - Oracle / H2(Oracle 모드) 공통 SQL
+   - 공지마다 표시 버전 1건 : 사용자 언어 버전, 없으면 대표 언어 버전
+   - 검색어는 표시 버전의 제목 / 본문 텍스트(CLOB)에 적용 (대표 언어 대체 표시분 포함)
+   - 페이징 : OFFSET / FETCH (Oracle 12c+)
+-->
+<mapper namespace="com.flowlog.backend.notice.domain.repository.NoticeSearchMapper">
+
+  <resultMap id="noticeSearchRow" type="com.flowlog.backend.notice.domain.service.dto.NoticeSearchRow">
+    <constructor>
+      <arg column="NOTICE_ID" javaType="java.lang.Long"/>
+      <arg column="LANG_CD" javaType="java.lang.String"/>
+      <arg column="TITLE" javaType="java.lang.String"/>
+    </constructor>
+  </resultMap>
+
+  <sql id="displayedWhere">
+     WHERE N.NOTICE_ID = I.NOTICE_ID
+       AND N.DEL_YN = 'N'
+    <if test="!includeScheduled">
+       AND N.POST_DATE &lt;= #{now}
+    </if>
+    <if test="categoryCd != null">
+       AND N.CATEGORY_CD = #{categoryCd}
+    </if>
+       AND (I.LANG_CD = #{langCd}
+            OR (I.LANG_CD = N.BASE_LANG_CD
+                AND NOT EXISTS (SELECT 1
+                                  FROM TB_NOTICE_I18N X
+                                 WHERE X.NOTICE_ID = N.NOTICE_ID
+                                   AND X.LANG_CD = #{langCd})))
+    <if test="keyword != null">
+       AND (LOWER(I.TITLE) LIKE #{keyword} ESCAPE '\'
+            OR LOWER(I.CONTENT_TEXT) LIKE #{keyword} ESCAPE '\')
+    </if>
+  </sql>
+
+  <select id="searchDisplayed" resultMap="noticeSearchRow">
+    SELECT I.NOTICE_ID, I.LANG_CD, I.TITLE
+      FROM TB_NOTICE_I18N I, TB_NOTICE N
+    <include refid="displayedWhere"/>
+     ORDER BY N.POST_DATE DESC, N.NOTICE_ID DESC
+    OFFSET #{offset} ROWS FETCH NEXT #{limit} ROWS ONLY
+  </select>
+
+  <select id="countDisplayed" resultType="long">
+    SELECT COUNT(*)
+      FROM TB_NOTICE_I18N I, TB_NOTICE N
+    <include refid="displayedWhere"/>
+  </select>
+</mapper>

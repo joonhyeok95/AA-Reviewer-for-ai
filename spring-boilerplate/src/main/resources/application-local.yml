@@ -1,0 +1,62 @@
+# ============================================================
+# local : H2 In-Memory (Oracle 호환 모드)
+#  - H2 Console : http://localhost:9091/h2-console (Gateway 경유 X - 직접 접속)
+#    JDBC URL    : jdbc:h2:mem:flowlog / user: sa / password: (없음)
+# ============================================================
+spring:
+  datasource:
+    url: jdbc:h2:mem:flowlog;MODE=Oracle;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    hibernate:
+      # 스키마는 DDL 스크립트(db/ddl)가 기준. Hibernate 는 스키마를 생성/변경하지 않는다.
+      # (validate 는 H2 가 Oracle NUMBER 를 NUMERIC 으로 보고해 타입 오탐이 나므로 사용하지 않음.
+      #  Entity-DDL 일치는 AuthMenuCodeRepositoryTest 등 통합 테스트로 검증한다.)
+      ddl-auto: none
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+      # 운영(Oracle)과 동일한 DDL 로 스키마 생성 후 local 초기 데이터 적재
+      schema-locations:
+        - classpath:db/ddl/00_sample.sql
+        - classpath:db/ddl/01_auth_menu_code.sql
+        - classpath:db/ddl/02_notice.sql
+        - classpath:db/ddl/03_file_store.sql
+      data-locations:
+        - classpath:db/data/00_sample.sql
+        - classpath:db/data/01_auth_menu_code.sql
+        - classpath:db/data/02_notice.sql
+
+logging:
+  level:
+    com.flowlog.backend: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+
+# ------------------------------------------------------------
+# local 전용 기본값 (운영/dev 는 환경변수 필수, prod 는 기동 검사로 차단)
+# ------------------------------------------------------------
+app:
+  security:
+    oauth2:
+      client-secret: ${KEYCLOAK_BFF_CLIENT_SECRET:flowlog-bff-local-secret}
+    session:
+      encryption-key: ${SESSION_ENCRYPTION_KEY:Zmxvd2xvZy1sb2NhbC1zZXNzaW9uLWtleS0zMmJ5dGU=}
+
+# local 은 http 이므로 세션 쿠키 Secure 해제
+server:
+  servlet:
+    session:
+      cookie:
+        secure: ${SESSION_COOKIE_SECURE:false}

@@ -1,0 +1,27 @@
+# ============================================================
+# 테스트 전용 override (src/main/resources/application-local.yml 위에 덮어씀)
+#  - 테스트 클래스마다 Spring Context 가 다를 수 있으므로 Context 별로 독립된 H2 DB 를 사용한다.
+#    (같은 DB 를 공유하면 DDL 스크립트가 두 번 실행되어 "already exists" 오류 발생)
+# ============================================================
+spring:
+  datasource:
+    url: jdbc:h2:mem:test-${random.uuid};MODE=Oracle;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+  h2:
+    console:
+      enabled: false
+
+logging:
+  level:
+    org.hibernate.SQL: INFO
+    org.hibernate.orm.jdbc.bind: INFO
+
+# 테스트 : 캐시 무효화 전파(Redis Pub/Sub) 비활성 - 단위 테스트(BroadcastingCacheManagerTest)로 검증
+# 테스트 : 메일 스케줄러 비활성 (테스트에서 직접 호출), 첨부는 임시 디렉터리
+app:
+  cache:
+    broadcast-enabled: false
+  notice:
+    file:
+      storage-path: ${java.io.tmpdir}/flowlog-test-notice-files
+    mail:
+      scheduler-enabled: false

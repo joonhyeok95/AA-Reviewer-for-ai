@@ -1,0 +1,24 @@
+# ============================================================
+# Redis - local 개발용 (spring-boilerplate 세션 저장소 + spring-gateway Rate Limit)
+#  - 실행 : docker compose -f infra/redis/docker-compose.yml up -d
+#  - 확인 : docker exec -it flowlog-redis redis-cli
+#      KEYS flowlog:session:*           # 애플리케이션 세션 (Spring Session, JSON)
+#      KEYS request_rate_limiter.*      # Gateway Rate Limit 토큰 버킷 (Lua 스크립트)
+#  - 운영 : ACL(사용자/비밀번호) + TLS + 영속성/HA(Sentinel·Cluster) 필수.
+#           애플리케이션/Gateway 는 REDIS_USERNAME / REDIS_PASSWORD / REDIS_SSL 환경변수로 접속 정보를 받는다.
+# ============================================================
+name: flowlog-redis
+
+services:
+  redis:
+    image: redis:8.10.3-alpine
+    container_name: flowlog-redis
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    ports:
+      # localhost 에만 바인딩 (세션에 토큰이 저장되므로 외부 네트워크 노출 금지)
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10

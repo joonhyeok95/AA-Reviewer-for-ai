@@ -1,0 +1,182 @@
+# ============================================================
+# 공통 설정 (모든 프로필 공통)
+#  - 프로필: local(H2, 기본값) / dev(Oracle) / prod(Oracle)
+#  - 민감정보(DB 계정 등)는 절대 파일에 직접 쓰지 않고 환경변수로 주입한다.
+# ============================================================
+spring:
+  application:
+    name: spring-boilerplate
+  profiles:
+    default: local
+  messages:
+    basename: messages/messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
+    use-code-as-default-message: true
+  jpa:
+    open-in-view: false
+    properties:
+      hibernate:
+        default_batch_fetch_size: 100
+        jdbc.time_zone: Asia/Seoul
+  jackson:
+    time-zone: Asia/Seoul
+  web:
+    locale: ko_KR
+  # 첨부파일 업로드 크기 제한
+  servlet:
+    multipart:
+      max-file-size: ${UPLOAD_MAX_FILE_SIZE:20MB}
+      max-request-size: ${UPLOAD_MAX_REQUEST_SIZE:100MB}
+  data:
+    web:
+      pageable:
+        max-page-size: 100
+    # 세션 저장소 Redis
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      # 운영: Redis ACL 사용자/비밀번호 + TLS 필수 (세션에 토큰이 저장됨)
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
+      ssl:
+        enabled: ${REDIS_SSL:false}
+      timeout: 2s
+
+  # 세션 저장소 : Redis (다중 인스턴스 세션 공유)
+  #  - 키: flowlog:session:sessions:{세션ID} / 세션에는 SecurityContext + OAuth2 토큰(서버 전용)이 저장된다.
+  #  - 값은 AES-256-GCM 암호화 + 허용목록 JDK 직렬화 (SessionStoreConfig, 키: SESSION_ENCRYPTION_KEY)
+  session:
+    timeout: 30m
+    # Boot 4 속성 이름: spring.session.data.redis.* (구 spring.session.redis.* 는 무시됨)
+    data:
+      redis:
+        namespace: flowlog:session
+        # immediate : 토큰 갱신 결과를 즉시 Redis 에 저장 → 같은 세션의 동시 요청/다른 인스턴스가
+        #             갱신된 토큰을 바로 사용 (refresh token rotation 시 중복 갱신 방지)
+        flush-mode: immediate
+
+  # [Client Credentials] Bearer JWT 검증 - 공개키는 issuer 의 JWKS 에서 최초 요청 시 조회
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://localhost:7000/realms/flowlog}
+          audiences: flowlog-api
+
+# [OAuth2 BFF] 브라우저 로그인 (confidential client + PKCE, 토큰은 세션에만 저장)
+#  - 로그인 시작: /oauth2/authorization/keycloak  →  콜백: /login/oauth2/code/keycloak
+#  - scopes 를 모두 요청해도 Keycloak 은 사용자 역할에 매핑된 scope 만 발급한다.
+app:
+  # 권한·공통코드 캐시 무효화를 Redis Pub/Sub 로 다른 인스턴스에 전파 (CacheConfig)
+  cache:
+    broadcast-enabled: ${CACHE_BROADCAST_ENABLED:true}
+  security:
+    oauth2:
+      registration-id: keycloak
+      client-id: ${KEYCLOAK_BFF_CLIENT_ID:flowlog-bff}
+      # 기본값 없음 (local 은 application-local.yml). 운영에서 누락 시 기동 실패
+      client-secret: ${KEYCLOAK_BFF_CLIENT_SECRET}
+      # 공지사항(게시판) 권한은 board.* (작업 동사 write/update/delete = DB 등록/수정/삭제)
+      scopes: openid, profile, sample.list, sample.add, sample.edit, sample.del,
+        code.list, code.add, code.edit, code.del, menu.list, menu.add, menu.edit, menu.del,
+        role.list, role.add, role.edit, role.del,
+        board.list, board.write, board.update, board.delete
+      success-url: /api/v1/auth/me
+      # Access Token 만료 10초 전부터 refresh token 으로 갱신
+      refresh-skew: 10s
+# [SAML2] Keycloak SAML IdP
+#  - entity-id : SP 식별자. Gateway 경유/직접 접속 모두 같은 값이어야 하므로 공개 URL(Gateway) 기준으로 고정
+#  - ACS 등 나머지 URL 은 요청 기준({baseUrl})으로 생성 → Gateway 경유 시 http://localhost:9909/cm/...
+    saml:
+      registration-id: keycloak
+      entity-id: ${SAML_SP_ENTITY_ID:http://localhost:9909/cm/saml2/service-provider-metadata/keycloak}
+      metadata-uri: ${KEYCLOAK_SAML_METADATA_URI:http://localhost:7000/realms/flowlog/protocol/saml/descriptor}
+      success-url: /api/v1/auth/me
+      # SAML 은 토큰 갱신이 없으므로 이 시간이 지나면 재로그인 (IdP 역할 변경 반영)
+      max-auth-age: ${SAML_MAX_AUTH_AGE:1h}
+    # Client Credentials 서비스 계정 client (azp + service-account-{azp} 일치 시만 서비스 계정)
+    service-account-clients: ${SERVICE_ACCOUNT_CLIENTS:flowlog-batch}
+    # X-Forwarded-* 를 신뢰할 직전 호출자 IP 정규식 = Gateway. 운영은 Gateway 대역으로 한정
+    trusted-proxies: ${APP_TRUSTED_PROXIES:127\.0\.0\.1|0:0:0:0:0:0:0:1|::1}
+    # 사용자 DB 권한·공통코드 캐시 TTL. 관리 화면 변경은 app.cache.broadcast-enabled 로 모든 인스턴스에 즉시 반영
+    authority-cache-ttl: ${AUTHORITY_CACHE_TTL:60s}
+    # true 면 기동 시 https / Secure 쿠키 / 운영 시크릿 검사 (prod)
+    require-https: false
+    session:
+      # Base64 32바이트 (openssl rand -base64 32). 기본값 없음 (local 은 application-local.yml)
+      encryption-key: ${SESSION_ENCRYPTION_KEY:}
+
+# ------------------------------------------------------------
+# 공지사항
+#  - 첨부 : 서버 로컬 디렉터리(웹 경로 밖), 허용 확장자/개수 제한 (크기는 spring.servlet.multipart)
+#  - 메일 : 게시일시 도래 시 발송 (poll-interval 주기). SMTP(spring.mail.host) 미설정이면 로그로 대체
+# ------------------------------------------------------------
+  notice:
+    file:
+      # 첨부 저장소: local(디렉터리, 다중 인스턴스면 공유 디렉터리 필요) / db(TB_FILE_STORE BLOB, 인프라 불필요)
+      storage-type: ${NOTICE_FILE_STORAGE:local}
+      storage-path: ${NOTICE_FILE_PATH:./data/notice-files}
+      max-files: 10
+    mail:
+      scheduler-enabled: ${NOTICE_MAIL_SCHEDULER_ENABLED:true}
+      poll-interval: ${NOTICE_MAIL_POLL_INTERVAL:60s}
+      batch-size: ${NOTICE_MAIL_BATCH_SIZE:100}
+      from: ${MAIL_FROM:noreply@flowlog.local}
+      link-template: ${NOTICE_LINK_TEMPLATE:http://localhost:9909/notices/{id}}
+      # 발송 중(SENDING) 상태가 이 시간을 넘으면 발송 인스턴스 중단으로 보고 재발송 (성공 수신자 제외)
+      sending-timeout: ${NOTICE_MAIL_SENDING_TIMEOUT:30m}
+
+# MyBatis : 매퍼 XML 은 resources/mapper/{도메인}/*.xml (JPA 와 같은 DataSource/트랜잭션 사용)
+mybatis:
+  mapper-locations: classpath:mapper/**/*.xml
+  configuration:
+    map-underscore-to-camel-case: true
+    # Oracle 은 NULL 바인딩 시 타입이 필요
+    jdbc-type-for-null: VARCHAR
+    default-statement-timeout: 30
+
+# 단독 실행 포트. 외부 진입점은 spring-gateway (http://localhost:9909/cm/**)
+server:
+  port: 9091
+  # Gateway 의 X-Forwarded-Host/Port/Proto/Prefix 를 반영해 외부 URL(http://localhost:9909/cm) 기준으로
+  # redirect / SAML ACS / Swagger 서버 URL 을 생성한다.
+  # Boot 기본 필터(framework)는 호출자를 구분하지 않으므로 끄고, app.security.trusted-proxies 에서 온
+  # 요청만 반영하는 TrustedForwardedHeaderFilter 를 사용한다.
+  forward-headers-strategy: none
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+    # 세션 쿠키 (Spring Session) : 클라이언트는 이 쿠키만 가진다. JS 접근 불가(HttpOnly)
+    session:
+      cookie:
+        name: SESSION
+        http-only: true
+        same-site: lax
+        # 기본 Secure (https 전용). local 만 false
+        secure: ${SESSION_COOKIE_SECURE:true}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    # 세션(쿠키) 인증 시 변경 요청에 X-XSRF-TOKEN 헤더 자동 추가
+    csrf:
+      enabled: true
+  api-docs:
+    path: /v3/api-docs
+  default-produces-media-type: application/json
+
+# Actuator 는 별도 관리 포트(기본 localhost 전용)로 분리 - 서비스 포트/Gateway 로 노출되지 않음
+management:
+  server:
+    port: ${MANAGEMENT_PORT:9191}
+    address: ${MANAGEMENT_ADDRESS:127.0.0.1}
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: when-authorized

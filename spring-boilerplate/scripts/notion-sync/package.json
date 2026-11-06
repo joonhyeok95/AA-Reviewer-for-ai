@@ -1,0 +1,14 @@
+{
+  "name": "flowlog-notion-sync",
+  "private": true,
+  "type": "module",
+  "description": "저장소 docs(원본) → 노션 페이지 본문 동기화",
+  "scripts": {
+    "sync": "node sync.mjs",
+    "dry-run": "node sync.mjs --dry-run"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.3.0",
+    "@tryfabric/martian": "^1.2.4"
+  }
+}

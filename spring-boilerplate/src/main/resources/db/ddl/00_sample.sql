@@ -1,0 +1,22 @@
+-- =====================================================================
+-- 00. 샘플 (boilerplate 예시)  (Oracle)
+-- =====================================================================
+CREATE SEQUENCE SQ_SAMPLE START WITH 1 INCREMENT BY 1 NOCACHE;
+
+CREATE TABLE TB_SAMPLE (
+    SAMPLE_ID       NUMBER(19)      NOT NULL,
+    NAME            VARCHAR2(100)   NOT NULL,
+    DESCRIPTION     VARCHAR2(500),
+    USE_YN          VARCHAR2(1)     DEFAULT 'Y' NOT NULL,
+    CREATED_BY      VARCHAR2(50)    NOT NULL,
+    CREATED_AT      TIMESTAMP(6)    NOT NULL,
+    UPDATED_BY      VARCHAR2(50)    NOT NULL,
+    UPDATED_AT      TIMESTAMP(6)    NOT NULL,
+    CONSTRAINT PK_SAMPLE PRIMARY KEY (SAMPLE_ID),
+    CONSTRAINT UK_SAMPLE_NAME UNIQUE (NAME)
+);
+COMMENT ON TABLE  TB_SAMPLE             IS '샘플';
+COMMENT ON COLUMN TB_SAMPLE.SAMPLE_ID   IS '샘플ID (SQ_SAMPLE)';
+COMMENT ON COLUMN TB_SAMPLE.NAME        IS '샘플명';
+COMMENT ON COLUMN TB_SAMPLE.DESCRIPTION IS '설명';
+COMMENT ON COLUMN TB_SAMPLE.USE_YN      IS '사용여부';
