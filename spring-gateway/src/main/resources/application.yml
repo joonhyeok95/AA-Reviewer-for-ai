@@ -1,0 +1,157 @@
+# ============================================================
+# Flowlog API Gateway (Spring Cloud Gateway - WebFlux / Netty, 비동기 논블로킹)
+#  - 포트 : 9909 (서비스) / 9910 (관리: actuator, 127.0.0.1 전용)
+#  - 라우팅: /cm/**  →  spring-boilerplate (9091), 앞의 /cm 제거 (StripPrefix=1)
+#            예) GET /cm/api/v1/auth/me  →  GET http://localhost:9091/api/v1/auth/me
+#            그 외 /** →  화면 vue-frontend (local: Vite 5173 / 운영: 정적 웹서버). 경로 그대로 전달
+#            → 화면과 API 가 같은 Origin(9909) 이므로 SESSION·XSRF-TOKEN 쿠키를 그대로 사용 (CORS 불필요)
+#  - 처리 순서: PathSecurityWebFilter(우회 경로/차단 경로) → TraceId → Forwarded 헤더 정리
+#              → 라우트 필터 StripPrefix → RateLimit(Redis Lua) → CircuitBreaker(Resilience4j)
+#    (한도 초과 요청은 서킷 실패율에 포함되지 않도록 RateLimit 을 먼저 적용)
+#  - 백엔드는 X-Forwarded-Host/Port/Proto/Prefix(/cm) 헤더로 외부 URL 을 인식한다.
+# ============================================================
+server:
+  port: 9909
+
+spring:
+  application:
+    name: spring-gateway
+  messages:
+    basename: messages/messages
+    encoding: UTF-8
+    fallback-to-system-locale: false
+  # Rate Limit 토큰 버킷 저장소 (spring-boilerplate 세션 저장소와 같은 Redis)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: cm
+              uri: ${CM_SERVICE_URI:http://localhost:9091}
+              predicates:
+                - Path=/cm/**
+              filters:
+                - StripPrefix=1
+                - RateLimit
+                - name: CircuitBreaker
+                  args:
+                    name: cm
+                    fallbackUri: forward:/fallback/cm
+                    # 백엔드가 이 상태코드를 반환해도 실패로 집계 (기동 중/과부하 등)
+                    statusCodes:
+                      - BAD_GATEWAY
+                      - SERVICE_UNAVAILABLE
+                      - GATEWAY_TIMEOUT
+            # 화면 (Vue SPA) - /cm/** 이외 경로. 마지막에 매칭 (order)
+            #  - /actuator/** 는 제외 → 매칭 라우트 없음 404 G0001 (Gateway Actuator 는 관리 포트에만)
+            #  - 정적 리소스라 Rate Limit / 서킷 미적용 (개발 서버는 모듈 요청이 수백 건)
+            #  - local 개발 서버(Vite) HMR 웹소켓도 이 라우트로 전달된다
+            - id: web
+              uri: ${WEB_SERVICE_URI:http://localhost:5173}
+              order: 100
+              predicates:
+                - Path=/,/{first:(?!(?i:actuator)$).+}/**
+          # 백엔드 호출 타임아웃 (응답 타임아웃은 서킷브레이커 TimeLimiter(15s)보다 길게)
+          httpclient:
+            connect-timeout: 3000
+            response-timeout: 20s
+          # X-Forwarded-* 헤더 추가 (Prefix 포함)
+          #  - Spring Cloud Gateway 는 보안상 trusted-proxies 를 지정해야 X-Forwarded 헤더를 추가한다.
+          #  - 값: Gateway 에 직접 접속하는 클라이언트/앞단 LB 의 IP 정규식. 운영은 LB 대역으로 지정.
+          #  - 신뢰 프록시가 아닌 곳에서 온 Forwarded/X-Forwarded-* 는 제거된다.
+          #    (Gateway 기본 동작 + ForwardedHeaderSanitizerGlobalFilter)
+          #  - host/prefix 는 append 하지 않고 Gateway 값으로 덮어쓴다. append 하면 신뢰 프록시 경로에서
+          #    클라이언트가 보낸 값이 앞에 남아 백엔드가 "/evil/cm" 같은 prefix 로 URL 을 만든다.
+          #    proto/port/for 는 append 유지 (TLS 를 종료하는 LB 의 https/443 정보를 백엔드가 사용)
+          trusted-proxies: ${GATEWAY_TRUSTED_PROXIES:127\.0\.0\.1|0:0:0:0:0:0:0:1|::1}
+          x-forwarded:
+            enabled: true
+            prefix-enabled: true
+            host-append: false
+            prefix-append: false
+
+app:
+  gateway:
+    # ------------------------------------------------------------
+    # 경로 차단 (PathSecurityWebFilter) - 백엔드의 내부 전용 경로를 외부에 노출하지 않는다.
+    #  - 우회 형식(;, //, /./, /../, %2e, %2f, %5c, %3b, %25, 역슬래시)은 400 G0006
+    #  - 아래 경로는 백엔드 호출 없이 404 G0001 (대소문자 무시)
+    #    Gateway 를 거치면 백엔드 입장에서 접속지가 내부가 되어 "localhost 전용" 보호가 무력화된다.
+    # ------------------------------------------------------------
+    blocked-paths:
+      - /cm/h2-console/**
+      - /cm/actuator/**
+    # ------------------------------------------------------------
+    # Rate Limit (Redis 토큰 버킷 - Lua 스크립트로 원자적 처리)
+    #  - 키: Redis 에 실제 존재하는 로그인 세션 단위, 없으면(위조/만료 쿠키 포함) 클라이언트 IP 단위
+    #  - 초당 20개 충전, 순간 최대 40개 → 초과 시 429 G0005
+    # ------------------------------------------------------------
+    rate-limit:
+      replenish-rate: ${RATE_LIMIT_REPLENISH_RATE:20}
+      burst-capacity: ${RATE_LIMIT_BURST_CAPACITY:40}
+      requested-tokens: 1
+      # spring-boilerplate 세션 키 = {spring.session.data.redis.namespace}:sessions:{세션ID}
+      session-key-prefix: ${RATE_LIMIT_SESSION_KEY_PREFIX:flowlog:session:sessions:}
+      # 앞단 LB 단계 수. 0 = TCP 접속 IP / 운영(LB 1단) = 1 → X-Forwarded-For 중 LB 가 추가한 값
+      trusted-proxy-hops: ${RATE_LIMIT_TRUSTED_PROXY_HOPS:0}
+
+# ------------------------------------------------------------
+# Circuit Breaker (Resilience4j)
+#  - 최근 10건 중 실패율 50% 이상(최소 5건) → OPEN : 10초간 백엔드 호출 없이 즉시 503 G0004
+#  - 10초 후 HALF_OPEN : 3건 시험 호출 → 성공하면 CLOSED 복구, 실패하면 다시 OPEN
+#  - 느린 호출(15초 초과)은 TimeLimiter 가 끊고 실패로 집계 → 504 G0003
+# ------------------------------------------------------------
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 10
+        minimum-number-of-calls: 5
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+    instances:
+      cm:
+        base-config: default
+  timelimiter:
+    configs:
+      default:
+        timeout-duration: 15s
+    instances:
+      cm:
+        base-config: default
+
+# ------------------------------------------------------------
+# Actuator : 서비스 포트(9909)와 분리된 관리 포트, 기본 127.0.0.1 바인딩
+#  - /actuator/gateway (라우트 추가/삭제/refresh 쓰기 기능) 는 노출하지 않는다.
+#  - /actuator/prometheus : 서킷 상태(resilience4j_circuitbreaker_*), Rate Limit 거부
+#    (gateway_ratelimit_rejected_total), 요청 지표
+#  - 컨테이너/K8s 에서 수집기가 접근해야 하면 MANAGEMENT_ADDRESS=0.0.0.0 + 네트워크 정책으로 제한
+# ------------------------------------------------------------
+management:
+  server:
+    port: ${MANAGEMENT_PORT:9910}
+    address: ${MANAGEMENT_ADDRESS:127.0.0.1}
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+# traceId 는 리액티브 환경이라 MDC 대신 TraceIdGlobalFilter 접근 로그에 직접 기록한다.
+logging:
+  level:
+    com.flowlog.gateway: INFO
