@@ -37,4 +37,11 @@ public interface MenuRepository extends JpaRepository<Menu, Long> {
    * @return 존재 여부
    */
   boolean existsByParentMenuId(Long parentMenuId);
+
+  /**
+   * 전체 메뉴 (미사용 포함, 관리 화면).
+   *
+   * @return 메뉴 목록 (정렬순서, ID)
+   */
+  List<Menu> findAllByOrderBySortOrderAscIdAsc();
 }

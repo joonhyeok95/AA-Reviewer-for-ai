@@ -19,4 +19,11 @@ public interface CodeGroupRepository extends JpaRepository<CodeGroup, String> {
    * @return 그룹 목록
    */
   List<CodeGroup> findByUseYnOrderBySortOrderAsc(String useYn);
+
+  /**
+   * 전체 그룹 (미사용 포함, 관리 화면).
+   *
+   * @return 그룹 목록
+   */
+  List<CodeGroup> findAllByOrderBySortOrderAscGroupCdAsc();
 }

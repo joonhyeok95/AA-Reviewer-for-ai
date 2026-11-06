@@ -96,6 +96,12 @@ public class SecurityConfig {
   /** 공지사항 API. */
   private static final String NOTICE_API = "/api/v1/notices/**";
 
+  private static final String CODE_ADMIN_API = "/api/v1/code-groups/**";
+
+  private static final String[] MENU_ADMIN_API = {"/api/v1/menus", "/api/v1/menus/*"};
+
+  private static final String ROLE_ADMIN_API = "/api/v1/roles/**";
+
   /** 시스템관리자 (모든 API 허용). */
   private static final String SYS_ADMIN = "ROLE_SYS_ADMIN";
 
@@ -132,6 +138,41 @@ public class SecurityConfig {
             .requestMatchers(PUBLIC_PATHS).permitAll()
             .requestMatchers(HttpMethod.GET, AUTHENTICATED_GET_PATHS).authenticated()
             .requestMatchers(HttpMethod.PUT, "/api/v1/users/me/lang").authenticated()
+            // 본문 메뉴 내용 : 로그인 사용자 (메뉴 접근 권한은 서비스에서 확인)
+            .requestMatchers(HttpMethod.GET, "/api/v1/menus/*/content").authenticated()
+            // 공통코드 관리
+            .requestMatchers(HttpMethod.GET, CODE_ADMIN_API)
+            .hasAnyAuthority("SCOPE_code.list", SYS_ADMIN)
+            .requestMatchers(HttpMethod.POST, CODE_ADMIN_API)
+            .hasAnyAuthority("SCOPE_code.add", SYS_ADMIN)
+            .requestMatchers(HttpMethod.PUT, CODE_ADMIN_API)
+            .hasAnyAuthority("SCOPE_code.edit", SYS_ADMIN)
+            .requestMatchers(HttpMethod.DELETE, CODE_ADMIN_API)
+            .hasAnyAuthority("SCOPE_code.del", SYS_ADMIN)
+            // 메뉴 관리 (/api/v1/menus/me 는 위 AUTHENTICATED_GET_PATHS, 순서 변경은 menu.edit)
+            .requestMatchers(HttpMethod.GET, MENU_ADMIN_API)
+            .hasAnyAuthority("SCOPE_menu.list", SYS_ADMIN)
+            .requestMatchers(HttpMethod.POST, MENU_ADMIN_API)
+            .hasAnyAuthority("SCOPE_menu.add", SYS_ADMIN)
+            .requestMatchers(HttpMethod.PUT, MENU_ADMIN_API)
+            .hasAnyAuthority("SCOPE_menu.edit", SYS_ADMIN)
+            .requestMatchers(HttpMethod.DELETE, MENU_ADMIN_API)
+            .hasAnyAuthority("SCOPE_menu.del", SYS_ADMIN)
+            // 권한 관리 : 메뉴 접근 저장·부여·부여 변경·회수는 role.edit (권한 자체 삭제만 role.del)
+            .requestMatchers(HttpMethod.GET, "/api/v1/users")
+            .hasAnyAuthority("SCOPE_role.list", SYS_ADMIN)
+            .requestMatchers(HttpMethod.POST, "/api/v1/roles/*/grants")
+            .hasAnyAuthority("SCOPE_role.edit", SYS_ADMIN)
+            .requestMatchers(HttpMethod.DELETE, "/api/v1/roles/*/grants/**")
+            .hasAnyAuthority("SCOPE_role.edit", SYS_ADMIN)
+            .requestMatchers(HttpMethod.GET, ROLE_ADMIN_API)
+            .hasAnyAuthority("SCOPE_role.list", SYS_ADMIN)
+            .requestMatchers(HttpMethod.POST, ROLE_ADMIN_API)
+            .hasAnyAuthority("SCOPE_role.add", SYS_ADMIN)
+            .requestMatchers(HttpMethod.PUT, ROLE_ADMIN_API)
+            .hasAnyAuthority("SCOPE_role.edit", SYS_ADMIN)
+            .requestMatchers(HttpMethod.DELETE, ROLE_ADMIN_API)
+            .hasAnyAuthority("SCOPE_role.del", SYS_ADMIN)
             // 공지사항 : 관리 기능(수정 화면, 메일 이력, 첨부 삭제)은 notice.edit
             .requestMatchers(HttpMethod.GET, "/api/v1/notices/*/edit",
                 "/api/v1/notices/*/mail-histories")

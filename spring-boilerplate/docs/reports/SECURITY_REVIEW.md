@@ -129,6 +129,12 @@
 - **조치**: `LikePatterns.contains` (와일드카드 이스케이프) + 쿼리에 ESCAPE 명시 (공지 검색과 같은 방식)
 - **검증**: `SampleApiIntegrationTest.getSamples_nameSearch`, `OracleSchemaTest` (실제 Oracle)
 
+### 22. 관리 API 의 권한 상승 (관리 기능 추가 시 점검)
+- **위험**: 권한 관리 권한(`role.edit`)으로 자신에게 더 높은 권한을 부여 → 시스템관리자 획득
+- **조치**: 시스템관리자 권한(레벨 1 / 유형 SYSTEM_ADMIN)의 생성·수정·메뉴 접근·부여는 요청자가 시스템관리자일 때만 (B6004). 관리 API 도 IdP scope(`role.*`) ∩ DB 메뉴 권한, 기본 거부 규칙 유지
+- **검증**: `AdminApiIntegrationTest.delegatedAdmin_cannotTouchSysAdmin`
+- **남은 과제**: `role.edit` 보유자는 자기 권한에 다른 메뉴 접근을 줄 수 있어 사실상 관리자 → 시스템관리자 외 부여 비권장(설계 01 6-1). 관리 변경 이력(감사 로그) 미구현
+
 ---
 
 ## 남은 과제 요약

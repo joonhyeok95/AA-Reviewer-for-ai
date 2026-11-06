@@ -61,4 +61,11 @@ public interface RoleRepository extends JpaRepository<Role, Long> {
       """)
   List<Role> findEffectiveRoles(
       @Param("userId") String userId, @Param("baseDate") LocalDate baseDate);
+
+  /**
+   * 전체 권한 (미사용 포함, 관리 화면).
+   *
+   * @return 권한 목록 (레벨, 정렬순서)
+   */
+  List<Role> findAllByOrderByRoleLevelAscSortOrderAscIdAsc();
 }

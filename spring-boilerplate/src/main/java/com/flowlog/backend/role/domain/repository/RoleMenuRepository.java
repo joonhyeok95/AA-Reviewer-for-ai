@@ -5,6 +5,7 @@ import com.flowlog.backend.role.domain.model.RoleMenuId;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 /**
  * 권한별 메뉴 Repository.
@@ -29,4 +30,20 @@ public interface RoleMenuRepository extends JpaRepository<RoleMenu, RoleMenuId> 
    * @return 메뉴 권한 목록
    */
   List<RoleMenu> findByIdMenuId(Long menuId);
+
+  /**
+   * 권한의 메뉴 접근.
+   *
+   * @param roleId 권한ID
+   * @return 메뉴 접근 목록
+   */
+  List<RoleMenu> findByIdRoleId(Long roleId);
+
+  /**
+   * 권한별 접근 메뉴 수.
+   *
+   * @return [권한ID, 건수]
+   */
+  @Query("select rm.id.roleId, count(rm) from RoleMenu rm group by rm.id.roleId")
+  List<Object[]> countByRole();
 }

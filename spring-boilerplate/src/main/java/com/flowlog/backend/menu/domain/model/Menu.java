@@ -89,6 +89,7 @@ public class Menu extends BaseEntity {
    * @param moduleCd 모듈코드
    * @param viewTypeCd 조회유형
    * @param menuUrl URL
+   * @param permCd API 권한 리소스코드
    * @param newWindowYn 새창여부
    * @param adminMenuYn 관리자메뉴여부
    * @param sideMenuYn 사이드메뉴여부
@@ -96,11 +97,12 @@ public class Menu extends BaseEntity {
    * @param useYn 사용여부
    */
   public void update(
-      String moduleCd, String viewTypeCd, String menuUrl, String newWindowYn,
+      String moduleCd, String viewTypeCd, String menuUrl, String permCd, String newWindowYn,
       String adminMenuYn, String sideMenuYn, String displayYn, String useYn) {
     this.moduleCd = moduleCd;
     this.viewTypeCd = viewTypeCd;
     this.menuUrl = menuUrl;
+    this.permCd = permCd;
     this.newWindowYn = newWindowYn;
     this.adminMenuYn = adminMenuYn;
     this.sideMenuYn = sideMenuYn;

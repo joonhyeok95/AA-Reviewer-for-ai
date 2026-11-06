@@ -303,6 +303,43 @@ SELECT T.LVL, M.*, NVL(L.MENU_NM, K.MENU_NM) AS MENU_NM
 | 응답 노드 | `menuId, menuNm, moduleCd, viewTypeCd, menuUrl, newWindow, adminMenu, sideMenu, permission{list,add,edit,del}, children` |
 | 서비스 계정 / 미등록 사용자 | 빈 목록 |
 
+### 본문 메뉴 API — `GET /api/v1/menus/{id}/content`
+
+`CONTENT` 유형 메뉴의 본문(`TB_MENU_LANG.MENU_CONTENT`). 로그인 사용자 중 **내 메뉴에 있는(LIST 권한) 메뉴만**, 아니면 404 B5007.
+사용자 언어 본문이 없으면 기본 언어 본문 (`fallback=true`). 본문은 저장 시 `HtmlSanitizer` 로 정화된다.
+
+---
+
+## 6-1. 관리 API (화면: 공통코드관리 / 메뉴관리 / 권한관리)
+
+관리 메뉴의 권한코드 : 공통코드관리(12) `code`, 메뉴관리(13) `menu`, 권한관리(14) `role`.
+API 권한 = **IdP scope(`code.*`, `menu.*`, `role.*` - Keycloak 같은 이름 역할) ∩ DB 메뉴 권한**, 시스템관리자는 전체.
+초기 데이터는 시스템관리자만 사용 (다른 권한에는 관리 메뉴 접근 없음) → 권한관리 화면에서 위임할 수 있다.
+
+| 영역 | API | 권한 |
+|---|---|---|
+| 공통코드 | `GET /api/v1/code-groups` (미사용 포함, 언어별 그룹명, 코드 수) / `POST` / `PUT {groupCd}` / `DELETE {groupCd}` | code.list / add / edit / del |
+| | `GET /api/v1/code-groups/{groupCd}/codes` / `POST` / `PUT …/codes/{code}` / `DELETE …/codes/{code}` | code.list / add / edit / del |
+| 메뉴 | `GET /api/v1/menus` (전체 트리, 미사용·미노출 포함) / `GET {id}` (언어별 이름·본문) / `POST` / `PUT {id}` / `DELETE {id}` | menu.list / add / edit / del |
+| | `PUT /api/v1/menus/order` (같은 상위 메뉴 안 순서) | menu.edit |
+| 권한 | `GET /api/v1/roles` (언어별 이름, 부여·메뉴 수) / `POST` / `PUT {id}` / `DELETE {id}` | role.list / add / edit / del |
+| | `GET /api/v1/roles/{id}/menus` / `PUT …/menus` (메뉴 접근 전체 교체) | role.list / role.edit |
+| | `GET /api/v1/roles/{id}/grants` / `POST …/grants` / `PUT …/grants/{USER\|DEPT}/{grantId}` / `DELETE` 같은 경로 | role.list / role.edit |
+| | `GET /api/v1/users?keyword=` (부여 대상 검색, 최대 20건) | role.list |
+
+| 규칙 | 내용 |
+|---|---|
+| 언어별 이름 | `names` = `{언어코드: 이름}`. 기본 언어 이름 필수(B4002), LANG 에 없는 언어 거부(B4001), 빈 이름은 저장하지 않음(기본 언어로 표시). **미사용으로 바꾼 언어의 이름은 그대로 보존** (`LangService.normalizeNames`) |
+| 공통코드 | 키(그룹코드·코드) 변경 불가. 시스템 그룹(`SYSTEM_YN='Y'`) 삭제 불가(B4007), 그 그룹의 코드 삭제 불가(B4008, 사용 여부로 관리). LANG 은 사용 중 코드가 최소 1개(B4009). 변경 시 공통코드 캐시 전체 삭제 → 지원 언어·코드명 즉시 반영 |
+| 메뉴 | URL 은 유형별 검증(B5004) : MENU = `/` 경로(묶음 메뉴는 비움), LINK·IFRAME = http(s), CONTENT = 없음. 상위 메뉴 순환 금지(B5003), 하위 메뉴가 있으면 삭제 불가(B5002, 삭제 시 `TB_ROLE_MENU` 함께 삭제). 본문은 CONTENT 만, 정화 후 저장. 권한코드·사용 여부가 API 권한에 쓰이므로 변경 시 권한 캐시 전체 삭제 |
+| 권한 | 키(권한코드) 변경 불가. 기본 권한(`SYSTEM_YN='Y'`) 삭제·유형/레벨 변경 불가(B6003), 부여 내역이 있으면 삭제 불가(B6005) |
+| 메뉴 접근 | 전체 교체. 등록/수정/삭제가 있으면 조회 포함, **상위 메뉴는 조회 자동 허용** (없으면 사용자 메뉴 트리에 나타나지 않음) |
+| 부여 | 사용자 또는 부서(소속 전원), 기간(종료일 없으면 9999-12-31). 같은 대상의 기간 중복 금지(B6010), 대상 없음 B6007. 상태 = 유효/시작 전/만료 |
+| **권한 상승 방지** | 시스템관리자 권한(레벨 1 / 유형 SYSTEM_ADMIN)의 생성·수정·메뉴 접근·부여는 **시스템관리자만** (B6004, 403). `role.*` 를 위임받은 관리자도 불가 |
+| 즉시 반영 | 권한·메뉴 변경은 권한 캐시(`userAuthority`)를 비워 다음 요청부터 반영 (세션 재로그인 불필요) |
+
+> `role.edit` 를 가진 사용자는 자기 권한에 다른 메뉴 접근을 줄 수 있으므로 사실상 관리자 권한이다. 시스템관리자 외에는 주지 않는 것을 권장한다.
+
 ---
 
 ## 7. 가정 및 확인 필요 사항

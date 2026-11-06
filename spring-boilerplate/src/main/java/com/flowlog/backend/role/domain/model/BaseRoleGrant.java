@@ -63,6 +63,26 @@ public abstract class BaseRoleGrant extends BaseEntity {
   }
 
   /**
+   * 부여사유를 바꾼다.
+   *
+   * @param grantReason 부여사유
+   */
+  public void changeReason(String grantReason) {
+    this.grantReason = grantReason;
+  }
+
+  /**
+   * 기간이 겹치는지.
+   *
+   * @param startDt 시작일
+   * @param endDt 종료일
+   * @return 겹치면 true
+   */
+  public boolean overlaps(LocalDate startDt, LocalDate endDt) {
+    return !startDt.isAfter(this.endDt) && !endDt.isBefore(this.startDt);
+  }
+
+  /**
    * 기준일에 유효한 권한인지 확인한다.
    *
    * @param baseDate 기준일

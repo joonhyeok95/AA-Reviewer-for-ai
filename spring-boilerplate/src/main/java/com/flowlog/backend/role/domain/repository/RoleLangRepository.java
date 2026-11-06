@@ -22,4 +22,12 @@ public interface RoleLangRepository extends JpaRepository<RoleLang, RoleLangId> 
    * @return 다국어 목록
    */
   List<RoleLang> findByIdRoleIdInAndIdLangCd(Collection<Long> roleIds, String langCd);
+
+  /**
+   * 권한의 언어별 이름.
+   *
+   * @param roleId 권한ID
+   * @return 언어별 이름
+   */
+  List<RoleLang> findByIdRoleId(Long roleId);
 }

@@ -8,8 +8,8 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 | 진입점 | [spring-gateway](../spring-gateway) **9909**, `/cm/**` → 9091 (`/cm` 제거), 그 외 `/**` → 화면 |
 | 화면 | [vue-frontend](../vue-frontend) (Vue 3) — **http://localhost:9909** 접속, 모든 API 연동 |
 | 영속성 | JPA (기본) + MyBatis (DB 종속/복잡 조회 - `resources/mapper/**/*.xml`, 예: 공지 목록 검색) |
-| 테스트 | `./mvnw test` **116/116** · `./mvnw test -Poracle-it` (실제 Oracle) **2/2** · 인증 E2E **48/48** (`--quick`) · 화면 E2E **35/35** |
-| 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일 |
+| 테스트 | `./mvnw test` **136/136** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **48/48** (`--quick`) · 화면 E2E **50/50** |
+| 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **관리 API (공통코드·메뉴·권한 - 언어별 이름, 메뉴 접근, 사용자/부서 부여)**, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일 |
 | CI | `.github/workflows/ci.yml` (build: `./mvnw -B verify`, oracle: `-Poracle-it`) |
 
 ## 실행
@@ -38,6 +38,7 @@ docker compose -f infra/keycloak/docker-compose.yml up -d
 | http://localhost:9909/cm/api/v1/langs | 지원 언어 (LANG 코드 기반, 에디터 언어팩) |
 | http://localhost:9909/cm/api/v1/org/tree | 조직도 (인사 마스터 사업장 → 부서, 국문/영문) |
 | `PUT` http://localhost:9909/cm/api/v1/users/me/lang | 내 언어 설정 변경 |
+| http://localhost:9909/cm/api/v1/code-groups · `/menus` · `/roles` | 관리 API (공통코드·메뉴·권한, `code.*`/`menu.*`/`role.*`) |
 | http://localhost:9909/cm/saml2/authenticate/keycloak | SAML 로그인 시작 |
 | http://localhost:9091/h2-console | H2 Console (직접 접속만, Gateway 는 `/cm/h2-console` 차단) |
 | http://127.0.0.1:9191/actuator/health · `/prometheus` | Health / 메트릭 (관리 포트) |

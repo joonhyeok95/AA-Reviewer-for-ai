@@ -2,21 +2,25 @@ package com.flowlog.backend;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.flowlog.backend.code.domain.service.CodeAdminService;
 import com.flowlog.backend.global.util.LikePatterns;
+import com.flowlog.backend.menu.domain.service.MenuAdminService;
 import com.flowlog.backend.menu.domain.service.MenuService;
 import com.flowlog.backend.notice.domain.repository.NoticeSearchMapper;
 import com.flowlog.backend.notice.domain.service.dto.NoticeSearchRow;
+import com.flowlog.backend.role.domain.service.RoleAdminService;
 import com.flowlog.backend.role.domain.service.UserAuthorityService;
 import com.flowlog.backend.role.domain.service.dto.UserAuthority;
 import com.flowlog.backend.sample.domain.repository.SampleRepository;
+import com.flowlog.backend.user.domain.service.UserQueryService;
 import java.time.LocalDateTime;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -87,6 +91,40 @@ class OracleSchemaTest {
         .getTotalElements()).isEqualTo(3);
     assertThat(sampleRepository.search(LikePatterns.contains("%"), null, PageRequest.of(0, 10))
         .getTotalElements()).isZero();
+  }
+
+  @Autowired
+  private CodeAdminService codeAdminService;
+
+  @Autowired
+  private RoleAdminService roleAdminService;
+
+  @Autowired
+  private MenuAdminService menuAdminService;
+
+  @Autowired
+  private UserQueryService userQueryService;
+
+  @Test
+  @DisplayName("Oracle - 관리 화면 조회 (그룹별 건수, 권한별 부여·메뉴 수, 메뉴 트리, 사용자 LIKE ESCAPE 검색)")
+  void adminQueries() {
+    assertThat(codeAdminService.getGroups("ko"))
+        .anySatisfy(group -> {
+          assertThat(group.groupCd()).isEqualTo("LANG");
+          assertThat(group.codeCnt()).isEqualTo(2);
+        });
+    assertThat(roleAdminService.getRoles("en"))
+        .anySatisfy(role -> {
+          assertThat(role.roleCd()).isEqualTo("USER_EMP");
+          assertThat(role.deptGrantCnt()).isEqualTo(4);
+          assertThat(role.menuCnt()).isPositive();
+        });
+    assertThat(roleAdminService.getGrants(2L, "ko").users())
+        .extracting(grant -> grant.targetId()).contains("tx.master");
+    assertThat(menuAdminService.getTree("ko")).isNotEmpty();
+    assertThat(userQueryService.search("EMP", "ko"))
+        .extracting(user -> user.userId()).contains("emp01");
+    assertThat(userQueryService.search("%", "ko")).isEmpty();
   }
 
   @Test

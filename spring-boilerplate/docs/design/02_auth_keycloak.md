@@ -114,7 +114,8 @@ Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 �
 | `POST /api/v1/notices/*/files` | `SCOPE_notice.add` 또는 `SCOPE_notice.edit` |
 | `GET / POST / PUT / DELETE /api/v1/notices/**` | `SCOPE_notice.list / add / edit / del` |
 | 위 전체 | 또는 `ROLE_SYS_ADMIN` |
-| `GET /api/v1/auth/me`, `/api/v1/menus/me`, `/api/v1/langs`, `/api/v1/codes/*`, `/api/v1/org/tree`, `PUT /api/v1/users/me/lang` | 로그인만 |
+| `GET /api/v1/auth/me`, `/api/v1/menus/me`, `/api/v1/menus/*/content`, `/api/v1/langs`, `/api/v1/codes/*`, `/api/v1/org/tree`, `PUT /api/v1/users/me/lang` | 로그인만 |
+| `/api/v1/code-groups/**` · `/api/v1/menus`, `/api/v1/menus/*` · `/api/v1/roles/**`, `GET /api/v1/users` | `SCOPE_code.*` · `SCOPE_menu.*` · `SCOPE_role.*` (메서드별 list/add/edit/del, 부여·메뉴 접근은 role.edit) |
 | `/actuator/health·info·prometheus`(관리 포트), `/swagger-ui/**`, `/v3/api-docs/**`, `/h2-console/**`, `/error` | 공개 |
 | **그 외** | **거부 (`denyAll`)** |
 
@@ -141,6 +142,7 @@ Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 �
 | `notice.add` | O | O | O |  |  |  |  |  |
 | `notice.edit` | O | O | O |  |  |  |  |  |
 | `notice.del` | O | O |  |  |  |  |  |  |
+| `code.*` `menu.*` `role.*` (관리, 12개) | O |  |  |  |  |  |  |  |
 
 - `notice.*` (v0.4): realm 역할 + 같은 이름 client scope (`setup/setup.sh`), BFF 요청 scope 에 추가. DB 권한은 메뉴 15(`PERM_CD=notice`)의 `TB_ROLE_MENU` (모듈마스터 전체, TX 모듈매니저 삭제 제외, 일반 사용자 조회). 상세 [03_notice.md](03_notice.md)
 

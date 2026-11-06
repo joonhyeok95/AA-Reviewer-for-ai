@@ -1,14 +1,20 @@
 package com.flowlog.backend.code.domain.service;
 
+import com.flowlog.backend.code.domain.model.CodeId;
+import com.flowlog.backend.code.domain.repository.CodeRepository;
 import com.flowlog.backend.code.domain.service.dto.CodeItem;
 import com.flowlog.backend.code.domain.service.dto.LangResponse;
+import com.flowlog.backend.code.exception.CodeErrorCode;
 import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.constant.YesNo;
+import com.flowlog.backend.global.exception.BusinessException;
 import com.flowlog.backend.global.security.AuthenticationSubjects;
 import com.flowlog.backend.user.domain.model.User;
 import com.flowlog.backend.user.domain.repository.UserRepository;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
@@ -44,6 +50,7 @@ public class LangService {
   private static final String FALLBACK_LANG = "ko";
 
   private final CodeService codeService;
+  private final CodeRepository codeRepository;
   private final UserRepository userRepository;
 
   /**
@@ -104,6 +111,55 @@ public class LangService {
       String requested = locale == null ? null : locale.getLanguage();
       return isActive(requested) ? requested : defaultLang();
     });
+  }
+
+  /**
+   * 관리 화면의 언어별 이름 정리·검증.
+   *
+   * <p>공백 이름은 버리고(→ 기본 언어 이름으로 대체 표시), LANG 에 없는 언어는 거부한다.
+   * 미사용으로 바꾼 언어의 이름은 결과에서 빼고 저장된 값을 그대로 둔다. ({@link #isActive} 로 저장 대상 판단)
+   * 기본 언어 이름은 필수.
+   *
+   * @param names 언어코드 → 이름
+   * @return 정리된 이름 (사용 중인 언어만, 언어 정렬순서)
+   */
+  public Map<String, String> normalizeNames(Map<String, String> names) {
+    Map<String, String> source = names == null ? Map.of() : names;
+    for (String langCd : source.keySet()) {
+      if (!isActive(langCd) && !codeRepository.existsById(new CodeId(LANG_GROUP, langCd))) {
+        throw new BusinessException(CodeErrorCode.INVALID_LANG, langCd);
+      }
+    }
+    Map<String, String> result = new LinkedHashMap<>();
+    for (CodeItem lang : activeLangs()) {
+      String name = StringUtils.trimToNull(source.get(lang.code()));
+      if (name != null) {
+        result.put(lang.code(), name);
+      }
+    }
+    String defaultLang = defaultLang();
+    if (!result.containsKey(defaultLang)) {
+      throw new BusinessException(CodeErrorCode.DEFAULT_NAME_REQUIRED, defaultLang);
+    }
+    return result;
+  }
+
+  /**
+   * 언어별 이름 중 표시 이름. (요청 언어 → 기본 언어 → 아무 이름)
+   *
+   * @param names 언어코드 → 이름
+   * @param langCd 표시 언어
+   * @return 이름 (없으면 null)
+   */
+  public String nameOf(Map<String, String> names, String langCd) {
+    String name = names.get(langCd);
+    if (StringUtils.isBlank(name)) {
+      name = names.get(defaultLang());
+    }
+    if (StringUtils.isBlank(name)) {
+      name = names.values().stream().findFirst().orElse(null);
+    }
+    return name;
   }
 
   /**

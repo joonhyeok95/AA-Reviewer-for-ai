@@ -1,6 +1,6 @@
 # 테스트 결과 리포트
 
-- 실행일시: 2026-11-06 (KST) — 화면(vue-frontend) 연동 보완 후 (로그인 복귀 경로, CSRF 쿠키, 요청 캐시, LIKE 이스케이프)
+- 실행일시: 2026-11-06 (KST) — 관리 API(공통코드·메뉴·권한) 추가 후
 - 실행 명령: `mvnw clean test` (기본) / `mvnw test -Poracle-it` (실제 Oracle)
 - 환경: Java 17.0.12 / Spring Boot 4.1.2 / Spring Security 7.1.2 / Spring Session / H2 (Oracle 호환 모드) · Oracle Free 23ai (Testcontainers)
 
@@ -8,8 +8,8 @@
 
 | 구분 | 전체 | 성공 | 실패 | 결과 |
 |---|---|---|---|---|
-| 기본 (`mvnw test`) | 116 | 116 | 0 | ✅ BUILD SUCCESS |
-| Oracle (`-Poracle-it`) | 2 | 2 | 0 | ✅ BUILD SUCCESS |
+| 기본 (`mvnw test`) | 136 | 136 | 0 | ✅ BUILD SUCCESS |
+| Oracle (`-Poracle-it`) | 3 | 3 | 0 | ✅ BUILD SUCCESS |
 
 | 테스트 클래스 | 유형 | 대상 | 건수 | 결과 |
 |---|---|---|---|---|
@@ -20,10 +20,11 @@
 | `SecurityIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | Bearer / BFF / SAML2, sub 매핑, scope ∩ DB 권한, 기본 거부, 메뉴 API(사용자 언어 우선), Forwarded 헤더, 화면 연동(returnTo 검증, /auth/me 표시 언어) | 35 | ✅ |
 | `NoticeApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 공지 다국어 NT-60~66, 지원 언어(LANG), 사용자 언어, 조직도, 첨부, 권한 | 23 | ✅ |
 | `NoticeMailServiceTest` | 통합 (H2, MailGateway Mock) | 메일 NT-47~4A, 발송 시점 인사 마스터, 중복 발송 방지, 실패 이력 | 5 | ✅ |
+| `AdminApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 공통코드·메뉴·권한 관리 API, 즉시 반영(캐시), 권한 상승 방지, 본문 메뉴 | 20 | ✅ |
 | `BrowserCookieWebTest` | 통합 (실제 포트 HTTP) | XSRF-TOKEN 첫 요청 발급·경로 `/`·재발급 없음, 미인증 401 은 세션 미생성 | 2 | ✅ |
 | `SessionSerializationTest` | 단위 | 세션 AES-GCM 암호화 + 허용목록 직렬화 (복원·위변조·다른 키·차단 클래스) | 7 | ✅ |
 | `SecurityStartupValidatorTest` | 단위 | prod 기동 보안 검사 | 3 | ✅ |
-| `OracleSchemaTest` | 통합 (Oracle 컨테이너, `@Tag("oracle")`) | DDL·초기데이터·`validate`·권한/메뉴 쿼리·공지 MyBatis 검색·샘플 LIKE ESCAPE | 2 | ✅ |
+| `OracleSchemaTest` | 통합 (Oracle 컨테이너, `@Tag("oracle")`) | DDL·초기데이터·`validate`·권한/메뉴 쿼리·공지 MyBatis 검색·샘플 LIKE ESCAPE·관리 조회(그룹별 건수, 사용자 검색) | 3 | ✅ |
 
 ## SpringBoilerplateApplicationTests
 
@@ -180,6 +181,30 @@ SampleService 비즈니스 로직 — 단위 (Mockito)
 |---|---|---|---|
 | ✅ PASS | `trustedProxy_applied` | 신뢰 프록시(Gateway)의 X-Forwarded-* 는 반영 - redirect_uri 가 외부 URL(/cm) 기준 | 0.018 |
 | ✅ PASS | `untrustedClient_ignored` | 신뢰하지 않는 호출자의 X-Forwarded-Host 위조는 무시 - redirect_uri 가 조작되지 않음 | 0.007 |
+
+## AdminApiIntegrationTest (관리 API, 2026-11-06)
+
+| 영역 | 테스트 | 검증 내용 |
+|---|---|---|
+| 공통코드 | `groups` | 그룹 목록 - 미사용 포함, 언어별 그룹명, 시스템 여부, 코드 수 |
+| | `createGroupAndCode_reflectedImmediately` | 그룹·코드 등록 → 사용자 코드 API 즉시 반영(캐시 삭제), 빈 영문명은 저장 안 함 |
+| | `validation` | 기본 언어 이름 필수 B4002, LANG 에 없는 언어 B4001, 그룹코드 중복 B4004, 형식 C0002 |
+| | `systemGroupProtected` | 시스템 그룹 삭제 B4007, 시스템 그룹의 코드 삭제 B4008 |
+| | `lastLangRequired` | 마지막 사용 중 언어 미사용 불가 B4009, 미사용 언어는 지원 언어에서 빠지고 그 언어 이름은 보존 |
+| | `deleteGroup` / `forbidden` | 일반 그룹 삭제(코드 포함) / DB 권한 없으면 scope 가 있어도 403 |
+| 메뉴 | `treeAndDetail` | 미노출 메뉴 포함 트리, 상세의 언어별 이름·본문 |
+| | `createContentMenu_sanitized` | CONTENT 본문 script 제거 후 저장 |
+| | `urlValidation` | 유형별 URL (javascript:, 상대 LINK, //host, CONTENT+URL) B5004, 없는 유형 B5005 |
+| | `treeIntegrity` / `reorder` | 순환 B5003, 하위 메뉴 있으면 삭제 B5002 / 같은 상위만 순서 변경 B5006 |
+| | `permCdChange_evictsAuthorityCache` | 권한코드 변경 → 즉시 API 권한 상실 (권한 캐시 삭제) |
+| | `content` | 본문 메뉴 - 내 메뉴면 조회, 아니면 B5007 |
+| 권한 | `roles` / `roleCrud` | 목록·건수 / 등록·수정(키 불변)·중복 B6002·기본 권한 B6003·부여 있으면 삭제 B6005 |
+| | `roleMenus_appliedImmediately` | 메뉴 접근 저장 → 상위 메뉴 조회 자동, 즉시 메뉴·API 권한 반영 |
+| | `grants` | 사용자 부여·기간 중복 B6010·대상 없음 B6007·기간 오류 B6009·기간 변경(시작 전)·회수 |
+| | `delegatedAdmin_cannotTouchSysAdmin` | role.* 를 위임받아도 시스템관리자 권한 변경·부여 B6004 |
+| | `searchUsers` | ID·이름 부분 일치, 주부서명, `%` 는 문자 그대로, role.list 없으면 403 |
+
+실연동 : 인증 E2E 48/48, 화면 E2E 50/50 (공통코드·메뉴·권한 관리 화면, 부여 → 다른 사용자 메뉴 반영 → 회수)
 
 ## 화면 연동 보완 (2026-11-06)
 

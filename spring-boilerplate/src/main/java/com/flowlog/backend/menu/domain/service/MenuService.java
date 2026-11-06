@@ -3,12 +3,15 @@ package com.flowlog.backend.menu.domain.service;
 import com.flowlog.backend.code.domain.service.LangService;
 import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.constant.YesNo;
+import com.flowlog.backend.global.exception.BusinessException;
 import com.flowlog.backend.menu.domain.model.Menu;
 import com.flowlog.backend.menu.domain.model.MenuLang;
 import com.flowlog.backend.menu.domain.repository.MenuLangRepository;
 import com.flowlog.backend.menu.domain.repository.MenuRepository;
-import com.flowlog.backend.menu.domain.service.dto.MenuTreeResponse;
+import com.flowlog.backend.menu.domain.service.dto.MenuAdminDtos.MenuContentResponse;
 import com.flowlog.backend.menu.domain.service.dto.MenuTreeResponse.MenuPermission;
+import com.flowlog.backend.menu.domain.service.dto.MenuTreeResponse;
+import com.flowlog.backend.menu.exception.MenuErrorCode;
 import com.flowlog.backend.role.domain.model.Role;
 import com.flowlog.backend.role.domain.model.RoleMenu;
 import com.flowlog.backend.role.domain.repository.RoleMenuRepository;
@@ -75,6 +78,44 @@ public class MenuService {
       tree = buildTree(menus, permissionsOf(roles, menus), menuNames(langCd), null);
     }
     return tree;
+  }
+
+  /**
+   * 본문형(CONTENT) 메뉴의 본문. 내 메뉴에 있는(조회 권한이 있는) 메뉴만.
+   *
+   * <p>표시 언어 본문이 없으면 기본 언어 본문 (fallback=true).
+   *
+   * @param subject IdP 사용자 고유ID
+   * @param menuId 메뉴ID
+   * @param langCd 표시 언어
+   * @return 본문
+   */
+  public MenuContentResponse getContent(String subject, Long menuId, String langCd) {
+    Optional<User> user = StringUtils.isBlank(subject) ? Optional.empty()
+        : userRepository.findByIdpSubjectAndUseYn(subject, YesNo.Y);
+    Menu menu = menuRepository.findById(menuId)
+        .filter(found -> YesNo.isYes(found.getUseYn())
+            && MenuAdminService.VIEW_CONTENT.equals(found.getViewTypeCd()))
+        .orElseThrow(() -> new BusinessException(MenuErrorCode.CONTENT_NOT_FOUND, menuId));
+    List<Role> roles = user.map(found ->
+        roleRepository.findEffectiveRoles(found.getUserId(), LocalDate.now(ZONE_ID)))
+        .orElse(List.of());
+    if (!permissionsOf(roles, List.of(menu)).containsKey(menuId)) {
+      throw new BusinessException(MenuErrorCode.CONTENT_NOT_FOUND, menuId);
+    }
+    Map<String, MenuLang> langs = menuLangRepository.findByIdMenuId(menuId).stream()
+        .collect(Collectors.toMap(lang -> lang.getId().getLangCd(), lang -> lang));
+    String defaultLang = langService.defaultLang();
+    MenuLang requested = langs.get(langCd);
+    MenuLang base = langs.get(defaultLang);
+    boolean fallback = requested == null || StringUtils.isBlank(requested.getMenuContent());
+    MenuLang shown = fallback && base != null ? base : requested;
+    String menuNm = requested != null ? requested.getMenuNm()
+        : base != null ? base.getMenuNm() : null;
+    return new MenuContentResponse(menuId, menuNm,
+        shown == null ? langCd : shown.getId().getLangCd(),
+        fallback && shown != null && !shown.getId().getLangCd().equals(langCd),
+        shown == null ? null : shown.getMenuContent());
   }
 
   private Map<Long, MenuPermission> permissionsOf(List<Role> roles, List<Menu> menus) {

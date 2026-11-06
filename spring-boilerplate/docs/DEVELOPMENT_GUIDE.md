@@ -336,6 +336,8 @@ public class Sample extends BaseEntity {
   - 사용자 언어 = `TB_USER.LANG_CD` → `Accept-Language` → 기본 언어 (`LangService.resolveUserLang`). 변경: `PUT /api/v1/users/me/lang`
   - 이름이 없는 언어는 기본 언어 이름으로 대체. 인사 마스터 명칭은 ko = 국문, 그 외 = 영문명(없으면 국문)
   - 새 언어 = LANG 코드 + 코드 다국어 + `messages_{locale}.properties` + 메일 템플릿(`TB_MAIL_TEMPLATE`) 등록 (코드 수정 없음)
+  - 관리 화면의 언어별 이름은 `{언어코드: 이름}` 맵으로 받고 `LangService.normalizeNames` 로 검증한다. (기본 언어 필수,
+    LANG 에 없는 언어 거부, 미사용 언어의 저장된 이름은 보존 - 기존 행은 이름만 바꾸고 요청에서 빠진 **사용 중** 언어만 삭제)
 - 메시지는 `resources/messages/messages_{locale}.properties` 에 정의한다.
   - Key: `{messageId}.title`, `{messageId}.content`
   - 치환 인자: `{0}`, `{1}` … (기존 `#` 치환 방식 → MessageFormat 방식) **[변경]**
@@ -508,6 +510,9 @@ Oracle 이관을 전제로 작성한다.
   - DB 유효 권한 → `ROLE_{권한코드}` (예: `ROLE_SYS_ADMIN` 은 전체 허용)
   - 서비스 계정(Client Credentials)은 `app.security.service-account-clients` 의 azp 이고 사용자명이 `service-account-{azp}` 일 때만 → 토큰 scope 만
   - 세션 로그인(BFF/SAML)은 로그인 시점 권한을 쓰지 않고 **요청마다 재계산**한다. SAML 은 `max-auth-age`(1h) 후 재로그인
+- 관리 API(공통코드 `code.*` / 메뉴 `menu.*` / 권한 `role.*`)도 같은 체계. 상세 [design/01_auth_menu_code.md](design/01_auth_menu_code.md) 6-1
+  - DB 권한·메뉴 데이터를 바꾸는 서비스는 `@CacheEvict(UserAuthorityService.CACHE_NAME, allEntries = true)`, 공통코드는 `CodeService.CACHE_NAME` 을 비운다. (즉시 반영)
+  - 시스템관리자 권한(레벨 1)의 변경·부여는 시스템관리자만 (권한 상승 방지, `RoleAdminService`)
 - **기본 거부**: `SecurityConfig` 규칙이 없는 경로는 `denyAll`. 새 API = SecurityConfig 규칙 + 메뉴 `PERM_CD`/`TB_ROLE_MENU` + Keycloak 역할/scope
 - Gateway 의 `X-Forwarded-*` 는 `app.security.trusted-proxies` 에서 온 요청만 반영 (`TrustedForwardedHeaderFilter`)
 - URL 규칙은 `SecurityConfig`, 메서드 단위는 `@PreAuthorize("hasAuthority('ROLE_XXX')")`
