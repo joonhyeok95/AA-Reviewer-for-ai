@@ -88,6 +88,17 @@ app:
       - /cm/h2-console/**
       - /cm/actuator/**
     # ------------------------------------------------------------
+    # 로그인 화면(Keycloak) 경유 - 같은 네트워크의 다른 기기에서 IP 로 접속할 때만 켠다 (IdpProxyRouteConfig)
+    #  - /realms/{realm}/**, /resources/** 만 전달. 관리 콘솔(/admin)·master realm 은 전달하지 않음
+    #  - spring-boilerplate/scripts/dev-up -Lan 이 켠다
+    # ------------------------------------------------------------
+    idp-proxy:
+      enabled: ${GATEWAY_IDP_PROXY_ENABLED:false}
+      uri: ${IDP_SERVICE_URI:http://localhost:7000}
+      realm: ${IDP_REALM:flowlog}
+      # http://{IP} 접속용 - Keycloak 쿠키의 Secure 제거, SameSite=None → Lax (HTTPS 환경이면 false)
+      strip-secure-cookie: ${IDP_STRIP_SECURE_COOKIE:true}
+    # ------------------------------------------------------------
     # Rate Limit (Redis 토큰 버킷 - Lua 스크립트로 원자적 처리)
     #  - 키: Redis 에 실제 존재하는 로그인 세션 단위, 없으면(위조/만료 쿠키 포함) 클라이언트 IP 단위
     #  - 초당 20개 충전, 순간 최대 40개 → 초과 시 429 G0005

@@ -72,4 +72,14 @@ for entry in "sample.list:샘플 조회" "sample.add:샘플 등록" "sample.edit
   kc update "clients/${BATCH}/optional-client-scopes/${sid}" -r "$REALM"
 done
 
+# 같은 네트워크의 다른 기기에서 IP 로 접속 (scripts/dev-up -Lan → PUBLIC_HOST)
+#  - Gateway 공개 URL http://{IP}:9909 의 로그인 콜백을 redirect URI 에 추가 (localhost 항목은 realm JSON 과 동일하게 유지)
+if [ -n "${PUBLIC_HOST:-}" ]; then
+  LAN="http://${PUBLIC_HOST}:9909"
+  kc update "clients/${BFF}" -r "$REALM" -s "redirectUris=[\"http://localhost:9909/cm/login/oauth2/code/keycloak\",\"http://localhost:9091/login/oauth2/code/keycloak\",\"${LAN}/cm/login/oauth2/code/keycloak\"]"
+  SAML=$(client_uuid "http://localhost:9909/cm/saml2/service-provider-metadata/keycloak")
+  kc update "clients/${SAML}" -r "$REALM" -s "redirectUris=[\"http://localhost:9909/cm/login/saml2/sso/keycloak\",\"http://localhost:9091/login/saml2/sso/keycloak\",\"${LAN}/cm/login/saml2/sso/keycloak\"]"
+  echo "[setup] LAN redirect URIs added: ${LAN}"
+fi
+
 echo "[setup] done - client scopes(role-restricted) linked to flowlog-bff, flowlog-batch (optional)"

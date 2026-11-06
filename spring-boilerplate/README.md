@@ -29,6 +29,22 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 ```
 접속은 http://localhost:9909 (Gateway). 화면 개발 서버 5173 에 직접 접속하지 않는다.
 
+#### 같은 네트워크의 다른 PC·모바일에서 접속 (LAN 모드)
+
+```powershell
+# 최초 1회, 관리자 PowerShell : 9909 인바운드 허용 (Wi-Fi 가 "개인" 네트워크일 때)
+New-NetFirewallRule -DisplayName 'Flowlog LAN 9909' -Direction Inbound -Protocol TCP -LocalPort 9909 -Action Allow -Profile Private
+
+./scripts/dev-up.ps1 -Lan                 # IP 자동 감지 (-LanHost 192.168.x.x 로 지정 가능)
+```
+```bash
+./scripts/dev-up.sh --lan                 # 또는 --lan-host 192.168.x.x
+```
+- 접속 : `http://{이 PC IP}:9909` (이 PC 에서도 IP 로 접속. localhost 와 세션이 따로 잡힘)
+- 로그인 화면(Keycloak)도 Gateway 9909 경유 (`/realms/flowlog/**`, `/resources/**`) → **여는 포트는 9909 하나**. Keycloak 관리 콘솔은 계속 localhost:7000 에서만
+- Keycloak 공개 URL·백엔드 issuer·redirect URI 가 IP 기준으로 바뀌어 Keycloak 컨테이너가 다시 만들어진다 (dev 모드라 realm 재import). 일반 모드로 돌아갈 때도 마찬가지
+- Keycloak 로그인 쿠키(`Secure; SameSite=None`)는 http://{IP} 에서 브라우저가 버리므로 Gateway 가 이 경로에서만 `Secure` 를 빼고 `SameSite=Lax` 로 바꾼다 (HTTP 개발 전용)
+
 ### 개별 실행
 
 ```bash

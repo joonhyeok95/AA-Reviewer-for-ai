@@ -121,7 +121,7 @@ docker compose -f ../spring-boilerplate/infra/redis/docker-compose.yml up -d   #
 
 CI: 저장소 루트 `.github/workflows/gateway-ci.yml` (temurin 17, `./mvnw -B verify`, Testcontainers).
 
-## 테스트 (51/51)
+## 테스트 (54/54)
 
 | 클래스 | 테스트 | 검증 |
 |---|---|---|

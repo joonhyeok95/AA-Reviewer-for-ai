@@ -19,7 +19,7 @@ Flowlog 업무 시스템 모노레포. 아래 3개 프로젝트를 커밋 이력
 ./spring-boilerplate/scripts/dev-down.sh
 ```
 
-접속: http://localhost:9909 · 자세한 내용은 [spring-boilerplate/README.md](spring-boilerplate/README.md)
+접속: http://localhost:9909 · 같은 네트워크의 다른 기기에서 IP 로 접속하려면 `dev-up.ps1 -Lan` (`dev-up.sh --lan`) · 자세한 내용은 [spring-boilerplate/README.md](spring-boilerplate/README.md)
 
 ## 문서
 

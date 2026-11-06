@@ -16,6 +16,11 @@ services:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
       KC_HEALTH_ENABLED: "true"
+      # 브라우저·토큰에 쓰이는 공개 URL (iss). 기본 localhost:7000
+      #  - 같은 네트워크의 다른 기기 접속(scripts/dev-up -Lan)은 Gateway 경유 http://{IP}:9909
+      #  - 관리 콘솔은 항상 localhost:7000 (Gateway 로 전달하지 않음)
+      KC_HOSTNAME: ${KC_PUBLIC_URL:-http://localhost:7000}
+      KC_HOSTNAME_ADMIN: http://localhost:7000
     ports:
       # localhost 에만 바인딩 (dev 모드 + 기본 관리자 계정이므로 외부 노출 금지)
       - "127.0.0.1:7000:8080"
@@ -33,6 +38,8 @@ services:
       KC_SERVER: http://keycloak:8080
       KC_ADMIN: admin
       KC_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:-admin}
+      # LAN 접속용 IP (scripts/dev-up -Lan). 있으면 redirect URI 에 http://{IP}:9909 추가
+      PUBLIC_HOST: ${PUBLIC_HOST:-}
     volumes:
       - ./setup:/opt/setup:ro
     restart: "no"
