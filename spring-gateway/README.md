@@ -7,7 +7,7 @@ Flowlog API Gateway — Spring Cloud Gateway **Server WebFlux** (Netty, 비동�
 | 버전 | Java 17 / Spring Boot 4.1.2 / Spring Cloud 2025.1.4 (Gateway 5.0.4, CircuitBreaker Resilience4j) |
 | 포트 | **9909** (서비스) / **9910** (관리: actuator, 기본 127.0.0.1 바인딩) |
 | 패키지 | `com.flowlog.gateway` |
-| 상태 | 테스트 48/48 (실제 Redis 컨테이너) · 실연동 E2E Rate Limit / 서킷브레이커 확인 |
+| 상태 | 테스트 51/51 (실제 Redis 컨테이너) · 실연동 E2E Rate Limit / 서킷브레이커 확인 · 화면 E2E 35/35 |
 
 ## 구성
 
@@ -23,11 +23,16 @@ Flowlog API Gateway — Spring Cloud Gateway **Server WebFlux** (Netty, 비동�
                      │
                      ▼
                Redis :6379  request_rate_limiter.{route.key}.tokens / .timestamp
+
+ Client ──▶ spring-gateway :9909 ── 그 외 /** (경로 그대로, ⓪①② 만) ──▶ 화면 vue-frontend (local Vite :5173 / 운영 nginx)
 ```
 
 | 라우트 | Predicate | Filters | 대상 |
 |---|---|---|---|
 | `cm` | `Path=/cm/**` | `StripPrefix=1`, `RateLimit`, `CircuitBreaker(cm → forward:/fallback/cm)` | `${CM_SERVICE_URI:http://localhost:9091}` |
+| `web` (order 100) | `Path=/`, `/{first:(?!(?i:actuator)$).+}/**` | 없음 (경로 그대로, Rate Limit·서킷 미적용) | `${WEB_SERVICE_URI:http://localhost:5173}` — 화면 [vue-frontend](../vue-frontend) (local Vite / 운영 nginx) |
+
+> 화면과 API 가 **같은 Origin(9909)** 이므로 SESSION·XSRF-TOKEN 쿠키를 그대로 쓰고 CORS 가 없다. 화면 라우트는 `/actuator/**` 를 받지 않는다 (→ 404 G0001). Vite HMR 웹소켓도 이 라우트로 전달된다.
 
 > RateLimit 을 CircuitBreaker 앞에 둔다. 한도 초과(429) 요청이 서킷 실패율에 섞이지 않도록 하기 위함.
 
@@ -116,7 +121,7 @@ docker compose -f ../spring-boilerplate/infra/redis/docker-compose.yml up -d   #
 
 CI: `.github/workflows/ci.yml` (temurin 17, `./mvnw -B verify`, Testcontainers).
 
-## 테스트 (48/48)
+## 테스트 (51/51)
 
 | 클래스 | 테스트 | 검증 |
 |---|---|---|
@@ -131,6 +136,7 @@ CI: `.github/workflows/ci.yml` (temurin 17, `./mvnw -B verify`, Testcontainers).
 | | circuit_opensWhenBackendDown | 3건 실패(G0002) → OPEN → 즉시 G0004 (<1초) |
 | | circuit_recovers | OPEN 중 **백엔드 호출 0건**, 복구 후 HALF_OPEN → CLOSED |
 | `SessionOrIpKeyResolverTest` (8) | ip_directConnection, ip_behindLoadBalancer(_noHeader), session_exists/notExists/invalidCookie/redisError, sessionId_decoding | 키 결정 단위 테스트 (hops 0/1, 위조 XFF 무시, Redis 오류 시 IP) |
+| `GatewayWebRouteTest` (3) | routesByPrefix, webRoute_noRateLimit, blockedPaths_notServedByWeb | 운영 yml 라우트 그대로: `/cm/**` → API, 그 외 → 화면(경로 유지), 화면은 Rate Limit 미적용, 차단 경로·`/actuator/**` 는 화면으로도 안 감 |
 | `SpringGatewayApplicationTests` (1) | contextLoads | 기동 |
 
 ## 운영 전환 체크리스트

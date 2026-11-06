@@ -13,6 +13,7 @@ Spring Cloud Gateway (Server **WebFlux**, Netty) / Spring Boot 4.1 / Java 17 / M
 - 라우트는 `application.yml` 의 `spring.cloud.gateway.server.webflux.routes` 에 정의. 신규 서비스 = 라우트 추가 (`Path=/{prefix}/**` + `StripPrefix=1`) + 그 서비스의 내부 전용 경로(H2 콘솔, actuator 등)를 `app.gateway.blocked-paths` 에 추가.
 - `trusted-proxies` 가 없으면 X-Forwarded-* 가 추가되지 않는다 → 백엔드 SAML/Swagger URL 이 깨짐. 제거 금지.
 - `x-forwarded.host-append / prefix-append: false` 유지 (true 면 신뢰 프록시 경로에서 위조 Host/Prefix 가 백엔드까지 전달됨). `ForwardedHeaderSanitizerGlobalFilter` 제거 금지.
+- 화면 라우트 `web` (`/**`, order 100, `WEB_SERVICE_URI`) 는 맨 마지막. Rate Limit/서킷 미적용, `/actuator/**` 제외(predicate 정규식). 새 API 라우트는 `web` 보다 앞(기본 order 0)에 둔다. 화면·API 같은 Origin 유지 (CORS 추가 금지)
 - Actuator 는 관리 포트(9910)에서만. `gateway` 엔드포인트(라우트 쓰기 기능)는 노출 금지.
 - `PathSecurityWebFilter` 는 라우팅 전에 우회 형식 경로(400 G0006)와 차단 경로(404 G0001)를 거른다. 경로 정규화로 우회를 "허용"하도록 바꾸지 말 것 (거부가 원칙).
 - Rate Limit 키는 Redis 에 실존하는 세션만 세션 버킷 (`SessionOrIpKeyResolver`). 쿠키 값만 보고 키를 만들지 말 것 (위조 쿠키로 우회됨).
