@@ -7,7 +7,7 @@ Flowlog 화면 (Vue 3 / TypeScript / Vite). [spring-gateway](../spring-gateway) 
 | 접속 | **http://localhost:9909** (Gateway - 화면 `/**`, API `/cm/**`) |
 | 개발 서버 | Vite **5173** (직접 접속하지 않음, Gateway 가 전달) |
 | 인증 | Keycloak OIDC(BFF) / SAML 로그인 → SESSION 쿠키 (화면은 토큰을 다루지 않음) |
-| 테스트 | `npm test` 단위 **27** · `npm run e2e` 실연동 **35/35** (Edge) |
+| 테스트 | `npm test` 단위 **30** · `npm run e2e` 실연동 **50/50** (Edge, 운영 CSP) |
 
 ## 화면 / 연동 API
 
@@ -21,10 +21,12 @@ Flowlog 화면 (Vue 3 / TypeScript / Vite). [spring-gateway](../spring-gateway) 
 | 공지 등록/수정 | `/support/notices/new`, `/{id}/edit` | `POST`/`PUT /notices`, `GET /{id}/edit`, 첨부 `POST`/`DELETE /files`, 공통코드, 조직도(메일 대상) |
 | 팝업 공지 | 로그인 후 | `GET /notices/popups` (오늘 하루 보지 않기) |
 | 거래 목록 | `/tx/trades/list` | `GET`/`POST`/`PUT`/`DELETE /samples` (검색·정렬·페이징) |
-| 공통코드 | `/system/codes` | `GET /codes/{groupCd}` |
+| 공통코드관리 | `/system/codes` | `/code-groups` 그룹·코드 등록/수정/삭제, 언어별 이름 (`code.*`) |
+| 메뉴관리 | `/system/menus` | `/menus` 트리(위/아래 이동)·등록/수정/삭제, 유형별 URL, 권한코드, 언어별 이름·본문 (`menu.*`) |
+| 권한관리 | `/system/roles` | `/roles` 권한 등록/수정/삭제, 메뉴 권한(조회/등록/수정/삭제), 사용자·부서 부여·기간·회수, `/users` 검색 (`role.*`) |
 | 조직도 | `/org` | `GET /org/tree` |
 | 내 정보 | `/me` | `GET /auth/me`, `PUT /users/me/lang` |
-| 메뉴 유형 | `/frame/{id}`, `/content/{id}`, 그 외 | IFRAME / CONTENT / 화면 없는 메뉴 "준비 중" |
+| 메뉴 유형 | `/frame/{id}`, `/content/{id}`, 그 외 | IFRAME / CONTENT 본문(`GET /menus/{id}/content`) / 화면 없는 메뉴 "준비 중" |
 
 ## 실행
 

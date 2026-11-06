@@ -80,33 +80,39 @@ watch(() => props.modelValue, (value) => {
 
 onBeforeUnmount(() => {
   unmounted = true
-  editor?.destroy()
+  try {
+    editor?.destroy()
+  } catch {
+    // TOAST UI 기본 UI(툴바) 정리 단계의 removeChild 예외 - 편집기 본체는 이미 해제되어 무시해도 된다.
+    // 툴바 크기 변화로 예약된 다시 그리기가 해제 직후 실행되면 드물게 콘솔 오류가 남는다. (기능 영향 없음,
+    // TOAST UI 3.2 는 유지보수가 끝난 라이브러리 - 교체 검토 대상)
+  }
   editor = null
 })
 </script>
 
 <template>
-  <div ref="host" class="notice-editor" :lang="editorLocale" />
+  <div ref="host" class="html-editor" :lang="editorLocale" />
 </template>
 
 <style scoped>
-.notice-editor :deep(.toastui-editor-defaultUI) {
+.html-editor :deep(.toastui-editor-defaultUI) {
   border-color: var(--rule-strong);
   border-radius: var(--radius-sm);
   font-family: var(--font-sans);
 }
 
-.notice-editor :deep(.toastui-editor-defaultUI-toolbar) {
+.html-editor :deep(.toastui-editor-defaultUI-toolbar) {
   background: var(--paper);
   border-bottom-color: var(--rule);
 }
 
-.notice-editor :deep(.toastui-editor-contents) {
+.html-editor :deep(.toastui-editor-contents) {
   font-family: var(--font-sans);
   font-size: 14px;
 }
 
-.notice-editor :deep(.ProseMirror) {
+.html-editor :deep(.ProseMirror) {
   min-height: 100%;
 }
 </style>

@@ -35,7 +35,9 @@ function check(name, ok, detail = '') {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`)
 }
 
+let currentStep = ''
 async function step(name, fn) {
+  currentStep = name
   try {
     await fn()
   } catch (error) {
@@ -52,7 +54,10 @@ async function newPage(locale = 'ko-KR') {
   const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1 })
   const page = await context.newPage()
-  page.on('pageerror', (error) => console.log(`  [pageerror] ${error.message}`))
+  page.on('pageerror', (error) => {
+    const stack = (error.stack ?? '').split('\n').slice(1, 5).join(' | ')
+    console.log(`  [pageerror] (${currentStep}) ${error.message}  ${stack}`)
+  })
   page.on('console', (message) => {
     if (message.type() === 'error' && /Content Security Policy/i.test(message.text())) {
       cspViolations.push(message.text())
@@ -116,8 +121,6 @@ await step('admin 로그인', async () => {
   await login(admin, 'admin', 'oauth2', '/support/notices')
   check('Keycloak 로그인 후 원래 화면(/support/notices)으로 복귀', new URL(admin.url()).pathname === '/support/notices',
     admin.url())
-  await setUserLang(admin, 'ko')
-  await admin.reload()
 })
 
 await step('팝업 공지', async () => {
@@ -126,6 +129,9 @@ await step('팝업 공지', async () => {
   check('로그인 후 팝업 공지 표시', visible)
   if (visible) await shot(admin, '02-popup')
   await closePopups(admin)
+  // 이전 실행이 바꾼 언어 설정을 되돌린다 (반복 실행)
+  await setUserLang(admin, 'ko')
+  await admin.reload()
 })
 
 await step('공지 목록', async () => {
@@ -278,14 +284,15 @@ await step('공통코드 / 조직도 / 내 정보', async () => {
 await step('화면 언어 변경 (KO → EN → KO)', async () => {
   await admin.goto(`${BASE}/system/codes?group=NOTICE_CATEGORY`)
   await admin.waitForSelector('.table tbody tr')
-  const before = await admin.locator('.table tbody tr td:nth-child(3)').first().innerText()
+  const groupName = '[data-test="group-NOTICE_CATEGORY"] .pick-main span:first-child'
+  const before = await admin.locator(groupName).innerText()
   await admin.click('.topbar [data-test="lang-en"]')
   await admin.waitForFunction(() => document.documentElement.lang === 'en')
-  await admin.waitForFunction((b) =>
-    document.querySelector('.table tbody tr td:nth-child(3)')?.textContent?.trim() !== b, before)
-  const after = await admin.locator('.table tbody tr td:nth-child(3)').first().innerText()
+  await admin.waitForFunction(([selector, b]) =>
+    document.querySelector(selector)?.textContent?.trim() !== b, [groupName, before])
+  const after = await admin.locator(groupName).innerText()
   const heading = await admin.locator('h1').innerText()
-  check('EN 전환 - 화면 문구·코드명 영어', heading === 'Common codes' && after !== before,
+  check('EN 전환 - 화면 문구·그룹명 영어', heading === 'Common codes' && after !== before,
     `${before} → ${after}`)
   await shot(admin, '09-codes-en')
   await admin.reload()
@@ -295,14 +302,123 @@ await step('화면 언어 변경 (KO → EN → KO)', async () => {
   await admin.waitForFunction(() => document.documentElement.lang === 'ko')
 })
 
-await step('메뉴 유형 (CONTENT / 준비 중)', async () => {
+await step('메뉴 유형 (CONTENT 본문 / 준비 중)', async () => {
   await admin.goto(`${BASE}/`)
   await admin.click('.side a[href^="/content/"]')
   await admin.waitForURL(/\/content\/\d+$/)
-  check('CONTENT 메뉴 → 본문 메뉴 안내 화면', await admin.locator('.empty').isVisible())
-  await admin.goto(`${BASE}/system/menus`)
+  await admin.waitForSelector('[data-test="content-body"]')
+  check('CONTENT 메뉴 → 언어별 본문 표시 (GET /menus/{id}/content)',
+    (await admin.locator('[data-test="content-body"]').innerText()).includes('TX'))
+  await admin.goto(`${BASE}/ws/status/list`)
   await admin.waitForSelector('.empty')
   check('화면 없는 메뉴 URL → 준비 중 (메뉴명 표시)', (await admin.locator('h1').count()) === 1)
+})
+
+const codeCd = `E2E${stamp}`
+await step('공통코드관리', async () => {
+  await admin.goto(`${BASE}/system/codes?group=NOTICE_TAG`)
+  await admin.waitForSelector('[data-test="code-row"]')
+  const before = await admin.locator('[data-test="code-row"]').count()
+  await admin.click('[data-test="code-add"]')
+  await admin.fill('[data-test="code-cd"]', codeCd)
+  await admin.fill('[data-test="c-nm-ko"]', `E2E 태그 ${stamp}`)
+  await admin.fill('[data-test="c-nm-en"]', `E2E tag ${stamp}`)
+  await admin.click('[data-test="code-save"]')
+  await admin.waitForFunction((n) => document.querySelectorAll('[data-test="code-row"]').length === n + 1, before)
+  check('코드 추가 (언어별 이름)', true)
+  await shot(admin, '12-code-admin')
+
+  await admin.click(`[data-test="code-edit-${codeCd}"]`)
+  await admin.click('[data-test="code-use-n"]')
+  await admin.click('[data-test="code-save"]')
+  await admin.waitForSelector('tr.unused')
+  const tags = await admin.request.get(`${BASE}/cm/api/v1/codes/NOTICE_TAG`)
+  const active = (await tags.json()).result.map((c) => c.code)
+  check('미사용으로 바꾸면 사용자 코드 API 에서 즉시 빠짐 (캐시 삭제)', !active.includes(codeCd),
+    active.join(','))
+
+  await admin.click(`[data-test="code-delete-${codeCd}"]`)
+  await admin.click('[data-test="confirm"]')
+  await admin.waitForFunction((n) => document.querySelectorAll('[data-test="code-row"]').length === n, before)
+  check('코드 삭제', true)
+
+  await admin.click('[data-test="group-MAIL_STATUS"]')
+  await admin.waitForSelector('[data-test="code-row"]')
+  check('시스템 그룹은 삭제 버튼 없음',
+    (await admin.locator('[data-test="group-delete"], [data-test^="code-delete-"]').count()) === 0)
+})
+
+let contentMenuId = 0
+await step('메뉴관리 (본문 메뉴 추가 → 사이드 메뉴·본문 → 순서 → 삭제)', async () => {
+  await admin.goto(`${BASE}/system/menus`)
+  await admin.waitForSelector('[data-test="menu-11"]')
+  await admin.click('[data-test="menu-11"]')
+  await admin.click('[data-test="menu-add-child"]')
+  await admin.fill('[data-test="m-nm-ko"]', `E2E 안내 ${stamp}`)
+  await admin.fill('[data-test="m-nm-en"]', `E2E guide ${stamp}`)
+  await admin.selectOption('[data-test="menu-type"]', 'CONTENT')
+  const editor = admin.locator('.toastui-editor-ww-container .ProseMirror')
+  await editor.click()
+  await editor.pressSequentially(`E2E 본문 ${stamp}`)
+  await shot(admin, '13-menu-admin')
+  await admin.click('[data-test="menu-save"]')
+  await admin.waitForSelector('[data-test="menu-delete"]')
+  contentMenuId = Number((await admin.locator('.detail-head .sub').innerText()).match(/ID (\d+)/)[1])
+  check('본문 메뉴 등록', contentMenuId > 0, `id=${contentMenuId}`)
+
+  await admin.click(`.side a[href="/content/${contentMenuId}"]`)
+  await admin.waitForSelector('[data-test="content-body"]')
+  check('사이드 메뉴에 바로 나타나고 본문 표시 (내 메뉴 다시 조회)',
+    (await admin.locator('[data-test="content-body"]').innerText()).includes(stamp))
+
+  await admin.goto(`${BASE}/system/menus`)
+  await admin.waitForSelector(`[data-test="menu-${contentMenuId}"]`)
+  await admin.hover(`[data-test="menu-${contentMenuId}"]`)
+  await admin.click(`[data-test="menu-up-${contentMenuId}"]`)
+  await admin.waitForTimeout(800)
+  const order = await admin.request.get(`${BASE}/cm/api/v1/menus`)
+  const system = (await order.json()).result.find((m) => m.menuId === 11)
+  const ids = system.children.map((m) => m.menuId)
+  check('위로 이동 (같은 상위 메뉴 순서 변경)', ids.indexOf(contentMenuId) === ids.length - 2,
+    ids.join(','))
+
+  await admin.click(`[data-test="menu-${contentMenuId}"]`)
+  await admin.click('[data-test="menu-delete"]')
+  await admin.click('[data-test="confirm"]')
+  await admin.waitForSelector(`[data-test="menu-${contentMenuId}"]`, { state: 'detached' })
+  check('메뉴 삭제', true)
+})
+
+const roleCd = `E2E_ROLE_${stamp}`
+await step('권한관리 (권한 추가 → 메뉴 권한 → 사용자 부여)', async () => {
+  await admin.goto(`${BASE}/system/roles`)
+  await admin.waitForSelector('[data-test="role-SYS_ADMIN"]')
+  await admin.click('[data-test="role-add"]')
+  await admin.fill('[data-test="role-cd"]', roleCd)
+  await admin.fill('[data-test="r-nm-ko"]', `E2E 권한 ${stamp}`)
+  await admin.click('[data-test="role-save"]')
+  await admin.waitForSelector(`[data-test="role-${roleCd}"]`)
+  check('권한 추가', true)
+
+  await admin.click('[data-test="role-tab-menus"]')
+  await admin.waitForSelector('[data-test="rm-12-listYn"]')
+  await admin.click('[data-test="rm-12-listYn"]')
+  check('하위 메뉴 조회를 켜면 상위(시스템관리) 조회도 켜짐',
+    await admin.locator('[data-test="rm-11-listYn"]').isChecked())
+  await admin.click('[data-test="role-menus-save"]')
+  await admin.locator('[data-test="toast-success"]').first().waitFor()
+  await shot(admin, '14-role-menus')
+
+  await admin.click('[data-test="role-tab-grants"]')
+  await admin.click('[data-test="grant-add-USER"]')
+  await admin.fill('[data-test="grant-user-q"]', 'emp01')
+  await admin.click('[data-test="grant-user-search"]')
+  await admin.click('[data-test="grant-user-emp01"]')
+  await admin.click('[data-test="grant-save"]')
+  await admin.waitForSelector('[data-test="grant-row-emp01"]')
+  check('사용자 부여 (검색 → 선택 → 유효)',
+    (await admin.locator('[data-test="grant-row-emp01"]').innerText()).length > 0)
+  await shot(admin, '15-role-grants')
 })
 
 await step('홈', async () => {
@@ -353,7 +469,47 @@ await step('조회 전용 사용자', async () => {
 await viewer.context().close()
 
 // ------------------------------------------------------------------
-// 3. SAML 로그인 (emp01)
+// 3. 권한관리에서 부여한 권한의 효과 (emp01) + 회수/삭제
+// ------------------------------------------------------------------
+const emp = await newPage()
+await step('부여받은 권한 효과 (emp01)', async () => {
+  await login(emp, 'emp01', 'oauth2', '/')
+  await closePopups(emp)
+  await emp.waitForSelector('.side')
+  check('DB 메뉴 권한 → 사이드 메뉴에 공통코드관리 표시',
+    (await emp.locator('.side a[href="/system/codes"]').count()) === 1)
+  await emp.goto(`${BASE}/system/codes`)
+  await emp.waitForURL(/\/forbidden/)
+  const api = await emp.request.get(`${BASE}/cm/api/v1/code-groups`)
+  check('IdP 역할(code.list)이 없으면 화면·API 불가 (IdP scope ∩ DB 권한)', api.status() === 403,
+    `status=${api.status()}`)
+})
+
+const cleanup = await newPage()
+await step('권한 회수 → 즉시 메뉴에서 빠짐, 권한 삭제', async () => {
+  await login(cleanup, 'admin', 'oauth2', '/system/roles')
+  await closePopups(cleanup)
+  await cleanup.click(`[data-test="role-${roleCd}"]`)
+  await cleanup.click('[data-test="role-tab-grants"]')
+  await cleanup.click('[data-test="grant-revoke-emp01"]')
+  await cleanup.click('[data-test="confirm"]')
+  await cleanup.waitForSelector('[data-test="grant-row-emp01"]', { state: 'detached' })
+  await emp.goto(`${BASE}/`)
+  await emp.waitForSelector('.side')
+  check('회수 후 emp01 메뉴에서 공통코드관리 사라짐 (권한 캐시 삭제)',
+    (await emp.locator('.side a[href="/system/codes"]').count()) === 0)
+
+  await cleanup.click('[data-test="role-tab-info"]')
+  await cleanup.click('[data-test="role-delete"]')
+  await cleanup.click('[data-test="confirm"]')
+  await cleanup.waitForSelector(`[data-test="role-${roleCd}"]`, { state: 'detached' })
+  check('권한 삭제', true)
+})
+await emp.context().close()
+await cleanup.context().close()
+
+// ------------------------------------------------------------------
+// 4. SAML 로그인 (emp01)
 // ------------------------------------------------------------------
 const saml = await newPage()
 await step('SAML 로그인', async () => {

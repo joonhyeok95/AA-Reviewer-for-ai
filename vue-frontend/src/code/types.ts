@@ -15,3 +15,54 @@ export interface Code {
   sortOrder: number
   attr1: string | null
 }
+
+/** 언어별 이름 (언어코드 → 이름). 기본 언어 이름 필수 */
+export type LangNames = Record<string, string>
+
+export type YesNo = 'Y' | 'N'
+
+/** GET /api/v1/code-groups - 코드 그룹 (관리) */
+export interface CodeGroupAdmin {
+  groupCd: string
+  groupNm: string
+  names: LangNames
+  groupDesc: string | null
+  sortOrder: number
+  /** 시스템 그룹 : 삭제 불가, 코드 삭제 불가 */
+  systemYn: YesNo
+  useYn: YesNo
+  codeCnt: number
+}
+
+export interface CodeGroupSaveRequest {
+  groupCd: string
+  names: LangNames
+  groupDesc: string
+  sortOrder: number
+  useYn: YesNo
+}
+
+/** GET /api/v1/code-groups/{groupCd}/codes - 코드 (관리) */
+export interface CodeAdmin {
+  groupCd: string
+  code: string
+  codeNm: string
+  names: LangNames
+  codeDesc: string | null
+  sortOrder: number
+  attr1: string | null
+  attr2: string | null
+  attr3: string | null
+  useYn: YesNo
+}
+
+export interface CodeSaveRequest {
+  code: string
+  names: LangNames
+  codeDesc: string
+  sortOrder: number
+  attr1: string
+  attr2: string
+  attr3: string
+  useYn: YesNo
+}

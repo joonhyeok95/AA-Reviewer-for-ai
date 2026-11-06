@@ -68,6 +68,10 @@ src
 ```
 
 > 신규 도메인은 `sample` 폴더를 복사해 시작한다. (목록/검색/페이징/등록·수정 대화상자/삭제 확인)
+> 관리 화면(목록 + 상세)은 `code/views/CodeAdminView` · `menu/views/MenuAdminView` · `role/views/RoleAdminView` 를 참고한다.
+>  - 레이아웃 : `ui.css` 의 `split` / `split-list` / `pick` / `detail-head` / `form-stack` / `form-actions`
+>  - 언어별 이름 입력 : `global/components/LangNamesInput.vue` (지원 언어마다 한 칸, 기본 언어 필수, `{언어코드: 이름}`)
+>  - 리치 텍스트 : `global/components/HtmlEditor.vue` (공지 본문, 메뉴 본문 공용)
 
 | 계층 | 역할 | 금지 |
 |---|---|---|
@@ -136,7 +140,7 @@ export function fetchNotices(search: NoticeSearch, page: PageQuery): Promise<Pag
 | MENU (하위 있음) | 묶음 (이동 없음) |
 | LINK | 외부 URL (http/https 만), 새 창 여부 = `NEW_WINDOW_YN` |
 | IFRAME | `/frame/{menuId}` (sandbox iframe) |
-| CONTENT | `/content/{menuId}` (메뉴 본문 조회 API 는 아직 없음 → 안내 표시) |
+| CONTENT | `/content/{menuId}` → `GET /menus/{id}/content` (사용자 언어 본문, 없으면 기본 언어 + 안내) |
 
 새 화면 = 백엔드 메뉴 URL 과 같은 경로로 `global/router/index.ts` 에 라우트 추가 + `meta.resource`.
 숫자 파라미터는 `:id([0-9]+)` 로 쓴다. (Vue Router 5 는 `\\d` 이스케이프를 매칭하지 못함)
@@ -158,6 +162,13 @@ export function fetchNotices(search: NoticeSearch, page: PageQuery): Promise<Pag
 
 ---
 
+### 4.6 관리 화면
+
+- 관리 데이터를 바꾼 뒤에는 화면 쪽 캐시도 갱신한다 : 공통코드 `code.clearCodes()` (LANG 이면 `code.loadLangs()`),
+  메뉴 `useMenuStore().load()`, 권한/부여 `auth.load()` + 메뉴 (내 권한이 바뀌었을 수 있음)
+- 버튼은 `can(resource, action)` 으로, 시스템관리자 권한(레벨 1)은 `auth.isSysAdmin` 일 때만 편집 UI 를 연다 (서버도 B6004 로 거부)
+- 키(그룹코드·코드·권한코드)는 등록 후 수정 불가 → 수정 시 입력칸 비활성
+
 ## 6. 디자인 / 화면 작성 **[화면]**
 
 방향 : **업무 화면(Operate)**. 장부 같은 종이 톤 + 짙은 녹색 강조 1개. 정렬·여백·선·숫자 정렬로 위계를 만든다.
@@ -170,6 +181,8 @@ export function fetchNotices(search: NoticeSearch, page: PageQuery): Promise<Pag
 - 빈 목록·권한 없음·준비 중은 `EmptyState` 로 이유를 설명한다.
 - 접근성 : 라벨(`label for`), 표 정렬 `aria-sort`, 탭 `role="tab" aria-selected`, 대화상자는 native `<dialog>` (포커스 가두기/ESC).
 - 에디터 HTML 표시는 `v-html="sanitizeHtml(...)"` (서버 정화 + 화면 DOMPurify).
+- 에디터는 보이는 탭만 생성한다 (`v-if`). 숨긴 채로 만들면 TOAST UI 툴바 폭이 0 으로 계산된다.
+  알려진 문제 : TOAST UI 3.2(유지보수 종료)는 해제 직후 예약된 툴바 다시 그리기로 드물게 `removeChild` 콘솔 오류를 낸다. 기능 영향은 없고, 장기적으로 편집기 교체(Tiptap 등) 검토 대상.
 
 ---
 

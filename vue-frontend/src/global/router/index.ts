@@ -77,9 +77,21 @@ const routes: RouteRecordRaw[] = [
       },
       {
         path: 'system/codes',
-        name: 'code-list',
-        component: () => import('@/code/views/CodeView.vue'),
-        meta: { title: 'code.title' },
+        name: 'code-admin',
+        component: () => import('@/code/views/CodeAdminView.vue'),
+        meta: { resource: 'code', title: 'codeAdmin.title' },
+      },
+      {
+        path: 'system/menus',
+        name: 'menu-admin',
+        component: () => import('@/menu/views/MenuAdminView.vue'),
+        meta: { resource: 'menu', title: 'menuAdmin.title' },
+      },
+      {
+        path: 'system/roles',
+        name: 'role-admin',
+        component: () => import('@/role/views/RoleAdminView.vue'),
+        meta: { resource: 'role', title: 'roleAdmin.title' },
       },
       {
         path: 'org',

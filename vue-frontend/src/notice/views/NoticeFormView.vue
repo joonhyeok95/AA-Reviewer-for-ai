@@ -14,7 +14,7 @@ import {
   createNotice, deleteNoticeFile, fetchNoticeForEdit, noticeFileUrl, updateNotice, uploadNoticeFiles,
 } from '@/notice/api'
 import MailTargetPicker from '@/notice/components/MailTargetPicker.vue'
-import NoticeEditor from '@/notice/components/NoticeEditor.vue'
+import HtmlEditor from '@/global/components/HtmlEditor.vue'
 import type { MailTarget, NoticeEdit, NoticeFile, NoticeSaveRequest } from '@/notice/types'
 import { langState, validateNotice, type LangContent, type NoticeFormErrors } from '@/notice/validation'
 
@@ -268,7 +268,7 @@ onMounted(async () => {
             <div class="field">
               <span class="field-label">{{ $t('notice.form.content') }}</span>
               <!-- 보이는 탭만 에디터 생성 (숨은 상태로 만들면 툴바 폭 계산이 0 이 됨). 내용은 contents 에 유지 -->
-              <NoticeEditor v-if="activeLang === lang.langCd" v-model="contents[lang.langCd]!.contentHtml"
+              <HtmlEditor v-if="activeLang === lang.langCd" v-model="contents[lang.langCd]!.contentHtml"
                 :editor-locale="lang.editorLocale" :data-test="`editor-${lang.langCd}`"
                 @update:model-value="dirty = true" />
             </div>
