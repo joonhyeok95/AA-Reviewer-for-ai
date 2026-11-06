@@ -119,7 +119,7 @@ docker compose -f ../spring-boilerplate/infra/redis/docker-compose.yml up -d   #
 | `GATEWAY_TRUSTED_PROXIES` | loopback (X-Forwarded 헤더 신뢰/추가 조건) |
 | `MANAGEMENT_PORT` / `MANAGEMENT_ADDRESS` | 9910 / 127.0.0.1 |
 
-CI: `.github/workflows/ci.yml` (temurin 17, `./mvnw -B verify`, Testcontainers).
+CI: 저장소 루트 `.github/workflows/gateway-ci.yml` (temurin 17, `./mvnw -B verify`, Testcontainers).
 
 ## 테스트 (51/51)
 

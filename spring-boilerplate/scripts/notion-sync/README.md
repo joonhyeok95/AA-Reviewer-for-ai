@@ -6,7 +6,7 @@
 |---|---|
 | `pages.json` | 문서 ↔ 노션 페이지 ID 매핑 (새 문서를 노션에 올리려면 여기에 추가) |
 | `sync.mjs` | Markdown → 노션 블록 변환(martian) 후 페이지 본문 교체. 맨 위에 원본 파일·커밋 안내 |
-| `.github/workflows/notion-sync.yml` | main 에 `docs/**` 가 바뀌면 바뀐 문서만 동기화 (수동 실행 시 전체) |
+| 저장소 루트 `.github/workflows/notion-sync.yml` | main 에 `spring-boilerplate/docs/**` 가 바뀌면 바뀐 문서만 동기화 (수동 실행 시 전체) |
 
 ## 준비 (1회)
 

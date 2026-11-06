@@ -10,7 +10,7 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 | 영속성 | JPA (기본) + MyBatis (DB 종속/복잡 조회 - `resources/mapper/**/*.xml`, 예: 공지 목록 검색) |
 | 테스트 | `./mvnw test` **142/142** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **52/52** (`--quick`) · 화면 E2E **50/50** |
 | 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **관리 API (공통코드·메뉴·권한 - 언어별 이름, 메뉴 접근, 사용자/부서 부여)**, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일 |
-| CI | `.github/workflows/ci.yml` (build: `./mvnw -B verify`, oracle: `-Poracle-it`) |
+| CI | 저장소 루트 `.github/workflows/backend-ci.yml` (build: `./mvnw -B verify`, oracle: `-Poracle-it`) |
 
 ## 실행
 

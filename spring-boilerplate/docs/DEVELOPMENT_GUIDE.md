@@ -538,7 +538,7 @@ Oracle 이관을 전제로 작성한다.
   - 인증/인가 테스트: `SecurityIntegrationTest` (JwtDecoder 만 Mock), 실제 Keycloak 연동은 `infra/keycloak/e2e/auth_e2e.py`
   - Oracle 검증: `OracleSchemaTest` (`@Tag("oracle")`, `./mvnw test -Poracle-it`) — 실제 Oracle Free 컨테이너에서 DDL·초기데이터·`ddl-auto=validate`.
     DDL/초기데이터/Entity 를 바꾸면 반드시 실행한다. (H2 Oracle 모드가 잡지 못하는 문법 차이 확인용)
-- CI: `.github/workflows/ci.yml` (build + oracle 잡)
+- CI: 저장소 루트 `.github/workflows/backend-ci.yml` (build + oracle + auth-e2e 잡)
 - 기능 개발 시 정상 케이스 + 주요 오류 케이스 테스트를 함께 작성한다. (Test First + Test Last 하이브리드)
 - 통합 테스트는 `@Transactional` 로 테스트 간 데이터 격리.
 - 외부 시스템 연동은 Mock, 실제 상호작용이 핵심인 부분(DB, 트랜잭션)은 Mock 하지 않는다.

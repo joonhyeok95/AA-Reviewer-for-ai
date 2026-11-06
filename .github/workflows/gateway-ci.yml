@@ -1,14 +1,21 @@
 # spring-gateway CI : 빌드 + 전체 테스트
 #  - 테스트는 Testcontainers 로 실제 Redis 를 띄운다 (ubuntu 러너에 Docker 기본 제공)
-name: ci
+name: gateway-ci
 
 on:
   push:
     branches: [main]
+    paths: ['spring-gateway/**', '.github/workflows/gateway-ci.yml']
   pull_request:
+    paths: ['spring-gateway/**', '.github/workflows/gateway-ci.yml']
 
 permissions:
   contents: read
+
+# 모노레포: 모든 run 단계는 spring-gateway/ 에서 실행
+defaults:
+  run:
+    working-directory: spring-gateway
 
 jobs:
   build:
@@ -21,6 +28,7 @@ jobs:
           distribution: temurin
           java-version: '17'
           cache: maven
+          cache-dependency-path: spring-gateway/pom.xml
       - name: Build & Test
         run: ./mvnw -B verify
       - name: Test reports
@@ -28,5 +36,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
-          path: target/surefire-reports
+          path: spring-gateway/target/surefire-reports
           if-no-files-found: ignore
