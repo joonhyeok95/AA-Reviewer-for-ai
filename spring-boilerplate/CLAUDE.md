@@ -11,7 +11,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - Gateway 뒤에서 동작: `TrustedForwardedHeaderFilter` 가 `app.security.trusted-proxies`(Gateway IP)에서 온 X-Forwarded-* 만 반영 (`server.forward-headers-strategy=none` 유지). 앱에서 절대 URL 을 하드코딩하지 말 것
 - 작업 후 항상 `./mvnw test` 통과 확인. DDL/초기데이터/Entity 변경 시 `./mvnw test -Poracle-it` (실제 Oracle, Docker 필요)
 - 노션: 저장소 docs 가 원본, `scripts/notion-sync` 로 동기화 (노션에서 직접 고치지 말 것, 새 문서는 pages.json 에 매핑)
-- 전체 실행: `scripts/dev-up.ps1` (Windows) / `scripts/dev-up.sh` → 종료 `dev-down`. 포트 충돌 시 시작 안 함
+- 전체 실행: `scripts/dev-up.ps1` (Windows) / `scripts/dev-up.sh` → 종료 `dev-down`. 포트 충돌 시 시작 안 함. 기본 LAN 모드(`http://{IP}:9909`, 로그인도 Gateway 경유), 이 PC 전용은 `-Local`/`--local`
 - 인프라: `docker compose -f infra/redis/docker-compose.yml up -d` (:6379), `docker compose -f infra/keycloak/docker-compose.yml up -d` (:7000)
 - 인증 E2E: `python infra/keycloak/e2e/auth_e2e.py` (Gateway·앱(9091)·두 번째 인스턴스(9092) 실행 상태에서, `--quick` 은 refresh 대기 생략)
 

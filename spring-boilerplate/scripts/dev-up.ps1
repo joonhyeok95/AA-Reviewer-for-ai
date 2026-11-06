@@ -17,25 +17,28 @@
 .PARAMETER NoFrontend
   화면 개발 서버를 띄우지 않는다
 
-.PARAMETER Lan
-  같은 네트워크의 다른 PC/모바일에서 http://{IP}:9909 로 접속할 수 있게 실행한다.
+.PARAMETER Local
+  이 PC 에서만 접속 (http://localhost:9909). 생략하면 LAN 모드(기본)로 실행한다.
+  LAN 모드 : 같은 네트워크의 다른 PC/모바일에서 http://{IP}:9909 로 접속.
   로그인 화면(Keycloak)도 Gateway(9909) 경유로 바꾸므로 외부에 여는 포트는 9909 하나다.
   (Keycloak 관리 콘솔은 계속 http://localhost:7000 에서만 접속)
-  최초 1회 관리자 PowerShell 에서 9909 인바운드 허용 규칙이 필요하다 (없으면 명령을 안내).
+  방화벽 9909 인바운드 허용 규칙이 없으면 관리자 승인(UAC) 창을 띄워 추가한다 (최초 1회).
 
 .PARAMETER LanHost
-  -Lan 에서 사용할 이 PC 의 IP. 생략하면 기본 경로(인터넷 연결)의 IPv4 를 쓴다.
+  LAN 모드에서 사용할 이 PC 의 IP. 생략하면 기본 경로(인터넷 연결)의 IPv4 를 쓴다.
 
 .EXAMPLE
   ./scripts/dev-up.ps1
   ./scripts/dev-up.ps1 -Instances 2
-  ./scripts/dev-up.ps1 -Lan
+  ./scripts/dev-up.ps1 -Local
 #>
 param(
   [ValidateRange(1, 2)][int]$Instances = 1,
   [switch]$NoFrontend,
-  [switch]$Lan,
-  [string]$LanHost
+  [switch]$Local,
+  [string]$LanHost,
+  # 이전 옵션 호환 (LAN 이 기본)
+  [switch]$Lan
 )
 
 $ErrorActionPreference = 'Stop'
@@ -98,7 +101,7 @@ function Start-Background([string]$name, [string]$dir, [string]$file, [string[]]
 function Get-LanAddress {
   $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -ErrorAction SilentlyContinue |
     Sort-Object RouteMetric | Select-Object -First 1
-  if (-not $route) { throw 'LAN IP 를 찾지 못했습니다. -LanHost 192.168.x.x 로 지정하세요.' }
+  if (-not $route) { return $null }
   (Get-NetIPAddress -InterfaceIndex $route.InterfaceIndex -AddressFamily IPv4 | Select-Object -First 1).IPAddress
 }
 
@@ -119,8 +122,15 @@ if (Test-Path $pidFile) { Remove-Item $pidFile }
 $appEnv = @{}
 $gatewayEnv = @{}
 $publicUrl = 'http://localhost:9909'
+$Lan = -not $Local
+if ($Lan -and -not $LanHost) {
+  $LanHost = Get-LanAddress
+  if (-not $LanHost) {
+    Write-Host '[dev-up] 네트워크 IP 를 찾지 못해 이 PC 전용(localhost)으로 실행합니다. (-LanHost 192.168.x.x 로 지정 가능)' -ForegroundColor Yellow
+    $Lan = $false
+  }
+}
 if ($Lan) {
-  if (-not $LanHost) { $LanHost = Get-LanAddress }
   if ($LanHost -notmatch '^\d{1,3}(\.\d{1,3}){3}$') { throw "IPv4 형식이 아닙니다: $LanHost" }
   $publicUrl = "http://${LanHost}:9909"
   $subnet = [regex]::Escape(($LanHost -replace '\.\d+$', '.')) + '\d{1,3}'
@@ -134,9 +144,27 @@ if ($Lan) {
     GATEWAY_TRUSTED_PROXIES = '127\.0\.0\.1|0:0:0:0:0:0:0:1|::1|' + $subnet
   }
   Write-Step "LAN 모드 : $publicUrl (대역 $subnet)"
-  if (-not (Get-NetFirewallRule -DisplayName 'Flowlog LAN 9909' -ErrorAction SilentlyContinue)) {
-    Write-Host '[dev-up] 방화벽 허용 규칙이 없습니다. 관리자 PowerShell 에서 한 번 실행하세요:' -ForegroundColor Yellow
-    Write-Host "  New-NetFirewallRule -DisplayName 'Flowlog LAN 9909' -Direction Inbound -Protocol TCP -LocalPort 9909 -Action Allow -Profile Private" -ForegroundColor Yellow
+  # 다른 기기에서 9909 로 들어오는 연결 허용 (개인/도메인 네트워크만, 공용 Wi-Fi 는 열지 않음)
+  $ruleName = 'Flowlog LAN 9909'
+  $ruleCommand = "New-NetFirewallRule -DisplayName '$ruleName' -Direction Inbound -Protocol TCP -LocalPort 9909 -Action Allow -Profile Private,Domain"
+  if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
+    Write-Step '방화벽 9909 허용 규칙 추가 - 관리자 승인 창(UAC)에서 "예" 를 눌러 주세요 (최초 1회)'
+    try {
+      Start-Process powershell.exe -Verb RunAs -Wait -WindowStyle Hidden `
+        -ArgumentList '-NoProfile', '-Command', $ruleCommand
+    } catch {
+      Write-Host '[dev-up] 승인이 취소되었습니다.' -ForegroundColor Yellow
+    }
+    if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
+      Write-Host '[dev-up] 방화벽 규칙이 없어 다른 기기에서는 접속되지 않습니다. 관리자 PowerShell 에서 실행하세요:' -ForegroundColor Yellow
+      Write-Host "  $ruleCommand" -ForegroundColor Yellow
+    } else {
+      Write-Step "방화벽 규칙 추가됨 ($ruleName)"
+    }
+  }
+  $publicNet = Get-NetConnectionProfile -ErrorAction SilentlyContinue | Where-Object { $_.NetworkCategory -eq 'Public' }
+  if ($publicNet) {
+    Write-Host "[dev-up] '$($publicNet.InterfaceAlias -join ', ')' 가 공용 네트워크입니다. 다른 기기 접속은 개인 네트워크에서만 허용됩니다 (설정 > 네트워크 > 속성 > 개인)." -ForegroundColor Yellow
   }
 }
 

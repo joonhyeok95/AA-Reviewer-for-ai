@@ -2,8 +2,9 @@
 # =====================================================================
 # 로컬 전체 실행 (macOS / Linux / Git Bash) - Windows PowerShell 은 dev-up.ps1
 #   Redis + Keycloak(Docker) → 앱(9091[, 9092]) → Gateway(9909) → 화면(5173)
-#   사용 : ./scripts/dev-up.sh [--instances 2] [--no-frontend] [--lan [--lan-host 192.168.x.x]]
-#   --lan : 같은 네트워크의 다른 기기에서 http://{IP}:9909 로 접속 (로그인 화면도 Gateway 경유, 9909 만 개방)
+#   사용 : ./scripts/dev-up.sh [--instances 2] [--no-frontend] [--local] [--lan-host 192.168.x.x]
+#   기본은 LAN 모드 : 같은 네트워크의 다른 기기에서 http://{IP}:9909 로 접속 (로그인 화면도 Gateway 경유, 9909 만 개방)
+#   --local : 이 PC 에서만 (http://localhost:9909)
 #   종료 : ./scripts/dev-down.sh [--infra]
 #   저장소 3개(spring-boilerplate, spring-gateway, vue-frontend)가 같은 폴더 아래 나란히 있어야 한다.
 # =====================================================================
@@ -11,12 +12,13 @@ set -euo pipefail
 
 INSTANCES=1
 FRONTEND=1
-LAN=0
+LAN=1
 LAN_HOST=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --instances) INSTANCES="$2"; shift 2 ;;
     --no-frontend) FRONTEND=0; shift ;;
+    --local) LAN=0; shift ;;
     --lan) LAN=1; shift ;;
     --lan-host) LAN=1; LAN_HOST="$2"; shift 2 ;;
     *) echo "알 수 없는 옵션: $1" >&2; exit 2 ;;
@@ -78,12 +80,19 @@ APP_ENV=()
 GATEWAY_ENV=()
 if [ "$LAN" = 1 ]; then
   if [ -z "$LAN_HOST" ]; then
-    LAN_HOST=$( (hostname -I 2>/dev/null | cut -d' ' -f1) || true)
-    [ -n "$LAN_HOST" ] || LAN_HOST=$(ipconfig getifaddr en0 2>/dev/null || true)
+    case "$(uname -s)" in
+      Darwin) LAN_HOST=$(ipconfig getifaddr en0 2>/dev/null || true) ;;
+      Linux) LAN_HOST=$(hostname -I 2>/dev/null | cut -d' ' -f1 || true) ;;
+      *) # Windows Git Bash
+        LAN_HOST=$(powershell.exe -NoProfile -Command "\$r = Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Sort-Object RouteMetric | Select-Object -First 1; (Get-NetIPAddress -InterfaceIndex \$r.InterfaceIndex -AddressFamily IPv4 | Select-Object -First 1).IPAddress" 2>/dev/null | tr -d '\r' || true) ;;
+    esac
   fi
   if ! [[ "$LAN_HOST" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
-    echo "LAN IP 를 찾지 못했습니다. --lan-host 192.168.x.x 로 지정하세요." >&2; exit 2
+    echo "[dev-up] 네트워크 IP 를 찾지 못해 이 PC 전용(localhost)으로 실행합니다. (--lan-host 192.168.x.x 로 지정 가능)" >&2
+    LAN=0
   fi
+fi
+if [ "$LAN" = 1 ]; then
   PUBLIC_URL="http://${LAN_HOST}:9909"
   IFS=. read -r o1 o2 o3 _ <<<"$LAN_HOST"
   SUBNET="${o1}\.${o2}\.${o3}\.\d{1,3}"

@@ -29,17 +29,20 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 ```
 접속은 http://localhost:9909 (Gateway). 화면 개발 서버 5173 에 직접 접속하지 않는다.
 
-#### 같은 네트워크의 다른 PC·모바일에서 접속 (LAN 모드)
+#### 같은 네트워크의 다른 PC·모바일에서 접속 (LAN 모드 - 기본)
+
+`dev-up` 은 기본으로 LAN 모드로 실행한다. 이 PC 에서만 쓰려면 `-Local` (`--local`).
 
 ```powershell
-# 최초 1회, 관리자 PowerShell : 9909 인바운드 허용 (Wi-Fi 가 "개인" 네트워크일 때)
-New-NetFirewallRule -DisplayName 'Flowlog LAN 9909' -Direction Inbound -Protocol TCP -LocalPort 9909 -Action Allow -Profile Private
-
-./scripts/dev-up.ps1 -Lan                 # IP 자동 감지 (-LanHost 192.168.x.x 로 지정 가능)
+./scripts/dev-up.ps1                      # LAN 모드 (IP 자동 감지, -LanHost 192.168.x.x 로 지정 가능)
+./scripts/dev-up.ps1 -Local               # 이 PC 전용 (http://localhost:9909)
 ```
 ```bash
-./scripts/dev-up.sh --lan                 # 또는 --lan-host 192.168.x.x
+./scripts/dev-up.sh                       # LAN 모드 (--lan-host 192.168.x.x) / --local
 ```
+- 최초 1회 방화벽 9909 인바운드 허용 규칙(`Flowlog LAN 9909`, 개인·도메인 네트워크)을 추가하려고 **관리자 승인(UAC) 창**을 띄운다. 거부하면 다른 기기에서는 접속되지 않는다. 직접 추가하려면 관리자 PowerShell 에서
+  `New-NetFirewallRule -DisplayName 'Flowlog LAN 9909' -Direction Inbound -Protocol TCP -LocalPort 9909 -Action Allow -Profile Private,Domain`
+- Wi-Fi 가 "공용 네트워크"면 허용되지 않는다 (설정 → 네트워크 → 속성 → 개인). 공유기의 "AP 격리(무선 격리)"가 켜져 있어도 기기끼리 접속되지 않는다
 - 접속 : `http://{이 PC IP}:9909` (이 PC 에서도 IP 로 접속. localhost 와 세션이 따로 잡힘)
 - 로그인 화면(Keycloak)도 Gateway 9909 경유 (`/realms/flowlog/**`, `/resources/**`) → **여는 포트는 9909 하나**. Keycloak 관리 콘솔은 계속 localhost:7000 에서만
 - Keycloak 공개 URL·백엔드 issuer·redirect URI 가 IP 기준으로 바뀌어 Keycloak 컨테이너가 다시 만들어진다 (dev 모드라 realm 재import). 일반 모드로 돌아갈 때도 마찬가지
