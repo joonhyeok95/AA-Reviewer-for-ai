@@ -29,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.context.WebApplicationContext;
 
 /**
- * 게시판 scope (board.list / write / update / delete) - IdP scope ∩ DB 업무 권한.
+ * 게시판(공지사항) scope (board.list / write / update / delete) - IdP scope ∩ DB 업무 권한.
  *
  * <p>DB 권한(TB_ROLE_MENU)의 작업은 LIST/ADD/EDIT/DEL 이고 scope 동사 write/update/delete 는 각각
  * add/edit/del 로 대응된다. ({@link ScopeActions}) 권한 이름은 IdP scope 그대로 (SCOPE_board.write).
@@ -125,21 +125,21 @@ class BoardScopeIntegrationTest {
   }
 
   @Test
-  @DisplayName("DB 게시판 권한 없는 사용자(emp01)는 scope 가 있어도 0개, 토큰에 없는 scope 는 DB 가 있어도 안 줌")
+  @DisplayName("일반 임직원(emp01, DB 조회만)은 4개 scope 중 list 만, 토큰에 없는 scope 는 DB 가 있어도 안 줌")
   void intersection() throws Exception {
-    assertThat(boardScopes("emp01", ALL_BOARD)).isEmpty();
+    assertThat(boardScopes("emp01", ALL_BOARD)).containsExactly("SCOPE_board.list");
     assertThat(boardScopes("board.manager", "openid board.list")).containsExactly(
         "SCOPE_board.list");
   }
 
   @Test
-  @DisplayName("내 메뉴 - 게시판(/support/boards) 메뉴 권한 표시 (writer: 삭제 false)")
+  @DisplayName("내 메뉴 - 공지사항(/support/notices, PERM_CD=board) 메뉴 권한 표시 (writer: 삭제 false)")
   void boardMenu() throws Exception {
     mockMvc.perform(get("/api/v1/menus/me")
             .header(HttpHeaders.AUTHORIZATION, token("board.writer", "openid")))
-        .andExpect(jsonPath("$.result[?(@.menuUrl == '/support/boards')].permission.add")
+        .andExpect(jsonPath("$.result[?(@.menuUrl == '/support/notices')].permission.add")
             .value(hasItem(true)))
-        .andExpect(jsonPath("$.result[?(@.menuUrl == '/support/boards')].permission.del")
+        .andExpect(jsonPath("$.result[?(@.menuUrl == '/support/notices')].permission.del")
             .value(hasItem(false)));
     mockMvc.perform(get(ME_URL).header(HttpHeaders.AUTHORIZATION, token("board.writer", "openid")))
         .andExpect(jsonPath("$.result.roles[*].roleCd").value(containsInAnyOrder("BOARD_WRITER",

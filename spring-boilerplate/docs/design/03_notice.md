@@ -132,9 +132,9 @@ local 데이터: SEOUL(서울 본사 / Seoul Headquarters) — HQ, TX_TEAM, WS_T
 `WORKPLACE` 공통코드 그룹은 원래 존재하지 않았으며, 사업장은 인사 마스터(`TB_WORKPLACE`)를 참조한다.
 
 ### 메뉴 / 권한
-- 메뉴 15(공지사항) `PERM_CD = notice` → `TB_ROLE_MENU` 플래그가 `notice.list/add/edit/del` API 권한이 된다.
+- 메뉴 15(공지사항) `PERM_CD = board` → `TB_ROLE_MENU` 플래그 LIST/ADD/EDIT/DEL 이 `board.list/write/update/delete` API 권한이 된다. (공지사항 = 게시판, 동사 동의어 write=add, update=edit, delete=del)
 - 모듈마스터(TX/WS) 전체, TX 모듈매니저 삭제 제외, 일반 사용자(USER_* 역할) 조회.
-- Keycloak: realm 역할 `notice.list/add/edit/del` + 같은 이름 client scope (setup.sh). BFF 요청 scope 에 추가.
+- Keycloak: realm 역할 `board.list/write/update/delete` + 같은 이름 client scope (setup.sh). BFF 요청 scope 에 추가.
 - 최종 권한 = Keycloak scope ∩ DB 권한 (기존 인가 모델 그대로).
 
 ---
@@ -147,19 +147,19 @@ local 데이터: SEOUL(서울 본사 / Seoul Headquarters) — HQ, TX_TEAM, WS_T
 | GET | `/api/v1/codes/{groupCd}` | 로그인 | 공통코드 (사용자 언어 코드명) — 분류/태그/발송유형 선택 목록 |
 | PUT | `/api/v1/users/me/lang` | 로그인 | 사용자 설정 언어 변경 (미등록 사용자 B3001, 미지원 언어 B3002) |
 | GET | `/api/v1/org/tree` | 로그인 | 조직도 (사업장 → 부서 트리, 사용자 언어 명칭) |
-| GET | `/api/v1/notices` | notice.list | 목록 (`keyword`, `categoryCd`, `includeScheduled`(관리자), 페이징, 게시일시 최신순) |
-| GET | `/api/v1/notices/popups` | notice.list | 노출 중인 팝업 |
-| GET | `/api/v1/notices/{id}` | notice.list | 상세 (`?lang=` 언어 전환), 조회수 증가 |
-| GET | `/api/v1/notices/{id}/edit` | notice.edit | 수정 화면 (전체 언어 버전 + 메일 설정/대상(명칭) + 첨부) |
-| POST | `/api/v1/notices` | notice.add | 등록 (201) |
-| PUT | `/api/v1/notices/{id}` | notice.edit | 수정 (언어 버전은 요청 기준으로 교체) |
-| DELETE | `/api/v1/notices/{id}` | notice.del | 논리 삭제 |
-| POST | `/api/v1/notices/{id}/files` | notice.add 또는 notice.edit | 첨부 등록 (multipart `files`) |
-| GET | `/api/v1/notices/{id}/files/{fileId}` | notice.list | 다운로드 (attachment, RFC 5987 파일명, nosniff) |
-| DELETE | `/api/v1/notices/{id}/files/{fileId}` | notice.edit | 첨부 삭제 |
-| GET | `/api/v1/notices/{id}/mail-histories` | notice.edit | 수신자별 발송 이력 |
+| GET | `/api/v1/notices` | board.list | 목록 (`keyword`, `categoryCd`, `includeScheduled`(관리자), 페이징, 게시일시 최신순) |
+| GET | `/api/v1/notices/popups` | board.list | 노출 중인 팝업 |
+| GET | `/api/v1/notices/{id}` | board.list | 상세 (`?lang=` 언어 전환), 조회수 증가 |
+| GET | `/api/v1/notices/{id}/edit` | board.update | 수정 화면 (전체 언어 버전 + 메일 설정/대상(명칭) + 첨부) |
+| POST | `/api/v1/notices` | board.write | 등록 (201) |
+| PUT | `/api/v1/notices/{id}` | board.update | 수정 (언어 버전은 요청 기준으로 교체) |
+| DELETE | `/api/v1/notices/{id}` | board.delete | 논리 삭제 |
+| POST | `/api/v1/notices/{id}/files` | board.write 또는 board.update | 첨부 등록 (multipart `files`) |
+| GET | `/api/v1/notices/{id}/files/{fileId}` | board.list | 다운로드 (attachment, RFC 5987 파일명, nosniff) |
+| DELETE | `/api/v1/notices/{id}/files/{fileId}` | board.update | 첨부 삭제 |
+| GET | `/api/v1/notices/{id}/mail-histories` | board.update | 수신자별 발송 이력 |
 
-`ROLE_SYS_ADMIN` 은 전체 허용. `notice.edit`(또는 SYS_ADMIN) 보유자 = 관리자 → 예약 공지 조회 가능.
+`ROLE_SYS_ADMIN` 은 전체 허용. `board.update`(또는 SYS_ADMIN) 보유자 = 관리자 → 예약 공지 조회 가능.
 
 ### 오류 코드
 | ID | 상황 | ID | 상황 |

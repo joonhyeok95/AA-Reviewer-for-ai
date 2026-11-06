@@ -49,8 +49,8 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * 공지사항 API.
  *
- * <p>권한 : 조회 {@code notice.list}, 등록·첨부 {@code notice.add}, 수정·첨부 삭제·메일 이력
- * {@code notice.edit}, 삭제 {@code notice.del} (SecurityConfig)
+ * <p>권한 (게시판 scope) : 조회 {@code board.list}, 등록·첨부 {@code board.write}, 수정·첨부 삭제·메일 이력
+ * {@code board.update}, 삭제 {@code board.delete} (SecurityConfig)
  *
  * @author flowlog
  * @since 2026-11-05

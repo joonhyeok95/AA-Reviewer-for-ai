@@ -110,9 +110,9 @@ Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 �
 | `POST /api/v1/samples/**` | `SCOPE_sample.add` |
 | `PUT, PATCH /api/v1/samples/**` | `SCOPE_sample.edit` |
 | `DELETE /api/v1/samples/**` | `SCOPE_sample.del` |
-| `GET /api/v1/notices/*/edit`, `GET /api/v1/notices/*/mail-histories`, `DELETE /api/v1/notices/*/files/*` | `SCOPE_notice.edit` |
-| `POST /api/v1/notices/*/files` | `SCOPE_notice.add` 또는 `SCOPE_notice.edit` |
-| `GET / POST / PUT / DELETE /api/v1/notices/**` | `SCOPE_notice.list / add / edit / del` |
+| `GET /api/v1/notices/*/edit`, `GET /api/v1/notices/*/mail-histories`, `DELETE /api/v1/notices/*/files/*` | `SCOPE_board.update` |
+| `POST /api/v1/notices/*/files` | `SCOPE_board.write` 또는 `SCOPE_board.update` |
+| `GET / POST / PUT / DELETE /api/v1/notices/**` (공지사항 = 게시판) | `SCOPE_board.list / write / update / delete` |
 | 위 전체 | 또는 `ROLE_SYS_ADMIN` |
 | `GET /api/v1/auth/me`, `/api/v1/menus/me`, `/api/v1/menus/*/content`, `/api/v1/langs`, `/api/v1/codes/*`, `/api/v1/org/tree`, `PUT /api/v1/users/me/lang` | 로그인만 |
 | `/api/v1/code-groups/**` · `/api/v1/menus`, `/api/v1/menus/*` · `/api/v1/roles/**`, `GET /api/v1/users` | `SCOPE_code.*` · `SCOPE_menu.*` · `SCOPE_role.*` (메서드별 list/add/edit/del, 부여·메뉴 접근은 role.edit) |
@@ -138,17 +138,17 @@ Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 �
 | `sample.add` | O | O | O |  |  |  |  |  |
 | `sample.edit` | O | O | O |  |  |  |  |  |
 | `sample.del` | O | O |  |  |  |  |  | O |
-| `notice.list` | O | O | O | O | O | O |  |  |
-| `notice.add` | O | O | O |  |  |  |  |  |
-| `notice.edit` | O | O | O |  |  |  |  |  |
-| `notice.del` | O | O |  |  |  |  |  |  |
+| `board.list` (공지 조회) | O | O | O | O | O | O |  |  |
+| `board.write` (공지 등록) | O | O | O |  |  |  |  |  |
+| `board.update` (공지 수정) | O | O | O |  |  |  |  |  |
+| `board.delete` (공지 삭제) | O | O |  |  |  |  |  |  |
 | `code.*` `menu.*` `role.*` (관리, 12개) | O |  |  |  |  |  |  |  |
-| `board.list` `board.write` `board.update` `board.delete` | O |  |  |  |  |  |  |  |
 
-### 게시판 테스트 계정 (board scope)
+### 게시판(공지사항) 테스트 계정 (board scope)
 
-scope 동사 `write`/`update`/`delete` 는 DB 작업 ADD/EDIT/DEL 에 대응한다 (`ScopeActions`). 권한 이름은 scope 그대로 (`SCOPE_board.write`).
-DB : 게시판 메뉴(17, `/support/boards`, PERM_CD `board`) + 권한 BOARD_MANAGER(전체) / BOARD_WRITER(삭제 제외) / BOARD_READER(조회).
+공지사항 API 의 권한 리소스는 `board` 다 (공지사항 = 게시판, 이전 `notice.*` scope 는 폐지).
+scope 동사 `write`/`update`/`delete` 는 DB 작업 ADD/EDIT/DEL 에 대응한다 (`ScopeActions`, 화면 `auth.can()` 도 동일). 권한 이름은 scope 그대로 (`SCOPE_board.write`).
+DB : 공지사항 메뉴(15, `/support/notices`, PERM_CD `board`) + 권한 BOARD_MANAGER(전체) / BOARD_WRITER(삭제 제외) / BOARD_READER(조회). 기존 역할(모듈마스터 전체, TX 모듈매니저 삭제 제외, 일반 사용자 조회)도 같은 메뉴 권한으로 board.* 를 받는다.
 
 | 사용자 | Keycloak 역할 (= 토큰 scope) | DB 권한 | 최종 API 권한 (교집합) |
 |---|---|---|---|
@@ -158,9 +158,9 @@ DB : 게시판 메뉴(17, `/support/boards`, PERM_CD `board`) + 권한 BOARD_MAN
 | `board.limited` | board.list/write/update/delete | BOARD_READER | **list 만** (DB 가 상한) |
 | `admin` | board.* 전체 | SYS_ADMIN | 전체 (시스템관리자) |
 
-모두 `notice.list` 역할도 가진다. Keycloak user id 는 `00000000-0000-4000-8000-0000000000{08~11}` (TB_USER.IDP_SUBJECT 와 동일).
+Keycloak user id 는 `00000000-0000-4000-8000-0000000000{08~11}` (TB_USER.IDP_SUBJECT 와 동일).
 
-- `notice.*` (v0.4): realm 역할 + 같은 이름 client scope (`setup/setup.sh`), BFF 요청 scope 에 추가. DB 권한은 메뉴 15(`PERM_CD=notice`)의 `TB_ROLE_MENU` (모듈마스터 전체, TX 모듈매니저 삭제 제외, 일반 사용자 조회). 상세 [03_notice.md](03_notice.md)
+- `board.*` (공지사항): realm 역할 + 같은 이름 client scope (`setup/setup.sh`), BFF 요청 scope 에 추가. DB 권한은 메뉴 15(`PERM_CD=board`)의 `TB_ROLE_MENU` (모듈마스터 전체, TX 모듈매니저 삭제 제외, 일반 사용자 조회). 상세 [03_notice.md](03_notice.md)
 
 - client scope 에 같은 이름 realm 역할을 **scope mapping** → 역할이 있는 사용자/서비스계정에게만 발급.
 - SAML client mapper: `role list`(→ `Role` 속성), **`subject id`**(user property `id` → `sub` 속성, 권한 매핑 기준).

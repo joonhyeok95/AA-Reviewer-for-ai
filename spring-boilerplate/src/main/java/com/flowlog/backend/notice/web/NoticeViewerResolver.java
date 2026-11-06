@@ -25,7 +25,7 @@ import org.springframework.stereotype.Component;
 public class NoticeViewerResolver {
 
   /** 예약 공지까지 볼 수 있는 권한. */
-  static final Set<String> MANAGER_AUTHORITIES = Set.of("SCOPE_notice.edit", "ROLE_SYS_ADMIN");
+  static final Set<String> MANAGER_AUTHORITIES = Set.of("SCOPE_board.update", "ROLE_SYS_ADMIN");
 
   private final LangService langService;
   private final UserRepository userRepository;

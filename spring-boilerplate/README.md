@@ -34,7 +34,7 @@ docker compose -f infra/keycloak/docker-compose.yml up -d
 | http://localhost:9909/cm/api/v1/samples | 샘플 API (인증 + scope 필요) |
 | http://localhost:9909/cm/api/v1/auth/me | 현재 로그인 사용자 |
 | http://localhost:9909/cm/api/v1/menus/me | 내 메뉴 트리 (유효 권한, 다국어, 메뉴별 list/add/edit/del) |
-| http://localhost:9909/cm/api/v1/notices | 공지사항 (목록/상세/등록/수정/삭제, 첨부, 메일 이력) — `notice.*` 권한 |
+| http://localhost:9909/cm/api/v1/notices | 공지사항 (목록/상세/등록/수정/삭제, 첨부, 메일 이력) — `board.*` 권한 (공지사항 = 게시판) |
 | http://localhost:9909/cm/api/v1/langs | 지원 언어 (LANG 코드 기반, 에디터 언어팩) |
 | http://localhost:9909/cm/api/v1/org/tree | 조직도 (인사 마스터 사업장 → 부서, 국문/영문) |
 | `PUT` http://localhost:9909/cm/api/v1/users/me/lang | 내 언어 설정 변경 |
@@ -58,7 +58,7 @@ docker compose -f infra/keycloak/docker-compose.yml up -d
 - 사용자 매핑은 Keycloak user id(`sub` = `TB_USER.IDP_SUBJECT`) 기준. 사용자명은 표시용.
 - 규칙이 없는 경로는 **기본 거부**.
 
-테스트 계정: `admin`, `tx.master`, `tx.manager`, `tx.viewer`, `emp01`, `partner01`, `guest01`, 게시판 scope 용 `board.manager` · `board.writer` · `board.reader` · `board.limited` (비밀번호는 realm import 파일 참조, local 전용) — 상세는 [인증 설계](docs/design/02_auth_keycloak.md)
+테스트 계정: `admin`, `tx.master`, `tx.manager`, `tx.viewer`, `emp01`, `partner01`, `guest01`, 게시판(공지) scope 용 `board.manager` · `board.writer` · `board.reader` · `board.limited` (비밀번호는 realm import 파일 참조, local 전용) — 상세는 [인증 설계](docs/design/02_auth_keycloak.md)
 
 ### 환경변수 (local 외 필수)
 

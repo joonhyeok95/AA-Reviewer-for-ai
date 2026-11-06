@@ -276,7 +276,7 @@ class AuthMenuCodeRepositoryTest {
       }
 
       // then
-      assertThat(menus).hasSize(17);
+      assertThat(menus).hasSize(16);
       assertThat(path).containsExactly("TX", "거래관리", "거래목록", "거래상세");
       assertThat(menuRepository.findByParentMenuIdOrderBySortOrderAsc(2L))
           .extracting(Menu::getMenuUrl)
@@ -293,7 +293,7 @@ class AuthMenuCodeRepositoryTest {
       assertThat(byId.get(4L).getDisplayYn()).isEqualTo(YesNo.N);
       assertThat(byId.values()).filteredOn(m -> YesNo.isYes(m.getSideMenuYn()))
           .extracting(Menu::getViewTypeCd)
-          .containsExactlyInAnyOrder("MENU", "LINK", "MENU");
+          .containsExactlyInAnyOrder("MENU", "LINK");
       assertThat(byId.get(10L).getViewTypeCd()).isEqualTo("IFRAME");
     }
 

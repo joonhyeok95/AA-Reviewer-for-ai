@@ -159,10 +159,10 @@
         "sample.add",
         "sample.edit",
         "sample.del",
-        "notice.list",
-        "notice.add",
-        "notice.edit",
-        "notice.del",
+        "board.list",
+        "board.write",
+        "board.update",
+        "board.delete",
         "code.list",
         "code.add",
         "code.edit",
@@ -174,11 +174,7 @@
         "role.list",
         "role.add",
         "role.edit",
-        "role.del",
-        "board.list",
-        "board.write",
-        "board.update",
-        "board.delete"
+        "role.del"
       ]
     },
     {
@@ -201,10 +197,10 @@
         "sample.add",
         "sample.edit",
         "sample.del",
-        "notice.list",
-        "notice.add",
-        "notice.edit",
-        "notice.del"
+        "board.list",
+        "board.write",
+        "board.update",
+        "board.delete"
       ]
     },
     {
@@ -226,9 +222,9 @@
         "sample.list",
         "sample.add",
         "sample.edit",
-        "notice.list",
-        "notice.add",
-        "notice.edit"
+        "board.list",
+        "board.write",
+        "board.update"
       ]
     },
     {
@@ -248,7 +244,7 @@
       ],
       "realmRoles": [
         "sample.list",
-        "notice.list"
+        "board.list"
       ]
     },
     {
@@ -268,7 +264,7 @@
       ],
       "realmRoles": [
         "sample.list",
-        "notice.list"
+        "board.list"
       ]
     },
     {
@@ -288,7 +284,7 @@
       ],
       "realmRoles": [
         "sample.list",
-        "notice.list"
+        "board.list"
       ]
     },
     {
@@ -324,7 +320,6 @@
         }
       ],
       "realmRoles": [
-        "notice.list",
         "board.list",
         "board.write",
         "board.update",
@@ -347,7 +342,6 @@
         }
       ],
       "realmRoles": [
-        "notice.list",
         "board.list",
         "board.write",
         "board.update"
@@ -369,7 +363,6 @@
         }
       ],
       "realmRoles": [
-        "notice.list",
         "board.list"
       ]
     },
@@ -389,7 +382,6 @@
         }
       ],
       "realmRoles": [
-        "notice.list",
         "board.list",
         "board.write",
         "board.update",
@@ -423,22 +415,6 @@
       {
         "name": "sample.del",
         "description": "샘플 삭제 (scope sample.del 발급 조건)"
-      },
-      {
-        "name": "notice.list",
-        "description": "공지 조회 (scope notice.list 발급 조건)"
-      },
-      {
-        "name": "notice.add",
-        "description": "공지 등록 (scope notice.add 발급 조건)"
-      },
-      {
-        "name": "notice.edit",
-        "description": "공지 수정 (scope notice.edit 발급 조건)"
-      },
-      {
-        "name": "notice.del",
-        "description": "공지 삭제 (scope notice.del 발급 조건)"
       },
       {
         "name": "code.list",
@@ -490,19 +466,19 @@
       },
       {
         "name": "board.list",
-        "description": "게시판 조회 (scope board.list 발급 조건)"
+        "description": "게시판(공지사항) 조회 (scope board.list 발급 조건)"
       },
       {
         "name": "board.write",
-        "description": "게시판 작성 (scope board.write 발급 조건)"
+        "description": "게시판(공지사항) 작성 (scope board.write 발급 조건)"
       },
       {
         "name": "board.update",
-        "description": "게시판 수정 (scope board.update 발급 조건)"
+        "description": "게시판(공지사항) 수정 (scope board.update 발급 조건)"
       },
       {
         "name": "board.delete",
-        "description": "게시판 삭제 (scope board.delete 발급 조건)"
+        "description": "게시판(공지사항) 삭제 (scope board.delete 발급 조건)"
       }
     ]
   },

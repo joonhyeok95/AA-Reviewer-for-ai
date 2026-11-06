@@ -55,11 +55,11 @@ BFF=$(client_uuid flowlog-bff)
 BATCH=$(client_uuid flowlog-batch)
 
 for entry in "sample.list:샘플 조회" "sample.add:샘플 등록" "sample.edit:샘플 수정" "sample.del:샘플 삭제" \
-    "notice.list:공지 조회" "notice.add:공지 등록" "notice.edit:공지 수정" "notice.del:공지 삭제" \
     "code.list:공통코드 조회" "code.add:공통코드 등록" "code.edit:공통코드 수정" "code.del:공통코드 삭제" \
     "menu.list:메뉴 조회" "menu.add:메뉴 등록" "menu.edit:메뉴 수정" "menu.del:메뉴 삭제" \
     "role.list:권한 조회" "role.add:권한 등록" "role.edit:권한 수정" "role.del:권한 삭제" \
-    "board.list:게시판 조회" "board.write:게시판 작성" "board.update:게시판 수정" "board.delete:게시판 삭제"; do
+    "board.list:게시판(공지) 조회" "board.write:게시판(공지) 작성" "board.update:게시판(공지) 수정" \
+    "board.delete:게시판(공지) 삭제"; do
   name="${entry%%:*}"
   sid=$(ensure_scope "$name" "${entry#*:}")
   # scope 를 같은 이름의 realm 역할에 매핑 → 해당 역할이 있는 사용자/서비스계정에게만 scope 발급

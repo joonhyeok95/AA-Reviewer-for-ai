@@ -62,7 +62,7 @@ class AdminApiIntegrationTest {
 
   private static final String ALL_ADMIN = "code.list code.add code.edit code.del "
       + "menu.list menu.add menu.edit menu.del role.list role.add role.edit role.del "
-      + "sample.list notice.list";
+      + "sample.list board.list";
 
   @Autowired
   private WebApplicationContext context;

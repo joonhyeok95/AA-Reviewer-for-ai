@@ -82,9 +82,9 @@ class OracleSchemaTest {
 
     assertThat(viewer.userId()).isEqualTo("tx.viewer");
     assertThat(viewer.roleCds()).contains("TX_MANAGER_READ", "USER_EMP");
-    assertThat(viewer.permissions()).containsExactly("notice.list", "sample.list");
+    assertThat(viewer.permissions()).containsExactly("board.list", "sample.list");
     assertThat(menuService.getMyMenus("00000000-0000-4000-8000-000000000001", "ko"))
-        .hasSize(6);
+        .hasSize(5);
     assertThat(sampleRepository.count()).isPositive();
     // LIKE ... ESCAPE '\' (사용자 입력 와일드카드 이스케이프)
     assertThat(sampleRepository.search(LikePatterns.contains("샘플"), null, PageRequest.of(0, 10))

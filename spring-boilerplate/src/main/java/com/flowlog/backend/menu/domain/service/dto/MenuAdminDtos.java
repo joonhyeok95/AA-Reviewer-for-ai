@@ -95,7 +95,7 @@ public final class MenuAdminDtos {
    * @param moduleCd 모듈코드 (공통코드 MODULE)
    * @param viewTypeCd 조회유형 (공통코드 MENU_VIEW_TYPE)
    * @param menuUrl URL (MENU: /경로, LINK·IFRAME: http(s), CONTENT: 없음)
-   * @param permCd API 권한 리소스코드 (예: notice → notice.list/add/edit/del)
+   * @param permCd API 권한 리소스코드 (예: sample → sample.list/add/edit/del, board → board.list/write/update/delete)
    * @param sortOrder 정렬순서
    * @param newWindowYn 새창여부
    * @param adminMenuYn 관리자메뉴여부

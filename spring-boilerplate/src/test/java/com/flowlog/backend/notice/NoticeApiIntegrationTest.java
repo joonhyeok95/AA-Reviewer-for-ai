@@ -63,7 +63,7 @@ class NoticeApiIntegrationTest {
       "tx.manager", "00000000-0000-4000-8000-000000000003",
       "tx.viewer", "00000000-0000-4000-8000-000000000004");
 
-  private static final String ALL_NOTICE = "notice.list notice.add notice.edit notice.del";
+  private static final String ALL_NOTICE = "board.list board.write board.update board.delete";
 
   @Autowired
   private WebApplicationContext context;
@@ -299,7 +299,7 @@ class NoticeApiIntegrationTest {
     @Test
     @DisplayName("NT-64 영어 사용자 목록 - 영어 버전 우선, 한국어만 있는 공지는 대표 언어(ko)로 대체 표시")
     void englishUserList() throws Exception {
-      perform(get(URL), "tx.manager", "notice.list")
+      perform(get(URL), "tx.manager", "board.list")
           .andExpect(status().isOk())
           .andExpect(jsonPath("$.result.content[0].noticeId").value(3))
           .andExpect(jsonPath("$.result.content[0].title").value("Global town hall"))
@@ -314,7 +314,7 @@ class NoticeApiIntegrationTest {
     @Test
     @DisplayName("NT-64 언어 미설정 사용자 - Accept-Language(ko) → 한국어 버전, 영어만 있는 공지는 대체")
     void koreanUserList() throws Exception {
-      perform(get(URL).header(HttpHeaders.ACCEPT_LANGUAGE, "ko-KR"), "tx.viewer", "notice.list")
+      perform(get(URL).header(HttpHeaders.ACCEPT_LANGUAGE, "ko-KR"), "tx.viewer", "board.list")
           .andExpect(jsonPath("$.result.content[0].displayLangCd").value("en"))
           .andExpect(jsonPath("$.result.content[0].fallback").value(true))
           .andExpect(jsonPath("$.result.content[2].title").value("시스템 오픈 안내"))
@@ -324,10 +324,10 @@ class NoticeApiIntegrationTest {
     @Test
     @DisplayName("NT-66 검색 - 사용자 언어로 표시되는 버전 기준 (대표 언어로 대체 표시되는 공지 포함)")
     void searchByDisplayedVersion() throws Exception {
-      perform(get(URL).param("keyword", "정기 점검"), "tx.manager", "notice.list")
+      perform(get(URL).param("keyword", "정기 점검"), "tx.manager", "board.list")
           .andExpect(jsonPath("$.result.totalElements").value(1))
           .andExpect(jsonPath("$.result.content[0].noticeId").value(2));
-      perform(get(URL).param("keyword", "LAUNCH"), "tx.manager", "notice.list")
+      perform(get(URL).param("keyword", "LAUNCH"), "tx.manager", "board.list")
           .andExpect(jsonPath("$.result.totalElements").value(1));
       // 한국어 사용자에게는 1번 공지가 한국어 버전으로 표시되므로 영어 제목으로는 검색되지 않음
       perform(get(URL).param("keyword", "launch"), "admin", ALL_NOTICE)
@@ -353,9 +353,9 @@ class NoticeApiIntegrationTest {
     @Test
     @DisplayName("예약 공지(게시 전) - 일반 사용자 목록/상세 제외(404), 관리자는 includeScheduled 로 조회")
     void scheduledNotice() throws Exception {
-      perform(get(URL), "tx.viewer", "notice.list")
+      perform(get(URL), "tx.viewer", "board.list")
           .andExpect(jsonPath("$.result.content[*].noticeId", not(hasItem(4))));
-      perform(get(URL + "/4"), "tx.viewer", "notice.list")
+      perform(get(URL + "/4"), "tx.viewer", "board.list")
           .andExpect(status().isNotFound())
           .andExpect(jsonPath("$.messageId").value("B2001"));
       perform(get(URL).param("includeScheduled", "true"), "admin", ALL_NOTICE)
@@ -366,18 +366,18 @@ class NoticeApiIntegrationTest {
     @Test
     @DisplayName("조회수 - 같은 사용자는 하루 1회만 증가")
     void viewCountOncePerDay() throws Exception {
-      perform(get(URL + "/2"), "tx.viewer", "notice.list")
+      perform(get(URL + "/2"), "tx.viewer", "board.list")
           .andExpect(jsonPath("$.result.viewCnt").value(1));
-      perform(get(URL + "/2"), "tx.viewer", "notice.list")
+      perform(get(URL + "/2"), "tx.viewer", "board.list")
           .andExpect(jsonPath("$.result.viewCnt").value(1));
-      perform(get(URL + "/2"), "tx.manager", "notice.list")
+      perform(get(URL + "/2"), "tx.manager", "board.list")
           .andExpect(jsonPath("$.result.viewCnt").value(2));
     }
 
     @Test
     @DisplayName("팝업 공지 - 기간 내 팝업만")
     void popups() throws Exception {
-      perform(get(URL + "/popups"), "tx.manager", "notice.list")
+      perform(get(URL + "/popups"), "tx.manager", "board.list")
           .andExpect(jsonPath("$.result.length()").value(1))
           .andExpect(jsonPath("$.result[0].title").value("System launch"));
     }
@@ -437,16 +437,16 @@ class NoticeApiIntegrationTest {
           .andReturn().getResponse().getContentAsString();
       long fileId = ((Number) JsonPath.read(response, "$.result[0].fileId")).longValue();
 
-      perform(get(URL + "/1"), "tx.viewer", "notice.list")
+      perform(get(URL + "/1"), "tx.viewer", "board.list")
           .andExpect(jsonPath("$.result.files[0].fileId").value(fileId));
-      perform(get(URL + "/1/files/" + fileId), "tx.viewer", "notice.list")
+      perform(get(URL + "/1/files/" + fileId), "tx.viewer", "board.list")
           .andExpect(status().isOk())
           .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION, containsString("attachment")))
           .andExpect(header().string(HttpHeaders.CONTENT_DISPOSITION,
               containsString("UTF-8''%EC%95%88%EB%82%B4%EB%AC%B8.txt")))
           .andExpect(content().bytes("hello".getBytes()));
       // 다른 공지 ID 로는 접근 불가
-      perform(get(URL + "/2/files/" + fileId), "tx.viewer", "notice.list")
+      perform(get(URL + "/2/files/" + fileId), "tx.viewer", "board.list")
           .andExpect(status().isNotFound());
 
       perform(delete(URL + "/1/files/" + fileId), "admin", ALL_NOTICE)

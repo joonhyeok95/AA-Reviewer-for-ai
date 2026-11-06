@@ -58,7 +58,8 @@ import org.springframework.session.SessionRepository;
  *       <td>자기 토큰</td></tr>
  * </table>
  *
- * <p><b>인가는 scope 기준</b>으로 통일한다. ({@code SCOPE_{리소스}.{list|add|edit|del}})
+ * <p><b>인가는 scope 기준</b>으로 통일한다. ({@code SCOPE_{리소스}.{list|add|edit|del}},
+ * 공지사항(게시판)은 {@code board.list|write|update|delete})
  * <ul>
  *   <li>OAuth2 BFF : 요청마다 세션의 Access Token scope ({@link SessionTokenAuthorizationFilter})</li>
  *   <li>Bearer JWT : 토큰 scope</li>
@@ -93,8 +94,12 @@ public class SecurityConfig {
       "/api/v1/org/tree"
   };
 
-  /** 공지사항 API. */
+  /** 공지사항(게시판) API. 권한 리소스는 board (메뉴 PERM_CD=board). */
   private static final String NOTICE_API = "/api/v1/notices/**";
+
+  private static final String BOARD_WRITE = "SCOPE_board.write";
+
+  private static final String BOARD_UPDATE = "SCOPE_board.update";
 
   private static final String CODE_ADMIN_API = "/api/v1/code-groups/**";
 
@@ -173,22 +178,23 @@ public class SecurityConfig {
             .hasAnyAuthority("SCOPE_role.edit", SYS_ADMIN)
             .requestMatchers(HttpMethod.DELETE, ROLE_ADMIN_API)
             .hasAnyAuthority("SCOPE_role.del", SYS_ADMIN)
-            // 공지사항 : 관리 기능(수정 화면, 메일 이력, 첨부 삭제)은 notice.edit
+            // 공지사항(게시판) : scope board.list / write / update / delete
+            //  - 수정 화면·메일 이력·첨부 삭제 = update, 첨부 업로드 = write 또는 update
             .requestMatchers(HttpMethod.GET, "/api/v1/notices/*/edit",
                 "/api/v1/notices/*/mail-histories")
-            .hasAnyAuthority("SCOPE_notice.edit", SYS_ADMIN)
+            .hasAnyAuthority(BOARD_UPDATE, SYS_ADMIN)
             .requestMatchers(HttpMethod.POST, "/api/v1/notices/*/files")
-            .hasAnyAuthority("SCOPE_notice.add", "SCOPE_notice.edit", SYS_ADMIN)
+            .hasAnyAuthority(BOARD_WRITE, BOARD_UPDATE, SYS_ADMIN)
             .requestMatchers(HttpMethod.DELETE, "/api/v1/notices/*/files/*")
-            .hasAnyAuthority("SCOPE_notice.edit", SYS_ADMIN)
+            .hasAnyAuthority(BOARD_UPDATE, SYS_ADMIN)
             .requestMatchers(HttpMethod.GET, NOTICE_API)
-            .hasAnyAuthority("SCOPE_notice.list", SYS_ADMIN)
+            .hasAnyAuthority("SCOPE_board.list", SYS_ADMIN)
             .requestMatchers(HttpMethod.POST, NOTICE_API)
-            .hasAnyAuthority("SCOPE_notice.add", SYS_ADMIN)
+            .hasAnyAuthority(BOARD_WRITE, SYS_ADMIN)
             .requestMatchers(HttpMethod.PUT, NOTICE_API)
-            .hasAnyAuthority("SCOPE_notice.edit", SYS_ADMIN)
+            .hasAnyAuthority(BOARD_UPDATE, SYS_ADMIN)
             .requestMatchers(HttpMethod.DELETE, NOTICE_API)
-            .hasAnyAuthority("SCOPE_notice.del", SYS_ADMIN)
+            .hasAnyAuthority("SCOPE_board.delete", SYS_ADMIN)
             .requestMatchers(HttpMethod.GET, SAMPLE_API)
             .hasAnyAuthority("SCOPE_sample.list", SYS_ADMIN)
             .requestMatchers(HttpMethod.POST, SAMPLE_API)
