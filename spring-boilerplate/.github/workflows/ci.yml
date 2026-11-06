@@ -1,6 +1,7 @@
 # spring-boilerplate CI
 #  - build : 빌드 + 전체 테스트 (H2 Oracle 모드)
 #  - oracle : 실제 Oracle(Free) 컨테이너로 DDL·초기 데이터·Entity 검증 (-Poracle-it, Testcontainers)
+#  - auth-e2e : 실제 Keycloak · Redis 로 인증·인가 E2E (앱 2대 직접)
 name: ci
 
 on:
@@ -44,3 +45,48 @@ jobs:
           cache: maven
       - name: Oracle schema test
         run: ./mvnw -B test -Poracle-it
+
+  # 실제 Keycloak · Redis 로 인증·인가 E2E (앱 직접 9091 + 두 번째 인스턴스 9092, Gateway 없이)
+  #  - BFF 로그인·세션 공유·SAML·Bearer·scope ∩ DB 권한·게시판 계정·공지·메일·무차별 대입 잠금
+  #  - Gateway 시나리오(Rate Limit, 차단 경로)와 화면 E2E 는 저장소가 나뉘어 있어 로컬에서 실행
+  auth-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Infra (Redis, Keycloak)
+        run: |
+          docker compose -f infra/redis/docker-compose.yml up -d
+          docker compose -f infra/keycloak/docker-compose.yml up -d
+      - name: Build
+        run: ./mvnw -B -q -DskipTests package
+      - name: Wait for Keycloak realm setup
+        run: |
+          timeout 300 bash -c 'until curl -sf http://localhost:7000/realms/flowlog/.well-known/openid-configuration >/dev/null; do sleep 3; done'
+          timeout 180 bash -c 'until [ "$(docker inspect -f "{{.State.Status}}" flowlog-keycloak-setup)" = exited ]; do sleep 3; done'
+          test "$(docker inspect -f '{{.State.ExitCode}}' flowlog-keycloak-setup)" = 0
+      - name: Start app (9091, 9092)
+        env:
+          NOTICE_MAIL_POLL_INTERVAL: 5s
+        run: |
+          JAR=$(ls target/*.jar | grep -v original | head -1)
+          nohup java -jar "$JAR" > app-9091.log 2>&1 &
+          nohup java -jar "$JAR" --server.port=9092 --management.server.port=9192 > app-9092.log 2>&1 &
+          for port in 9191 9192; do
+            timeout 180 bash -c "until curl -sf http://127.0.0.1:$port/actuator/health >/dev/null; do sleep 3; done"
+          done
+      - name: Auth E2E
+        run: python infra/keycloak/e2e/auth_e2e.py http://localhost:9091 --quick
+      - name: Logs
+        if: failure()
+        run: |
+          tail -n 200 app-9091.log app-9092.log
+          docker logs flowlog-keycloak-setup || true

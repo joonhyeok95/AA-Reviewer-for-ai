@@ -502,6 +502,8 @@ def scenario_management_ports():
     print("\n[보안] Actuator 관리 포트 분리 (localhost 전용) + Prometheus 메트릭")
     opener, _ = new_session()
     for app, port in MANAGEMENT_PORTS.items():
+        if app == "spring-gateway" and not VIA_GATEWAY:
+            continue  # 앱 직접 점검(CI)에서는 Gateway 를 띄우지 않는다
         status, text, _ = call(opener, "GET", f"http://127.0.0.1:{port}/actuator/prometheus")
         expected = "resilience4j_circuitbreaker" if app == "spring-gateway" else "jvm_memory"
         check(f"{app} 관리 포트 {port} /actuator/prometheus → 200",
