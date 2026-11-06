@@ -8,7 +8,7 @@
 
 | 구분 | 전체 | 성공 | 실패 | 결과 |
 |---|---|---|---|---|
-| 기본 (`mvnw test`) | 152 | 152 | 0 | ✅ BUILD SUCCESS |
+| 기본 (`mvnw test`) | 153 | 153 | 0 | ✅ BUILD SUCCESS |
 | Oracle (`-Poracle-it`) | 3 | 3 | 0 | ✅ BUILD SUCCESS |
 
 | 테스트 클래스 | 유형 | 대상 | 건수 | 결과 |
@@ -22,7 +22,7 @@
 | `NoticeMailServiceTest` | 통합 (H2, MailGateway Mock) | 메일 NT-47~4A, 발송 시점 인사 마스터, 중복 발송 방지, 실패 이력, 발송 중단 복구(성공 수신자 제외) | 7 | ✅ |
 | `NoticeFileStorageTest` | 통합 (H2) | 첨부 DB 저장소(`storage-type=db`) 업로드·다운로드·삭제 | 1 | ✅ |
 | `BroadcastingCacheManagerTest` | 단위 | 캐시 무효화 전파 (커밋 후 전파, 다른 인스턴스 수신, 자기 메시지 무시, Redis 장애 무시) | 4 | ✅ |
-| `ScopeConsistencyTest` | 통합 (설정 파일 + H2) | scope 설정 누락 검사 (Keycloak 역할 = setup.sh = BFF scope, SecurityConfig 규칙, 메뉴 PERM_CD) | 3 | ✅ |
+| `ScopeConsistencyTest` | 통합 (설정 파일 + H2) | scope 설정 누락 검사 (Keycloak 역할 = setup.sh = BFF scope = 인가 규칙표, 메뉴 PERM_CD, 예외 규칙 순서) | 4 | ✅ |
 | `BoardScopeIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 게시판(공지사항) scope 동의어(write/update/delete), IdP scope ∩ DB 권한, 공지사항 메뉴 권한 | 6 | ✅ |
 | `AdminApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 공통코드·메뉴·권한 관리 API, 즉시 반영(캐시), 권한 상승 방지, 본문 메뉴, 부여 변경 이력 | 20 | ✅ |
 | `BrowserCookieWebTest` | 통합 (실제 포트 HTTP) | XSRF-TOKEN 첫 요청 발급·경로 `/`·재발급 없음, 미인증 401 은 세션 미생성 | 2 | ✅ |
