@@ -83,6 +83,23 @@ export interface RoleGrant {
   updatedAt: string
 }
 
+export type GrantAction = 'GRANT' | 'UPDATE' | 'REVOKE'
+
+/** 권한 부여 변경 이력 (감사) */
+export interface RoleGrantHistory {
+  histId: number
+  actionCd: GrantAction
+  targetType: GrantTargetType
+  targetId: string
+  targetNm: string | null
+  startDt: string
+  endDt: string
+  reason: string | null
+  changedBy: string
+  changedByNm: string | null
+  changedAt: string
+}
+
 export interface RoleGrants {
   roleId: number
   users: RoleGrant[]

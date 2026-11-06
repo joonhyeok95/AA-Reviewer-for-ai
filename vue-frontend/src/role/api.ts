@@ -1,7 +1,8 @@
 import { deleteResult, getResult, postResult, putResult } from '@/global/api/http'
 import type { MessageResponse } from '@/global/api/types'
 import type {
-  GrantTargetType, RoleAdmin, RoleGrants, RoleGrantSaveRequest, RoleMenuItem, RoleMenus,
+  GrantTargetType, RoleAdmin, RoleGrantHistory, RoleGrants, RoleGrantSaveRequest, RoleMenuItem,
+  RoleMenus,
   RoleSaveRequest,
 } from './types'
 
@@ -51,4 +52,9 @@ export function updateRoleGrant(roleId: number, type: GrantTargetType, grantId: 
 export function deleteRoleGrant(roleId: number, type: GrantTargetType, grantId: number)
   : Promise<MessageResponse<null>> {
   return deleteResult(`${BASE}/${roleId}/grants/${type}/${grantId}`)
+}
+
+/** 부여 변경 이력 (최신순 - 부여·수정·회수, 회수된 부여도 남는다) */
+export function fetchRoleGrantHistories(roleId: number): Promise<RoleGrantHistory[]> {
+  return getResult<RoleGrantHistory[]>(`${BASE}/${roleId}/grant-histories`)
 }

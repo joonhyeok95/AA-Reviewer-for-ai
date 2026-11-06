@@ -9,25 +9,27 @@ import ConfirmDialog from '@/global/components/ConfirmDialog.vue'
 import EmptyState from '@/global/components/EmptyState.vue'
 import LangNamesInput from '@/global/components/LangNamesInput.vue'
 import { useApiFeedback } from '@/global/composables/useApiFeedback'
-import { formatDate } from '@/global/util/format'
+import { formatDate, formatDateTime } from '@/global/util/format'
 import { useMenuStore } from '@/menu/store'
 import {
-  createRole, deleteRole, deleteRoleGrant, fetchRoleGrants, fetchRoleMenus, fetchRoles,
+  createRole, deleteRole, deleteRoleGrant, fetchRoleGrantHistories, fetchRoleGrants,
+  fetchRoleMenus, fetchRoles,
   saveRoleMenus, updateRole,
 } from '@/role/api'
 import RoleGrantDialog from '@/role/components/RoleGrantDialog.vue'
 import RoleMenuMatrix from '@/role/components/RoleMenuMatrix.vue'
 import type {
-  GrantTargetType, RoleAdmin, RoleGrant, RoleGrants, RoleMenuItem, RoleMenus, RoleSaveRequest,
+  GrantTargetType, RoleAdmin, RoleGrant, RoleGrantHistory, RoleGrants, RoleMenuItem, RoleMenus,
+  RoleSaveRequest,
 } from '@/role/types'
 
 /**
- * 권한 관리. 왼쪽 권한 목록 → 오른쪽 탭 (기본 정보 / 메뉴 권한 / 부여).
+ * 권한 관리. 왼쪽 권한 목록 → 오른쪽 탭 (기본 정보 / 메뉴 권한 / 부여 / 변경 이력).
  *  - API 권한 = IdP scope ∩ DB 업무 권한. 여기서 바꾸는 메뉴 권한·부여가 DB 업무 권한이며 다음 요청부터 반영
  *  - 시스템관리자 권한(레벨 1)은 시스템관리자만 변경·부여 (서버 B6004)
  *  - 기본 권한은 삭제·유형/레벨 변경 불가, 부여 내역이 있으면 삭제 불가
  */
-type Tab = 'info' | 'menus' | 'grants'
+type Tab = 'info' | 'menus' | 'grants' | 'history'
 const MAX_END = '9999-12-31'
 
 const auth = useAuthStore()
@@ -44,6 +46,7 @@ const roleTypes = ref<Code[]>([])
 const modules = ref<Code[]>([])
 const roleMenus = ref<RoleMenus | null>(null)
 const grants = ref<RoleGrants | null>(null)
+const histories = ref<RoleGrantHistory[] | null>(null)
 const saving = ref(false)
 const errors = ref<Record<string, string>>({})
 const confirm = ref<{ kind: 'role' } | { kind: 'grant'; grant: RoleGrant } | null>(null)
@@ -92,6 +95,7 @@ async function loadTab(): Promise<void> {
   try {
     if (tab.value === 'menus') roleMenus.value = await fetchRoleMenus(selectedId.value)
     if (tab.value === 'grants') grants.value = await fetchRoleGrants(selectedId.value)
+    if (tab.value === 'history') histories.value = await fetchRoleGrantHistories(selectedId.value)
   } catch (error) {
     feedback.failure(error)
   }
@@ -102,6 +106,7 @@ function pick(roleId: number): void {
   selectedId.value = roleId
   roleMenus.value = null
   grants.value = null
+  histories.value = null
   fillFrom(selected.value)
   void loadTab()
 }
@@ -182,12 +187,13 @@ async function onConfirm(): Promise<void> {
   }
 }
 
-function period(grant: RoleGrant): string {
+function period(grant: Pick<RoleGrant, 'startDt' | 'endDt'>): string {
   return grant.endDt === MAX_END ? `${formatDate(grant.startDt)} ~ ${t('roleAdmin.noEnd')}`
     : `${formatDate(grant.startDt)} ~ ${formatDate(grant.endDt)}`
 }
 
 const statusClass: Record<string, string> = { ACTIVE: 'tag-accent', SCHEDULED: 'tag-info', EXPIRED: '' }
+const actionClass: Record<string, string> = { GRANT: 'tag-accent', UPDATE: 'tag-info', REVOKE: 'tag-danger' }
 
 watch(tab, () => void loadTab())
 watch(() => auth.user?.langCd, async () => {
@@ -254,7 +260,7 @@ onMounted(async () => {
           </div>
         </header>
         <div v-if="!creating" class="tabs tabs-pad" role="tablist">
-          <button v-for="item in (['info', 'menus', 'grants'] as Tab[])" :key="item" type="button"
+          <button v-for="item in (['info', 'menus', 'grants', 'history'] as Tab[])" :key="item" type="button"
             role="tab" class="tab" :aria-selected="tab === item" :data-test="`role-tab-${item}`"
             @click="tab = item">{{ $t(`roleAdmin.tab.${item}`) }}</button>
         </div>
@@ -373,6 +379,36 @@ onMounted(async () => {
             <p v-else class="muted empty-line">{{ $t('roleAdmin.noGrants') }}</p>
           </section>
         </div>
+
+        <!-- 변경 이력 (감사) -->
+        <div v-else-if="tab === 'history' && histories" class="grants">
+          <p class="muted history-hint">{{ $t('roleAdmin.historyHint') }}</p>
+          <table v-if="histories.length" class="table" data-test="grant-history">
+            <thead>
+              <tr>
+                <th class="col-date">{{ $t('roleAdmin.changedAt') }}</th>
+                <th class="col-shrink">{{ $t('roleAdmin.action') }}</th>
+                <th>{{ $t('roleAdmin.target') }}</th>
+                <th class="col-date">{{ $t('roleAdmin.period') }}</th>
+                <th>{{ $t('roleAdmin.reason') }}</th>
+                <th>{{ $t('roleAdmin.changedBy') }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="hist in histories" :key="hist.histId" :data-test="`history-${hist.actionCd}-${hist.targetId}`">
+                <td class="col-date muted">{{ formatDateTime(hist.changedAt) }}</td>
+                <td class="col-shrink"><span class="tag" :class="actionClass[hist.actionCd]">
+                  {{ $t(`roleAdmin.actions.${hist.actionCd}`) }}</span></td>
+                <td><strong>{{ hist.targetNm ?? '—' }}</strong> <span class="mono muted">{{ hist.targetId }}</span>
+                  <span class="muted">· {{ $t(hist.targetType === 'USER' ? 'roleAdmin.targetUser' : 'roleAdmin.targetDept') }}</span></td>
+                <td class="col-date">{{ period(hist) }}</td>
+                <td class="muted reason">{{ hist.reason }}</td>
+                <td>{{ hist.changedByNm ?? hist.changedBy }} <span class="mono muted">{{ hist.changedBy }}</span></td>
+              </tr>
+            </tbody>
+          </table>
+          <p v-else class="muted empty-line">{{ $t('roleAdmin.noHistory') }}</p>
+        </div>
       </section>
       <section v-else class="panel">
         <EmptyState :title="$t('roleAdmin.pick')" :description="$t('roleAdmin.pickHint')" />
@@ -477,5 +513,15 @@ tr.expired td {
 .empty-line {
   padding: 0 var(--space-5);
   font-size: var(--text-sm);
+}
+
+.history-hint {
+  padding: var(--space-3) var(--space-5);
+  font-size: var(--text-sm);
+}
+
+[data-test="grant-history"] th:first-child,
+[data-test="grant-history"] td:first-child {
+  padding-left: var(--space-5);
 }
 </style>
