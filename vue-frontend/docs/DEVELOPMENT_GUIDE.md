@@ -127,7 +127,7 @@ export function fetchNotices(search: NoticeSearch, page: PageQuery): Promise<Pag
 
 ### 4.4 권한
 
-- 화면 권한 = `GET /auth/me` 의 `authorities` (서버가 계산한 **IdP scope ∩ DB 업무 권한**). `auth.can('notice', 'add')`.
+- 화면 권한 = `GET /auth/me` 의 `authorities` (서버가 계산한 **IdP scope ∩ DB 업무 권한**). `auth.can('board', 'add')` (작업은 list/add/edit/del, scope 동사 write/update/delete 도 같은 작업으로 인정).
 - 라우트 `meta.resource / action` 으로 화면 진입을 막고(권한 없음 화면), 버튼은 `v-if="can(...)"`.
 - **버튼을 숨기는 것은 편의일 뿐이다.** 실제 인가는 항상 서버가 한다. (E2E 에서 버튼 우회 호출 403 확인)
 - 메뉴는 `GET /menus/me` 를 그대로 그린다. (서버가 권한·언어로 걸러서 줌)

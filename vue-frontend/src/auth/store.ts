@@ -5,6 +5,18 @@ import type { Action, AuthUser } from './types'
 
 const SYS_ADMIN = 'ROLE_SYS_ADMIN'
 
+/** 작업 → scope 동사 (서버 ScopeActions 와 같음 : write=add, update=edit, delete=del) */
+const SCOPE_ALIASES: Record<Action, string[]> = {
+  list: ['list'],
+  add: ['add', 'write'],
+  edit: ['edit', 'update'],
+  del: ['del', 'delete'],
+}
+
+function scopeNames(action: Action): string[] {
+  return SCOPE_ALIASES[action]
+}
+
 /**
  * 로그인 사용자.
  *
@@ -19,10 +31,14 @@ export const useAuthStore = defineStore('auth', () => {
   const isSysAdmin = computed(() => user.value?.authorities.includes(SYS_ADMIN) ?? false)
   const displayName = computed(() => user.value?.userNm || user.value?.userId || '')
 
-  /** 리소스 작업 권한. 예) can('notice', 'add') */
+  /**
+   * 리소스 작업 권한. 예) can('board', 'add')
+   * 작업은 DB 권한 기준(list/add/edit/del)이고, scope 동사 동의어(write/update/delete)도 인정한다.
+   */
   function can(resource: string, action: Action): boolean {
     const authorities = user.value?.authorities ?? []
-    return authorities.includes(SYS_ADMIN) || authorities.includes(`SCOPE_${resource}.${action}`)
+    return authorities.includes(SYS_ADMIN)
+      || scopeNames(action).some((name) => authorities.includes(`SCOPE_${resource}.${name}`))
   }
 
   async function load(): Promise<AuthUser | null> {

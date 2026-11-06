@@ -140,7 +140,7 @@ const en: MessageSchema = {
       CONTENT: 'Content menus do not use a URL.',
     },
     permCd: 'Permission code',
-    permHint: 'e.g. notice → notice.list / add / edit / del',
+    permHint: 'e.g. sample → sample.list / add / edit / del (board also accepts write / update / delete)',
     module: 'Module',
     options: 'Options',
     display: 'Show in menu',

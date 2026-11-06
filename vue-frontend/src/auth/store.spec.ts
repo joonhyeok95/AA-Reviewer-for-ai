@@ -16,22 +16,31 @@ describe('auth store can()', () => {
 
   it('SCOPE_{리소스}.{작업} 이 있을 때만 허용', () => {
     const auth = useAuthStore()
-    auth.user = user(['SCOPE_notice.list', 'SCOPE_sample.list', 'ROLE_TX_MANAGER_READ'])
+    auth.user = user(['SCOPE_board.list', 'SCOPE_sample.list', 'ROLE_TX_MANAGER_READ'])
 
-    expect(auth.can('notice', 'list')).toBe(true)
-    expect(auth.can('notice', 'add')).toBe(false)
+    expect(auth.can('board', 'list')).toBe(true)
+    expect(auth.can('board', 'add')).toBe(false)
     expect(auth.can('sample', 'del')).toBe(false)
+  })
+
+  it('scope 동사 동의어 - write=add, update=edit, delete=del', () => {
+    const auth = useAuthStore()
+    auth.user = user(['SCOPE_board.list', 'SCOPE_board.write', 'SCOPE_board.update'])
+
+    expect(auth.can('board', 'add')).toBe(true)
+    expect(auth.can('board', 'edit')).toBe(true)
+    expect(auth.can('board', 'del')).toBe(false)
   })
 
   it('시스템관리자(ROLE_SYS_ADMIN)는 전체 허용', () => {
     const auth = useAuthStore()
     auth.user = user(['ROLE_SYS_ADMIN'])
 
-    expect(auth.can('notice', 'del')).toBe(true)
+    expect(auth.can('board', 'del')).toBe(true)
     expect(auth.isSysAdmin).toBe(true)
   })
 
   it('미로그인은 모두 불가', () => {
-    expect(useAuthStore().can('notice', 'list')).toBe(false)
+    expect(useAuthStore().can('board', 'list')).toBe(false)
   })
 })

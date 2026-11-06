@@ -34,8 +34,8 @@ const historyOpen = ref(false)
 
 const lang = computed(() => typeof route.query.lang === 'string' ? route.query.lang : undefined)
 const requestedLang = computed(() => lang.value ?? auth.user?.langCd ?? '')
-const canEdit = computed(() => auth.can('notice', 'edit'))
-const canDel = computed(() => auth.can('notice', 'del'))
+const canEdit = computed(() => auth.can('board', 'edit'))
+const canDel = computed(() => auth.can('board', 'del'))
 const html = computed(() => notice.value ? sanitizeHtml(notice.value.contentHtml) : '')
 
 async function load(): Promise<void> {

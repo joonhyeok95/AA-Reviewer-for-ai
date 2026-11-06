@@ -28,8 +28,8 @@ const form = reactive({ keyword: '', categoryCd: '', includeScheduled: false })
 const result = ref<PageResponse<NoticeSummary> | null>(null)
 const loading = ref(false)
 
-const canAdd = computed(() => auth.can('notice', 'add'))
-const isManager = computed(() => auth.can('notice', 'edit'))
+const canAdd = computed(() => auth.can('board', 'add'))
+const isManager = computed(() => auth.can('board', 'edit'))
 const page = computed(() => Number(route.query.page ?? 0) || 0)
 
 function syncForm(): void {

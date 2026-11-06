@@ -142,7 +142,7 @@ const ko = {
       CONTENT: '본문형 메뉴는 URL 을 쓰지 않습니다.',
     },
     permCd: '권한코드',
-    permHint: '예: notice → notice.list / add / edit / del',
+    permHint: '예: sample → sample.list / add / edit / del (board 는 write / update / delete 도 가능)',
     module: '모듈',
     options: '옵션',
     display: '메뉴에 표시',

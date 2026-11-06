@@ -8,7 +8,7 @@ import { formatDateTime } from '@/global/util/format'
 import { fetchMailHistories } from '@/notice/api'
 import type { NoticeMailHist } from '@/notice/types'
 
-/** 메일 발송 이력 (수신자별 언어, 결과) - notice.edit 권한 */
+/** 메일 발송 이력 (수신자별 언어, 결과) - board.update 권한 */
 const props = defineProps<{ open: boolean; noticeId: number }>()
 const emit = defineEmits<{ close: [] }>()
 

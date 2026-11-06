@@ -443,7 +443,7 @@ await step('로그아웃', async () => {
 await admin.context().close()
 
 // ------------------------------------------------------------------
-// 2. 조회 전용 (tx.viewer : notice.list, sample.list)
+// 2. 조회 전용 (tx.viewer : board.list, sample.list)
 // ------------------------------------------------------------------
 const viewer = await newPage('en-US')
 await step('조회 전용 사용자', async () => {

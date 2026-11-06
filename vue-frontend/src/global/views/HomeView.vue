@@ -17,19 +17,21 @@ const menu = useMenuStore()
 const feedback = useApiFeedback()
 
 const ACTIONS: Action[] = ['list', 'add', 'edit', 'del']
+/** scope 동사 동의어 → 작업 (write=add, update=edit, delete=del) */
+const VERB_TO_ACTION: Record<string, Action> = { write: 'add', update: 'edit', delete: 'del' }
 const notices = ref<NoticeSummary[]>([])
 const noticesLoaded = ref(false)
-const canNotice = computed(() => auth.can('notice', 'list'))
+const canNotice = computed(() => auth.can('board', 'list'))
 
 /** 권한 표 : authorities 의 SCOPE_{리소스}.{작업} 을 리소스별로 묶는다 */
 const permissionRows = computed(() => {
   const resources = new Map<string, Set<string>>()
   for (const authority of auth.user?.authorities ?? []) {
-    const match = /^SCOPE_([a-z0-9-]+)\.(list|add|edit|del)$/.exec(authority)
+    const match = /^SCOPE_([a-z0-9-]+)\.(list|add|edit|del|write|update|delete)$/.exec(authority)
     if (match) {
-      const [, resource, action] = match
+      const [, resource, verb] = match
       if (!resources.has(resource!)) resources.set(resource!, new Set())
-      resources.get(resource!)!.add(action!)
+      resources.get(resource!)!.add(VERB_TO_ACTION[verb!] ?? verb!)
     }
   }
   return [...resources.entries()].sort(([a], [b]) => a.localeCompare(b))

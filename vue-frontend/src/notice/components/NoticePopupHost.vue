@@ -40,7 +40,7 @@ function hideToday(): void {
 }
 
 onMounted(async () => {
-  if (!auth.can('notice', 'list') || sessionStorage.getItem(SHOWN_KEY) === auth.user?.userId) {
+  if (!auth.can('board', 'list') || sessionStorage.getItem(SHOWN_KEY) === auth.user?.userId) {
     return
   }
   sessionStorage.setItem(SHOWN_KEY, auth.user?.userId ?? '')
