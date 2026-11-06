@@ -7,6 +7,7 @@ import com.flowlog.backend.global.common.model.MessageResponse;
 import com.flowlog.backend.global.component.MessageHttpResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -46,9 +47,10 @@ public class AuthController {
    */
   @Operation(
       summary = "현재 로그인 사용자 조회",
-      description = "인증 방식(OAUTH2/SAML2), 사용자ID, DB 유효 권한, Spring Security 권한을 반환합니다.")
+      description = "인증 방식(OAUTH2/SAML2), 사용자ID, DB 유효 권한, Spring Security 권한, 표시 언어를 반환합니다.")
   @GetMapping("/me")
-  public ResponseEntity<MessageResponse<AuthUserResponse>> getMe(Authentication authentication) {
-    return messageHttpResponse.success(authService.getCurrentUser(authentication));
+  public ResponseEntity<MessageResponse<AuthUserResponse>> getMe(
+      Authentication authentication, Locale locale) {
+    return messageHttpResponse.success(authService.getCurrentUser(authentication, locale));
   }
 }

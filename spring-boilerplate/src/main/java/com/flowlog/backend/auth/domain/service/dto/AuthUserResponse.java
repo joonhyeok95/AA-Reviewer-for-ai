@@ -16,6 +16,8 @@ import java.util.List;
  *     <p>토큰 값(Access/Refresh/ID Token)은 응답에 포함하지 않는다.
  * @param roles DB 유효 권한
  * @param authorities Spring Security 권한 (SCOPE_*, ROLE_*)
+ * @param langCd 화면/데이터 표시 언어 (사용자 설정 → Accept-Language → 기본 언어)
+ * @param userLangCd 사용자 설정 언어 (TB_USER.LANG_CD, 미설정이면 null)
  * @author flowlog
  * @since 2026-11-05
  */
@@ -28,5 +30,8 @@ public record AuthUserResponse(
     @Schema(description = "서비스 계정 여부 (Client Credentials)") boolean serviceAccount,
     @Schema(description = "토큰 발급 client", example = "flowlog-bff") String clientId,
     @Schema(description = "DB 유효 권한") List<EffectiveRoleResponse> roles,
-    @Schema(description = "Spring Security 권한") List<String> authorities) {
+    @Schema(description = "Spring Security 권한") List<String> authorities,
+    @Schema(description = "표시 언어 (사용자 설정 → Accept-Language → 기본 언어)", example = "ko")
+    String langCd,
+    @Schema(description = "사용자 설정 언어 (미설정 null)", example = "en") String userLangCd) {
 }

@@ -3,6 +3,7 @@ package com.flowlog.backend.sample.domain.service;
 import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.common.domain.service.dto.PageResponse;
 import com.flowlog.backend.global.exception.BusinessException;
+import com.flowlog.backend.global.util.LikePatterns;
 import com.flowlog.backend.sample.domain.model.Sample;
 import com.flowlog.backend.sample.domain.repository.SampleRepository;
 import com.flowlog.backend.sample.domain.service.dto.SampleCreateRequest;
@@ -43,7 +44,8 @@ public class SampleService {
    */
   public PageResponse<SampleResponse> getSamples(SampleSearchRequest condition, Pageable pageable) {
     return PageResponse.from(
-        sampleRepository.search(condition.name(), condition.useYn(), pageable),
+        sampleRepository.search(LikePatterns.contains(condition.name()), condition.useYn(),
+            pageable),
         SampleResponse::from);
   }
 

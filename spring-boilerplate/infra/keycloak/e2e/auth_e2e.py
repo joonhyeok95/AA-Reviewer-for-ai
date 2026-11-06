@@ -453,13 +453,17 @@ def scenario_notice():
 def scenario_gateway_security():
     print("\n[Gateway] 보안 - 위조 세션 쿠키 Rate Limit 우회 불가, 차단 경로, actuator 비노출")
     opener, _ = new_session()
-    statuses = []
-    for i in range(60):
+
+    def forged_call(i):
         forged = base64.b64encode(f"forged-{i}-{time.time_ns()}".encode()).decode()
-        status, _, _ = call(opener, "GET", APP + "/api/v1/auth/me",
-                            headers={"Cookie": f"SESSION={forged}"})
-        statuses.append(status)
-    check("요청마다 다른 위조 SESSION 쿠키 60건 → IP 버킷으로 제한되어 429 발생 (우회 불가)",
+        return call(opener, "GET", APP + "/api/v1/auth/me",
+                    headers={"Cookie": f"SESSION={forged}"})[0]
+
+    # 동시 요청 150건 : 위조 쿠키 요청은 Redis 세션 확인이 더해져 느리므로, 처리되는 동안 다시 차는
+    # 토큰(초당 20)까지 넘도록 충분히 보낸다. (60건이면 최대 40 + 충전분 안에 들어올 수 있음)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:
+        statuses = list(pool.map(forged_call, range(150)))
+    check("요청마다 다른 위조 SESSION 쿠키 150건 → IP 버킷으로 제한되어 429 발생 (우회 불가)",
           statuses.count(429) > 0, f"429={statuses.count(429)}")
     time.sleep(3)
     for path in ("/h2-console/", "/actuator/health", "/./h2-console", "//actuator/env"):

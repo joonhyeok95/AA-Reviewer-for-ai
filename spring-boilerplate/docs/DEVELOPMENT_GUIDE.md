@@ -425,6 +425,9 @@ Oracle 이관을 전제로 작성한다.
 - PK 는 `IDENTITY` 대신 **시퀀스** 사용.
 - Oracle 예약어(`USER`, `DATE`, `LEVEL`, `COMMENT`, `ORDER` 등)를 테이블/컬럼명으로 쓰지 않는다.
 - 문자열 길이는 `@Column(length)` 로 명시한다.
+- **LIKE 검색은 `LikePatterns.contains(입력)` + 쿼리에 `ESCAPE '\'` 명시** (JPQL `like :p escape '\'`, MyBatis `LIKE #{p} ESCAPE '\'`).
+  사용자 입력의 `%`·`_` 를 문자 그대로 검색하고, ESCAPE 를 생략하면 Hibernate H2 Dialect 가 `escape ''` 를 붙여
+  H2 Oracle 모드(빈 문자열 = NULL)에서 결과가 항상 0건이 된다.
 - **스키마의 기준은 DDL 스크립트**다. (`src/main/resources/db/ddl/NN_xxx.sql`, Oracle 문법)
   - local(H2 Oracle 모드)은 기동 시 이 DDL 로 스키마를 만들고 `db/data/NN_xxx.sql` 초기 데이터를 넣는다.
   - dev/prod 는 같은 DDL 을 DBA 가 적용한다. (`ddl-auto: validate`)
@@ -509,6 +512,11 @@ Oracle 이관을 전제로 작성한다.
 - Gateway 의 `X-Forwarded-*` 는 `app.security.trusted-proxies` 에서 온 요청만 반영 (`TrustedForwardedHeaderFilter`)
 - URL 규칙은 `SecurityConfig`, 메서드 단위는 `@PreAuthorize("hasAuthority('ROLE_XXX')")`
 - 인증 실패 401(C0009), 권한 없음 403(C0010) 을 표준 응답으로 반환한다. (Security Filter 단계도 다국어 적용)
+- **화면(SPA) 연동** — 화면은 Gateway `/**` 로 서비스되어 API 와 같은 Origin. 상세 [design/02_auth_keycloak.md](design/02_auth_keycloak.md) 3.1.1
+  - 로그인 시작 `?returnTo=/화면경로` → 로그인 후 그 경로로 복귀 (`LoginReturnUrlFilter`, 같은 호스트 절대 경로만)
+  - CSRF 쿠키 `XSRF-TOKEN` 경로 `/`, 첫 요청부터 발급 (`CsrfCookieFilter`)
+  - 요청 캐시 미사용 — 미인증 요청이 세션을 만들지 않게 한다. (세션을 만드는 기능을 추가할 때 익명 요청 경로가 아닌지 확인)
+  - 화면 개발 규칙은 [vue-frontend 개발 가이드](../../vue-frontend/docs/DEVELOPMENT_GUIDE.md)
 - 생성/수정자 Auditing 은 로그인 사용자ID 로 기록된다. (인증 없으면 `system`)
 - 신규 API 테스트는 `springSecurity()` + `jwt()` 로 인증을 붙인다.
 

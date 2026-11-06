@@ -17,6 +17,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.flowlog.backend.global.security.LoginReturnUrlFilter;
 import com.flowlog.backend.global.security.SamlRoleAuthoritiesConverter;
 import com.flowlog.backend.global.security.SessionTokenAuthorizationFilter;
 import com.flowlog.backend.global.web.TrustedForwardedHeaderFilter;
@@ -677,6 +678,56 @@ class SecurityIntegrationTest {
           .andReturn().getResponse().getHeader(HttpHeaders.LOCATION);
 
       assertThat(location).doesNotContain("evil").contains("redirect_uri=http://localhost");
+    }
+  }
+
+  @Nested
+  @DisplayName("화면(SPA) 연동 - 로그인 복귀 경로, 표시 언어, CSRF 쿠키")
+  class FrontendIntegrationTest {
+
+    @Test
+    @DisplayName("로그인 시작 returnTo - 같은 호스트 절대 경로만 세션에 저장")
+    void loginStart_safeReturnUrlSaved() throws Exception {
+      MockHttpSession session = (MockHttpSession) mockMvc.perform(
+              get("/oauth2/authorization/keycloak").param("returnTo", "/support/notices?page=1"))
+          .andExpect(status().is3xxRedirection())
+          .andReturn().getRequest().getSession();
+
+      assertThat(session.getAttribute(LoginReturnUrlFilter.RETURN_URL_ATTRIBUTE))
+          .isEqualTo("/support/notices?page=1");
+    }
+
+    @Test
+    @DisplayName("로그인 시작 returnTo - 외부 URL / 프로토콜 상대 경로 / 역슬래시는 무시 (Open Redirect 방지)")
+    void loginStart_unsafeReturnUrlIgnored() throws Exception {
+      for (String unsafe : List.of("//evil.example", "https://evil.example", "/\\evil.example",
+          "notices", "/a b")) {
+        MockHttpSession session = (MockHttpSession) mockMvc.perform(
+                get("/oauth2/authorization/keycloak").param("returnTo", unsafe))
+            .andExpect(status().is3xxRedirection())
+            .andReturn().getRequest().getSession();
+
+        assertThat(session.getAttribute(LoginReturnUrlFilter.RETURN_URL_ATTRIBUTE))
+            .as(unsafe).isNull();
+      }
+    }
+
+    @Test
+    @DisplayName("/auth/me 표시 언어 - 사용자 설정 없으면 Accept-Language, 설정 있으면 사용자 설정")
+    void me_langCd() throws Exception {
+      mockMvc.perform(get(ME_URL).header(HttpHeaders.ACCEPT_LANGUAGE, "en-US")
+              .header(HttpHeaders.AUTHORIZATION,
+                  bearer("viewer-lang", "tx.viewer", "flowlog-bff", "openid")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.result.langCd").value("en"))
+          .andExpect(jsonPath("$.result.userLangCd").doesNotExist());
+
+      mockMvc.perform(get(ME_URL).header(HttpHeaders.ACCEPT_LANGUAGE, "ko-KR")
+              .header(HttpHeaders.AUTHORIZATION,
+                  bearer("manager-lang", "tx.manager", "flowlog-bff", "openid")))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.result.langCd").value("en"))
+          .andExpect(jsonPath("$.result.userLangCd").value("en"));
     }
   }
 }

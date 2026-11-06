@@ -79,6 +79,21 @@ class SampleApiIntegrationTest {
   }
 
   @Test
+  @DisplayName("목록 조회 - 이름 부분 일치 검색, 와일드카드(%, _)는 문자 그대로 검색")
+  void getSamples_nameSearch() throws Exception {
+    mockMvc.perform(get(BASE_URL).param("name", "샘플"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.result.totalElements").value(3));
+    mockMvc.perform(get(BASE_URL).param("name", "플2"))
+        .andExpect(jsonPath("$.result.totalElements").value(1))
+        .andExpect(jsonPath("$.result.content[0].name").value("샘플2"));
+    mockMvc.perform(get(BASE_URL).param("name", "%"))
+        .andExpect(jsonPath("$.result.totalElements").value(0));
+    mockMvc.perform(get(BASE_URL).param("name", "샘_1"))
+        .andExpect(jsonPath("$.result.totalElements").value(0));
+  }
+
+  @Test
   @DisplayName("단건 조회 - 200, S0001")
   void getSample() throws Exception {
     mockMvc.perform(get(BASE_URL + "/1"))

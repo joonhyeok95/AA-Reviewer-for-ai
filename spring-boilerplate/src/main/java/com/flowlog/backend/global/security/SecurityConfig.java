@@ -1,6 +1,7 @@
 package com.flowlog.backend.global.security;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.apache.commons.lang3.StringUtils;
@@ -32,6 +33,9 @@ import org.springframework.security.web.access.intercept.AuthorizationFilter;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.savedrequest.NullRequestCache;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.session.Session;
 import org.springframework.session.SessionRepository;
@@ -155,6 +159,8 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.DELETE, SAMPLE_API)
             .hasAnyAuthority("SCOPE_sample.del", SYS_ADMIN)
             .anyRequest().denyAll())
+        // 로그인 시작 시 화면 복귀 경로(returnTo) 저장 - 같은 호스트 절대 경로만 (OAuth2 / SAML2 공통)
+        .addFilterBefore(new LoginReturnUrlFilter(), OAuth2AuthorizationRequestRedirectFilter.class)
         // [OAuth2 BFF] 브라우저 로그인 - 토큰은 세션(Redis)에만 보관
         .oauth2Login(login -> login
             .authorizationEndpoint(endpoint -> endpoint
@@ -184,15 +190,23 @@ public class SecurityConfig {
                 authentication == null ? null : authentication.getName(), null, request, null))
             .addLogoutHandler(new KeycloakLogoutHandler(authorizedClientRepository))
             .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.OK)))
+        // 미인증 요청을 세션에 저장하지 않는다 (로그인 후 이동은 returnTo / success-url).
+        // 저장하면 익명 요청마다 Redis 세션이 생겨, Gateway Rate Limit(실존 세션 = 세션 버킷)을 우회할 수 있다.
+        .requestCache(cache -> cache.requestCache(new NullRequestCache()))
         // API 이므로 로그인 페이지로 redirect 하지 않고 표준 응답(401/403) 반환
         .exceptionHandling(ex -> ex
             .authenticationEntryPoint(securityErrorHandler)
             .accessDeniedHandler(securityErrorHandler))
         // 세션 요청은 XSRF-TOKEN 쿠키 → X-XSRF-TOKEN 헤더 방식 CSRF 검증
+        //  - 쿠키 경로 "/" : Gateway 뒤에서는 context path 가 /cm 이 되는데, 화면(SPA)은 / 에서 서비스되므로
+        //    경로를 / 로 고정해야 화면 스크립트가 쿠키를 읽어 헤더로 보낼 수 있다.
         .csrf(csrf -> csrf
             .spa()
+            .csrfTokenRepository(csrfTokenRepository())
             .ignoringRequestMatchers(BEARER_TOKEN_REQUEST)
             .ignoringRequestMatchers("/h2-console/**"))
+        // 화면이 첫 변경 요청 전에 XSRF-TOKEN 쿠키를 갖도록 매 요청 발급 (없을 때만 Set-Cookie)
+        .addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
         .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
     return http.build();
   }
@@ -206,12 +220,26 @@ public class SecurityConfig {
         new SimpleUrlAuthenticationSuccessHandler(successUrl);
     target.setAlwaysUseDefaultTargetUrl(true);
     return (request, response, authentication) -> {
-      request.getSession().setAttribute(
+      HttpSession session = request.getSession();
+      session.setAttribute(
           SessionTokenAuthorizationFilter.AUTH_TIME_ATTRIBUTE, System.currentTimeMillis());
+      Object returnTo = session.getAttribute(LoginReturnUrlFilter.RETURN_URL_ATTRIBUTE);
+      session.removeAttribute(LoginReturnUrlFilter.RETURN_URL_ATTRIBUTE);
       auditLogger.log(AuthAuditLogger.Event.LOGIN_SUCCESS, authentication.getName(), authType,
           request, null);
-      target.onAuthenticationSuccess(request, response, authentication);
+      if (returnTo instanceof String url && LoginReturnUrlFilter.isSafe(url)) {
+        // 화면 경로(호스트 기준) - Gateway 뒤에서는 X-Forwarded-Host 기준 절대 URL 로 변환된다
+        response.sendRedirect(url);
+      } else {
+        target.onAuthenticationSuccess(request, response, authentication);
+      }
     };
+  }
+
+  private static CookieCsrfTokenRepository csrfTokenRepository() {
+    CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+    repository.setCookiePath("/");
+    return repository;
   }
 
   /** confidential client 이지만 PKCE 도 함께 사용한다. (인가코드 탈취 대비) */

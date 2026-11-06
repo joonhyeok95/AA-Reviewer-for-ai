@@ -112,6 +112,25 @@
 
 ---
 
+## 추가 점검 (2026-11-06, 화면 연동 중 발견)
+
+### 19. 미인증 요청마다 Redis 세션 생성 (🟠 중간)
+- **현상**: 401 응답 시 요청 캐시(`HttpSessionRequestCache`)가 요청을 세션에 저장 → 익명 요청마다 SESSION 쿠키 + Redis 세션 생성.
+  Redis 키 증가, 그리고 Gateway Rate Limit 은 "Redis 에 실존하는 세션 = 세션 버킷" 이므로 익명으로 받은 세션 쿠키를 돌려 쓰면 IP 버킷을 우회할 여지
+- **조치**: `requestCache(NullRequestCache)` — 로그인 후 이동은 `returnTo`(검증된 같은 호스트 경로) / `success-url`
+- **검증**: `BrowserCookieWebTest.anonymousRequest_noSession`, 실연동 `curl /cm/api/v1/langs` → Set-Cookie 에 SESSION 없음
+
+### 20. 로그인 후 복귀 경로 (Open Redirect 방지)
+- **조치**: `LoginReturnUrlFilter` — `returnTo` 는 `/` 로 시작하는 같은 호스트 경로만 (`//`, 역슬래시, 허용 외 문자, 500자 초과 거부)
+- **검증**: `SecurityIntegrationTest.loginStart_unsafeReturnUrlIgnored`, 화면 E2E (OIDC/SAML 로그인 후 원래 화면 복귀)
+
+### 21. LIKE 검색 이스케이프
+- **현상**: 샘플 이름 검색이 local 에서 항상 0건 (Hibernate H2 Dialect 가 `escape ''` 추가 → H2 Oracle 모드에서 NULL). 사용자 입력 `%`·`_` 도 와일드카드로 동작
+- **조치**: `LikePatterns.contains` (와일드카드 이스케이프) + 쿼리에 ESCAPE 명시 (공지 검색과 같은 방식)
+- **검증**: `SampleApiIntegrationTest.getSamples_nameSearch`, `OracleSchemaTest` (실제 Oracle)
+
+---
+
 ## 남은 과제 요약
 
 | 구분 | 내용 |

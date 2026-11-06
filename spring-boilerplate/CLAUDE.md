@@ -30,6 +30,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - DTO 는 record (`XxxCreateRequest`, `XxxUpdateRequest`, `XxxSearchRequest`, `XxxResponse`), Validation 은 DTO 에
 - Entity: `@Setter`/`@Data` 금지, 시퀀스 PK(`SQ_테이블`), 테이블 `TB_`, 컬럼 대문자 snake, FK 컬럼 직접 매핑
 - Oracle 호환 유지 (H2 Oracle 모드). Oracle 예약어 금지
+- LIKE 검색: `LikePatterns.contains(입력)` + 쿼리에 `ESCAPE '\'` 명시 (생략 시 H2 Oracle 모드에서 0건). 예: `SampleRepository.search`
 - 영속성: 기본 JPA. DB 종속/복잡 조회(동적 조건, CLOB 검색, 통계)는 MyBatis (`@Mapper` 인터페이스 + `resources/mapper/{domain}/*.xml`, 결과 DTO record, 조회 전용). 예: `NoticeSearchMapper`
 - 스키마 기준은 `src/main/resources/db/ddl/*.sql` (Oracle DDL). 테이블 추가 = DDL 파일 + `application-local.yml` schema/data-locations 등록 + `OracleSchemaTest` 의 `spring.sql.init.*-locations` 에도 등록 + Entity + 테스트. local 초기 데이터는 `db/data/*.sql`. 시퀀스 재설정은 Oracle 문법 `ALTER SEQUENCE ... RESTART START WITH n`
 - 설계 문서는 `docs/design/` (ERD, 컬럼 정의). 자연키/복합키 Entity 는 `AssignedIdEntity` 상속 + `@EmbeddedId`
@@ -37,6 +38,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - `java.time` 만 사용, null 체크는 Apache Commons Utils
 - 민감정보(계정/시크릿)는 코드·설정·문서에 쓰지 않고 환경변수로. 기본값은 `application-local.yml` 에만 (공통 yml 에 시크릿 기본값 금지). prod 는 `app.security.require-https=true` 로 기동 검사(`SecurityStartupValidator`)
 - 테스트: given-when-then, `@DisplayName` 한글. Service 단위 테스트 + API 통합 테스트
+- 화면(`../vue-frontend`)은 Gateway `/**` 로 서비스 (API 와 같은 Origin). 로그인 `?returnTo=` (`LoginReturnUrlFilter`, 같은 호스트 절대 경로만), CSRF 쿠키 경로 `/` + 첫 요청 발급(`CsrfCookieFilter`), 요청 캐시 미사용(익명 요청이 세션을 만들지 않게). `/auth/me` 에 표시 언어(`langCd`)
 - 인증: 브라우저는 **BFF**(oauth2Login, 토큰은 Redis 세션에만, 클라이언트는 SESSION 쿠키만) 또는 SAML2 세션. 서버 간은 Client Credentials Bearer. **토큰 값을 응답/로그/쿠키에 절대 노출하지 말 것**
 - 인가: API 는 `SCOPE_{리소스}.{list|add|edit|del}` (+ `ROLE_SYS_ADMIN`). **SCOPE = IdP scope ∩ DB 권한** (`AuthorityResolver` / `UserAuthorityService`, 캐시 60s). DB 권한 = 유효 권한의 `TB_ROLE_MENU` 플래그 × `TB_MENU.PERM_CD`
 - **기본 거부** (`anyRequest().denyAll()`). 새 API = SecurityConfig 규칙 + 메뉴 `PERM_CD`/`TB_ROLE_MENU` + Keycloak 같은 이름 역할/client scope(setup.sh). 상세 `docs/design/02_auth_keycloak.md`

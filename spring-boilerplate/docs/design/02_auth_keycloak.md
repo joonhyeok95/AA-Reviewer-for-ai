@@ -58,10 +58,23 @@ Browser                    Gateway/App                                Keycloak  
   │ GET (code) ─────────────────────────────▶│ code + verifier + secret → 토큰 교환 (서버 간) ─▶│      │
   │                                          │◀── access / refresh / id token ─────────────────│      │
   │                                          │ 세션ID 교체 + 로그인 시각 + 감사로그, 세션 암호화 저장 ──▶│
-  │◀── 302 /cm/api/v1/auth/me  + Set-Cookie: SESSION (HttpOnly) ─│   ※ 토큰은 응답 어디에도 없음      │
+  │◀── 302 returnTo (화면) 또는 /cm/api/v1/auth/me  + Set-Cookie: SESSION (HttpOnly) ─│ ※ 토큰은 응답 어디에도 없음 │
 ```
 
 로그인 실패는 로그인 페이지 redirect 대신 401 표준 응답 + 감사 로그(`LOGIN_FAILURE`).
+
+### 3.1.1 화면(SPA, `vue-frontend`) 연동
+
+화면은 Gateway 의 `/**` 라우트로 서비스되어 API(`/cm/**`)와 **같은 Origin** 이다. (CORS 없음, 쿠키 그대로)
+
+| 항목 | 동작 |
+|---|---|
+| 로그인 시작 | `/cm/oauth2/authorization/keycloak?returnTo=/support/notices` (SAML 은 `/cm/saml2/authenticate/keycloak?returnTo=`) |
+| 복귀 경로 | `LoginReturnUrlFilter` 가 `returnTo` 를 검증해 세션에 저장 → 성공 핸들러가 그 경로로 302. **같은 호스트 절대 경로만** (`/` 시작, `//`·역슬래시·허용 외 문자 거부, 500자) - Open Redirect 방지. 없거나 거부되면 `success-url` |
+| CSRF 쿠키 | `XSRF-TOKEN` 경로 **`/`** (Gateway 뒤 context path 는 `/cm` 이라 기본값이면 화면 스크립트가 못 읽음). `CsrfCookieFilter` 가 **첫 요청부터** 발급 (있으면 재발급 안 함) |
+| 요청 캐시 | 미사용 (`NullRequestCache`). 미인증 요청은 세션을 만들지 않는다 → 익명 요청으로 Redis 세션을 늘리거나 Gateway Rate Limit 세션 버킷을 새로 받을 수 없음 |
+| 표시 언어 | `GET /auth/me` 의 `langCd`(사용자 설정 → Accept-Language → 기본) / `userLangCd`(설정값, 없으면 null) |
+| 로그아웃 | `POST /cm/logout` (X-XSRF-TOKEN) → 200, 화면이 로그인 화면으로 이동 |
 
 ### 3.2 API 요청 (인가)
 
@@ -254,6 +267,9 @@ E2E 의 무차별 대입 시나리오는 guest01 을 일시 잠근다 (60초 이
 | Redis Jackson 역직렬화 (SAML) | `Saml2PostAuthenticationRequest` 등 | JDK 직렬화 + **AES-GCM + 허용목록** |
 | 관리 포트 `/actuator/prometheus` 401 | 관리 컨텍스트에도 Security 적용 | 공개 경로에 info/prometheus 추가 (관리 포트는 127.0.0.1) |
 | `@Cacheable` null 키 오류 (sub 없는 SAML) | `unless` 는 키 계산 후 평가 | `condition = "#subject != null"` |
+| 화면에서 XSRF-TOKEN 을 읽지 못함 | Gateway 뒤 context path `/cm` → 쿠키 경로 `/cm`, 토큰도 지연 발급 | 쿠키 경로 `/` + `CsrfCookieFilter` (첫 요청 발급) |
+| 익명 401 마다 SESSION 생성 | 요청 캐시가 미인증 요청을 세션에 저장 | `NullRequestCache` (로그인 후 이동은 `returnTo`/`success-url`) |
+| 로그인 후 JSON 화면(/auth/me)으로 이동 | 고정 success-url | `returnTo` (화면 경로) 지원, 없으면 기존 success-url |
 
 ---
 

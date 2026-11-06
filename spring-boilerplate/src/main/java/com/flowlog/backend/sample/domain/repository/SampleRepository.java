@@ -1,5 +1,6 @@
 package com.flowlog.backend.sample.domain.repository;
 
+import com.flowlog.backend.global.util.LikePatterns;
 import com.flowlog.backend.sample.domain.model.Sample;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -35,16 +36,16 @@ public interface SampleRepository extends JpaRepository<Sample, Long> {
   /**
    * 조건 검색. 조건값이 null 이면 해당 조건은 무시한다.
    *
-   * @param name 샘플명 (부분 일치)
+   * @param namePattern 샘플명 LIKE 패턴 ({@link LikePatterns#contains} - 와일드카드 이스케이프 완료)
    * @param useYn 사용여부
    * @param pageable 페이징/정렬
    * @return 검색 결과
    */
   @Query("""
       select s from Sample s
-       where (:name is null or s.name like concat('%', :name, '%'))
+       where (:namePattern is null or s.name like :namePattern escape '\\')
          and (:useYn is null or s.useYn = :useYn)
       """)
-  Page<Sample> search(
-      @Param("name") String name, @Param("useYn") String useYn, Pageable pageable);
+  Page<Sample> search(@Param("namePattern") String namePattern, @Param("useYn") String useYn,
+      Pageable pageable);
 }

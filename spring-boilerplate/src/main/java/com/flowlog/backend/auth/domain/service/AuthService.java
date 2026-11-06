@@ -1,6 +1,7 @@
 package com.flowlog.backend.auth.domain.service;
 
 import com.flowlog.backend.auth.domain.service.dto.AuthUserResponse;
+import com.flowlog.backend.code.domain.service.LangService;
 import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.constant.YesNo;
 import com.flowlog.backend.global.security.AuthenticationSubjects;
@@ -9,6 +10,7 @@ import com.flowlog.backend.role.domain.service.RoleAuthorityService;
 import com.flowlog.backend.user.domain.model.User;
 import com.flowlog.backend.user.domain.repository.UserRepository;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -48,14 +50,16 @@ public class AuthService {
   private final UserRepository userRepository;
   private final RoleAuthorityService roleAuthorityService;
   private final KeycloakJwtAuthenticationConverter jwtConverter;
+  private final LangService langService;
 
   /**
    * 현재 로그인 사용자 정보를 조회한다.
    *
    * @param authentication 인증 객체
+   * @param locale 요청 Locale (Accept-Language)
    * @return 로그인 사용자 정보
    */
-  public AuthUserResponse getCurrentUser(Authentication authentication) {
+  public AuthUserResponse getCurrentUser(Authentication authentication, Locale locale) {
     String authType = AUTH_TYPE_OTHER;
     String clientId = null;
     String subject = AuthenticationSubjects.subjectOf(authentication);
@@ -86,6 +90,8 @@ public class AuthService {
         authentication.getAuthorities().stream()
             .map(GrantedAuthority::getAuthority)
             .sorted()
-            .toList());
+            .toList(),
+        langService.resolveUserLang(authentication, locale),
+        user.map(User::getLangCd).filter(langService::isActive).orElse(null));
   }
 }

@@ -8,6 +8,7 @@ import com.flowlog.backend.global.common.domain.service.dto.PageResponse;
 import com.flowlog.backend.global.constant.YesNo;
 import com.flowlog.backend.global.exception.BusinessException;
 import com.flowlog.backend.global.util.HtmlSanitizer;
+import com.flowlog.backend.global.util.LikePatterns;
 import com.flowlog.backend.notice.domain.model.Notice;
 import com.flowlog.backend.notice.domain.model.NoticeFile;
 import com.flowlog.backend.notice.domain.model.NoticeI18n;
@@ -513,14 +514,7 @@ public class NoticeService {
 
   /** 검색어 → LIKE 패턴 (소문자, 와일드카드 이스케이프). */
   static String likePattern(String keyword) {
-    String trimmed = StringUtils.trimToNull(keyword);
-    String pattern = null;
-    if (trimmed != null) {
-      String escaped = trimmed.toLowerCase(Locale.ROOT)
-          .replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-      pattern = "%" + escaped + "%";
-    }
-    return pattern;
+    return LikePatterns.contains(StringUtils.lowerCase(keyword, Locale.ROOT));
   }
 
   /** 정화된 언어 버전. */

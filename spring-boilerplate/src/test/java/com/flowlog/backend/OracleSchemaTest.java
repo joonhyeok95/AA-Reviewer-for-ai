@@ -2,6 +2,7 @@ package com.flowlog.backend;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.flowlog.backend.global.util.LikePatterns;
 import com.flowlog.backend.menu.domain.service.MenuService;
 import com.flowlog.backend.notice.domain.repository.NoticeSearchMapper;
 import com.flowlog.backend.notice.domain.service.dto.NoticeSearchRow;
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.ActiveProfiles;
 import org.testcontainers.junit.jupiter.Container;
@@ -80,6 +82,11 @@ class OracleSchemaTest {
     assertThat(menuService.getMyMenus("00000000-0000-4000-8000-000000000001", "ko"))
         .hasSize(5);
     assertThat(sampleRepository.count()).isPositive();
+    // LIKE ... ESCAPE '\' (사용자 입력 와일드카드 이스케이프)
+    assertThat(sampleRepository.search(LikePatterns.contains("샘플"), null, PageRequest.of(0, 10))
+        .getTotalElements()).isEqualTo(3);
+    assertThat(sampleRepository.search(LikePatterns.contains("%"), null, PageRequest.of(0, 10))
+        .getTotalElements()).isZero();
   }
 
   @Test
