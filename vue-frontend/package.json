@@ -17,7 +17,11 @@
     "e2e": "node e2e/run-e2e.mjs"
   },
   "dependencies": {
-    "@toast-ui/editor": "^3.2.2",
+    "@tiptap/extension-table": "^3.33.0",
+    "@tiptap/extensions": "^3.33.0",
+    "@tiptap/pm": "^3.33.0",
+    "@tiptap/starter-kit": "^3.33.0",
+    "@tiptap/vue-3": "^3.33.0",
     "axios": "^1.21.0",
     "dompurify": "^3.4.17",
     "pinia": "^4.1.0",

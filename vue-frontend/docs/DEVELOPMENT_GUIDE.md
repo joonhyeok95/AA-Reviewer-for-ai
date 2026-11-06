@@ -17,7 +17,7 @@
 | Router / 상태 | Vue Router 5 (history 모드) / Pinia 4 |
 | 다국어 | vue-i18n 11 (Composition 모드) |
 | HTTP | axios (`/cm` = Gateway API 라우트) |
-| 에디터 | TOAST UI Editor 3 (WYSIWYG → HTML, 언어팩 = `LANG.ATTR1`) |
+| 에디터 | Tiptap 3 (ProseMirror, WYSIWYG → HTML) — `global/components/HtmlEditor.vue` |
 | 보안 | DOMPurify (v-html 심층 방어) |
 | 글꼴 | Pretendard Variable (self-host, `pretendard` 패키지) |
 | 테스트 | Vitest + Vue Test Utils (단위) / playwright-core + 설치된 Edge·Chrome (E2E) |
@@ -158,7 +158,7 @@ export function fetchNotices(search: NoticeSearch, page: PageQuery): Promise<Pag
   - vue-i18n 예약 문자(`@ { } | $`)를 문구에 직접 쓰지 않는다.
 - 데이터 이름(메뉴·공통코드·조직·공지)은 **서버가 번역해서 준다.** 화면에서 번역하지 않는다.
 - 언어를 바꾸면 화면의 코드명/목록이 바뀌어야 하므로 `watch(() => auth.user?.langCd, 다시조회)` 를 둔다.
-- 공지 에디터 언어팩 : 탭 언어의 `editorLocale` → `@toast-ui/editor/dist/esm/i18n/{소문자}.js` (이름 규칙으로 찾음, 없으면 영어 UI).
+- 에디터 : 도구 모음 문구는 화면 언어(`editor.*` 키), 본문 영역 `lang` 속성은 탭 언어의 `editorLocale`(`LANG.ATTR1`, 맞춤법 검사).
 
 ---
 
@@ -181,8 +181,9 @@ export function fetchNotices(search: NoticeSearch, page: PageQuery): Promise<Pag
 - 빈 목록·권한 없음·준비 중은 `EmptyState` 로 이유를 설명한다.
 - 접근성 : 라벨(`label for`), 표 정렬 `aria-sort`, 탭 `role="tab" aria-selected`, 대화상자는 native `<dialog>` (포커스 가두기/ESC).
 - 에디터 HTML 표시는 `v-html="sanitizeHtml(...)"` (서버 정화 + 화면 DOMPurify).
-- 에디터는 보이는 탭만 생성한다 (`v-if`). 숨긴 채로 만들면 TOAST UI 툴바 폭이 0 으로 계산된다.
-  알려진 문제 : TOAST UI 3.2(유지보수 종료)는 해제 직후 예약된 툴바 다시 그리기로 드물게 `removeChild` 콘솔 오류를 낸다. 기능 영향은 없고, 장기적으로 편집기 교체(Tiptap 등) 검토 대상.
+- 에디터는 보이는 탭만 생성한다 (`v-if`). 기능 : 제목(H2·H3), 굵게·기울임·취소선, 목록·들여쓰기, 인용·구분선, 코드, 링크(http/https 만), 표, 실행 취소.
+  이미지는 본문에 넣지 않고 첨부파일로. 저장된 HTML 은 서버에서 다시 정화한다 (`HtmlSanitizer`).
+  E2E 에서 본문 입력은 `[data-test="editor-{lang}"] .ProseMirror`.
 
 ---
 

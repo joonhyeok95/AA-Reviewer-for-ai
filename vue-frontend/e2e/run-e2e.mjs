@@ -101,7 +101,7 @@ async function shot(page, name) {
 }
 
 async function typeEditor(page, langCd, text) {
-  const editor = page.locator(`[data-test="editor-${langCd}"] .toastui-editor-ww-container .ProseMirror`)
+  const editor = page.locator(`[data-test="editor-${langCd}"] .ProseMirror`)
   await editor.click()
   await editor.pressSequentially(text)
 }
@@ -357,7 +357,7 @@ await step('메뉴관리 (본문 메뉴 추가 → 사이드 메뉴·본문 → 
   await admin.fill('[data-test="m-nm-ko"]', `E2E 안내 ${stamp}`)
   await admin.fill('[data-test="m-nm-en"]', `E2E guide ${stamp}`)
   await admin.selectOption('[data-test="menu-type"]', 'CONTENT')
-  const editor = admin.locator('.toastui-editor-ww-container .ProseMirror')
+  const editor = admin.locator('.html-editor .ProseMirror')
   await editor.click()
   await editor.pressSequentially(`E2E 본문 ${stamp}`)
   await shot(admin, '13-menu-admin')
