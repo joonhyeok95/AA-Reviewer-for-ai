@@ -14,15 +14,18 @@ import com.flowlog.backend.menu.exception.MenuErrorCode;
 import com.flowlog.backend.role.domain.model.BaseRoleGrant;
 import com.flowlog.backend.role.domain.model.DeptRole;
 import com.flowlog.backend.role.domain.model.Role;
+import com.flowlog.backend.role.domain.model.RoleGrantHist;
 import com.flowlog.backend.role.domain.model.RoleLang;
 import com.flowlog.backend.role.domain.model.RoleMenu;
 import com.flowlog.backend.role.domain.model.UserRole;
 import com.flowlog.backend.role.domain.repository.DeptRoleRepository;
+import com.flowlog.backend.role.domain.repository.RoleGrantHistRepository;
 import com.flowlog.backend.role.domain.repository.RoleLangRepository;
 import com.flowlog.backend.role.domain.repository.RoleMenuRepository;
 import com.flowlog.backend.role.domain.repository.RoleRepository;
 import com.flowlog.backend.role.domain.repository.UserRoleRepository;
 import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleAdminResponse;
+import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleGrantHistResponse;
 import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleGrantResponse;
 import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleGrantSaveRequest;
 import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleGrantsResponse;
@@ -45,9 +48,11 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -66,6 +71,7 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li>기본 권한(SYSTEM_YN=Y)은 삭제·유형/레벨 변경 불가. 부여 내역이 있는 권한은 삭제 불가</li>
  *   <li>메뉴 접근 저장 시 등록/수정/삭제가 있으면 조회도 허용, 상위 메뉴는 조회 허용 (메뉴 트리에 보이도록)</li>
  *   <li>같은 대상에게 같은 권한을 기간이 겹치게 부여할 수 없다</li>
+ *   <li>부여·수정·회수는 모두 변경 이력(TB_ROLE_GRANT_HIST)에 남긴다 (회수 시 부여 행은 삭제)</li>
  * </ul>
  *
  * @author flowlog
@@ -92,6 +98,7 @@ public class RoleAdminService {
   private final RoleMenuRepository roleMenuRepository;
   private final UserRoleRepository userRoleRepository;
   private final DeptRoleRepository deptRoleRepository;
+  private final RoleGrantHistRepository roleGrantHistRepository;
   private final MenuRepository menuRepository;
   private final MenuLangRepository menuLangRepository;
   private final CodeRepository codeRepository;
@@ -365,8 +372,10 @@ public class RoleAdminService {
       requireNoOverlap(userRoleRepository.findByRoleId(roleId).stream()
           .filter(grant -> grant.getUserId().equals(request.targetId())).toList(),
           null, request, endDt);
-      userRoleRepository.save(UserRole.builder().userId(request.targetId()).roleId(roleId)
-          .startDt(request.startDt()).endDt(endDt).grantReason(reason).build());
+      UserRole saved = userRoleRepository.save(UserRole.builder().userId(request.targetId())
+          .roleId(roleId).startDt(request.startDt()).endDt(endDt).grantReason(reason).build());
+      recordHistory(saved, TARGET_USER, saved.getUserId(), saved.getId(),
+          RoleGrantHist.ACTION_GRANT, reason);
     } else {
       if (!deptRepository.existsById(request.targetId())) {
         throw new BusinessException(RoleErrorCode.GRANT_TARGET_NOT_FOUND, TARGET_DEPT,
@@ -375,8 +384,10 @@ public class RoleAdminService {
       requireNoOverlap(deptRoleRepository.findByRoleId(roleId).stream()
           .filter(grant -> grant.getDeptCd().equals(request.targetId())).toList(),
           null, request, endDt);
-      deptRoleRepository.save(DeptRole.builder().deptCd(request.targetId()).roleId(roleId)
-          .startDt(request.startDt()).endDt(endDt).grantReason(reason).build());
+      DeptRole saved = deptRoleRepository.save(DeptRole.builder().deptCd(request.targetId())
+          .roleId(roleId).startDt(request.startDt()).endDt(endDt).grantReason(reason).build());
+      recordHistory(saved, TARGET_DEPT, saved.getDeptCd(), saved.getId(),
+          RoleGrantHist.ACTION_GRANT, reason);
     }
     return getGrants(roleId, langCd);
   }
@@ -400,12 +411,14 @@ public class RoleAdminService {
     requireSysAdminFor(findRole(roleId), sysAdmin);
     LocalDate endDt = endOf(request);
     BaseRoleGrant grant;
+    String targetId;
     List<? extends BaseRoleGrant> sameTarget;
     if (TARGET_USER.equals(targetType)) {
       UserRole userRole = userRoleRepository.findById(grantId)
           .filter(found -> found.getRoleId().equals(roleId))
           .orElseThrow(() -> new BusinessException(RoleErrorCode.GRANT_NOT_FOUND, grantId));
       grant = userRole;
+      targetId = userRole.getUserId();
       sameTarget = userRoleRepository.findByRoleId(roleId).stream()
           .filter(other -> other.getUserId().equals(userRole.getUserId())).toList();
     } else {
@@ -413,36 +426,89 @@ public class RoleAdminService {
           .filter(found -> found.getRoleId().equals(roleId))
           .orElseThrow(() -> new BusinessException(RoleErrorCode.GRANT_NOT_FOUND, grantId));
       grant = deptRole;
+      targetId = deptRole.getDeptCd();
       sameTarget = deptRoleRepository.findByRoleId(roleId).stream()
           .filter(other -> other.getDeptCd().equals(deptRole.getDeptCd())).toList();
     }
     requireNoOverlap(sameTarget, grant, request, endDt);
+    String reason = StringUtils.trimToNull(request.grantReason());
     grant.changePeriod(request.startDt(), endDt);
-    grant.changeReason(StringUtils.trimToNull(request.grantReason()));
+    grant.changeReason(reason);
+    recordHistory(grant, targetType, targetId, grantId, RoleGrantHist.ACTION_UPDATE, reason);
     return getGrants(roleId, langCd);
   }
 
   /**
-   * 부여 회수. (즉시 삭제 - 기간을 줄여 종료하려면 수정 사용)
+   * 부여 회수. (즉시 삭제 + 회수 이력 - 기간을 줄여 종료하려면 수정 사용)
    *
    * @param roleId 권한ID
    * @param targetType USER / DEPT
    * @param grantId 부여ID
+   * @param reason 회수 사유 (선택)
    * @param sysAdmin 요청자가 시스템관리자인지
    */
   @Transactional
   @CacheEvict(cacheNames = UserAuthorityService.CACHE_NAME, allEntries = true)
-  public void deleteGrant(Long roleId, String targetType, Long grantId, boolean sysAdmin) {
+  public void deleteGrant(
+      Long roleId, String targetType, Long grantId, String reason, boolean sysAdmin) {
     requireSysAdminFor(findRole(roleId), sysAdmin);
+    String revokeReason = StringUtils.abbreviate(StringUtils.trimToNull(reason), 1000);
     if (TARGET_USER.equals(targetType)) {
-      userRoleRepository.delete(userRoleRepository.findById(grantId)
+      UserRole grant = userRoleRepository.findById(grantId)
           .filter(found -> found.getRoleId().equals(roleId))
-          .orElseThrow(() -> new BusinessException(RoleErrorCode.GRANT_NOT_FOUND, grantId)));
+          .orElseThrow(() -> new BusinessException(RoleErrorCode.GRANT_NOT_FOUND, grantId));
+      recordHistory(grant, TARGET_USER, grant.getUserId(), grantId, RoleGrantHist.ACTION_REVOKE,
+          revokeReason);
+      userRoleRepository.delete(grant);
     } else {
-      deptRoleRepository.delete(deptRoleRepository.findById(grantId)
+      DeptRole grant = deptRoleRepository.findById(grantId)
           .filter(found -> found.getRoleId().equals(roleId))
-          .orElseThrow(() -> new BusinessException(RoleErrorCode.GRANT_NOT_FOUND, grantId)));
+          .orElseThrow(() -> new BusinessException(RoleErrorCode.GRANT_NOT_FOUND, grantId));
+      recordHistory(grant, TARGET_DEPT, grant.getDeptCd(), grantId, RoleGrantHist.ACTION_REVOKE,
+          revokeReason);
+      deptRoleRepository.delete(grant);
     }
+  }
+
+  /**
+   * 권한의 부여 변경 이력. (최신순 - 부여·수정·회수, 변경자·변경일시)
+   *
+   * @param roleId 권한ID
+   * @param langCd 표시 언어 (부서명)
+   * @return 이력
+   */
+  public List<RoleGrantHistResponse> getGrantHistories(Long roleId, String langCd) {
+    findRole(roleId);
+    List<RoleGrantHist> histories = roleGrantHistRepository.findByRoleIdOrderByIdDesc(roleId);
+    Set<String> userIds = new HashSet<>();
+    histories.forEach(hist -> {
+      userIds.add(hist.getCreatedBy());
+      if (TARGET_USER.equals(hist.getTargetType())) {
+        userIds.add(hist.getTargetId());
+      }
+    });
+    Map<String, String> userNames = userRepository.findAllById(userIds).stream()
+        .collect(Collectors.toMap(User::getUserId, User::getUserNm));
+    Map<String, Dept> depts = deptRepository.findAll().stream()
+        .collect(Collectors.toMap(Dept::getDeptCd, Function.identity()));
+    return histories.stream()
+        .map(hist -> {
+          Dept dept = depts.get(hist.getTargetId());
+          String targetNm = TARGET_USER.equals(hist.getTargetType())
+              ? userNames.get(hist.getTargetId()) : dept == null ? null : dept.nameOf(langCd);
+          return new RoleGrantHistResponse(hist.getId(), hist.getActionCd(),
+              hist.getTargetType(), hist.getTargetId(), targetNm, hist.getStartDt(),
+              hist.getEndDt(), hist.getReason(), hist.getCreatedBy(),
+              userNames.get(hist.getCreatedBy()), hist.getCreatedAt());
+        })
+        .toList();
+  }
+
+  private void recordHistory(BaseRoleGrant grant, String targetType, String targetId,
+      Long grantId, String actionCd, String reason) {
+    roleGrantHistRepository.save(RoleGrantHist.builder().roleId(grant.getRoleId())
+        .targetType(targetType).targetId(targetId).grantId(grantId).actionCd(actionCd)
+        .startDt(grant.getStartDt()).endDt(grant.getEndDt()).reason(reason).build());
   }
 
   // ------------------------------------------------------------------ 내부

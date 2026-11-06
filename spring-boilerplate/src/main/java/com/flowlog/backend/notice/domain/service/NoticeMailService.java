@@ -45,8 +45,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  *   <li>수신자를 사용자 설정 언어별로 그룹핑 (NT-47, NT-4A)</li>
  *   <li>언어 그룹마다 : 템플릿(머리글/안내/바닥글) = 수신자 언어 (NT-49),
  *       공지 내용 = 해당 언어 버전, 없으면 대표 언어 버전 (NT-48)</li>
- *   <li>BCC 로 batch-size 단위 일괄 발송, 수신자별 이력 저장, 공지 상태 DONE/FAIL</li>
+ *   <li>BCC 로 batch-size 단위 일괄 발송, 묶음마다 수신자별 이력 저장, 공지 상태 DONE/FAIL</li>
  * </ol>
+ *
+ * <p>발송하던 인스턴스가 중단되면 공지가 SENDING 으로 남는다. 선점 후 {@code sending-timeout} 이 지나면
+ * 다음 주기에 READY 로 되돌려 다시 발송하며, 이미 성공한 수신자는 제외한다. (이력은 묶음마다 저장)
  *
  * @author flowlog
  * @since 2026-11-05
@@ -118,10 +121,11 @@ public class NoticeMailService {
    */
   public int sendDueMails() {
     LocalDateTime now = LocalDateTime.now(clock);
+    recoverStaleSending(now);
     int processed = 0;
     for (Long noticeId : noticeRepository.findMailDueIds(now)) {
       Boolean claimed = transaction.execute(status -> noticeRepository.changeMailStatus(
-          noticeId, Notice.MAIL_READY, Notice.MAIL_SENDING) == 1);
+          noticeId, Notice.MAIL_READY, Notice.MAIL_SENDING, LocalDateTime.now(clock)) == 1);
       if (Boolean.TRUE.equals(claimed)) {
         send(noticeId);
         processed++;
@@ -130,31 +134,45 @@ public class NoticeMailService {
     return processed;
   }
 
-  /** 선점한 공지 1건 발송. 메일 발송은 DB 트랜잭션 밖에서 수행한다. */
+  /** 선점 후 sending-timeout 이 지나도록 SENDING 인 공지(발송 인스턴스 중단)를 READY 로 되돌린다. */
+  private void recoverStaleSending(LocalDateTime now) {
+    LocalDateTime staleBefore = now.minus(properties.sendingTimeout());
+    Integer recovered = transaction.execute(status ->
+        noticeRepository.recoverStaleSending(staleBefore, now));
+    if (recovered != null && recovered > 0) {
+      log.warn("[NoticeMail] 발송 중 상태로 멈춘 공지 {}건을 재발송 대기로 전환 (선점 후 {} 경과)",
+          recovered, properties.sendingTimeout());
+    }
+  }
+
+  /** 선점한 공지 1건 발송. 메일 발송은 DB 트랜잭션 밖에서 수행하고, 이력은 묶음마다 저장한다. */
   private void send(Long noticeId) {
-    List<NoticeMailHist> histories = new ArrayList<>();
+    int[] receivers = {0};
     boolean success;
     try {
       List<LangGroup> groups = transaction.execute(status -> plan(noticeId));
       success = groups != null;
       for (LangGroup group : groups == null ? List.<LangGroup>of() : groups) {
-        success &= sendGroup(noticeId, group, histories);
+        success &= sendGroup(noticeId, group, receivers);
       }
     } catch (RuntimeException e) {
       log.error("[NoticeMail] 발송 처리 오류 noticeId={}", noticeId, e);
       success = false;
     }
     boolean result = success;
-    transaction.executeWithoutResult(status -> {
-      noticeMailHistRepository.saveAll(histories);
-      noticeRepository.findById(noticeId)
-          .ifPresent(notice -> notice.completeMail(result, LocalDateTime.now(clock)));
-    });
+    transaction.executeWithoutResult(status -> noticeRepository.findById(noticeId)
+        .ifPresent(notice -> notice.completeMail(result, LocalDateTime.now(clock))));
     log.info("[NoticeMail] noticeId={} 결과={} 수신자={}명", noticeId, result ? "DONE" : "FAIL",
-        histories.size());
+        receivers[0]);
   }
 
-  /** 수신자 추출(발송 시점 인사 마스터) + 언어별 그룹 + 언어별 메일 내용. */
+  private void saveHistories(List<NoticeMailHist> histories) {
+    if (!histories.isEmpty()) {
+      transaction.executeWithoutResult(status -> noticeMailHistRepository.saveAll(histories));
+    }
+  }
+
+  /** 수신자 추출(발송 시점 인사 마스터, 이미 성공한 수신자 제외) + 언어별 그룹 + 언어별 메일 내용. */
   List<LangGroup> plan(Long noticeId) {
     Notice notice = noticeRepository.findById(noticeId).orElseThrow();
     Map<String, NoticeI18n> versions = new LinkedHashMap<>();
@@ -165,8 +183,12 @@ public class NoticeMailService {
       deptCds.addAll(orgService.expandDepts(target.getId().getTargetType(),
           target.getId().getTargetCd(), YesNo.isYes(target.getIncludeSubYn())));
     }
+    Set<String> alreadySent = noticeMailHistRepository.findSentReceiverIds(noticeId);
     Map<String, List<User>> byLang = new LinkedHashMap<>();
     for (User user : orgService.usersInDepts(deptCds)) {
+      if (alreadySent.contains(user.getUserId())) {
+        continue;
+      }
       String lang = langService.isActive(user.getLangCd()) ? user.getLangCd()
           : langService.defaultLang();
       byLang.computeIfAbsent(lang, key -> new ArrayList<>()).add(user);
@@ -201,17 +223,20 @@ public class NoticeMailService {
         content.getLangCd());
   }
 
-  /** 언어 그룹 발송 (BCC batch-size 단위). */
-  private boolean sendGroup(Long noticeId, LangGroup group, List<NoticeMailHist> histories) {
+  /** 언어 그룹 발송 (BCC batch-size 단위, 묶음마다 이력 저장). */
+  private boolean sendGroup(Long noticeId, LangGroup group, int[] receivers) {
     boolean success = true;
     List<User> withEmail = new ArrayList<>();
+    List<NoticeMailHist> noEmail = new ArrayList<>();
     for (User user : group.users()) {
       if (StringUtils.isBlank(user.getEmail())) {
-        histories.add(history(noticeId, user, group.langCd(), NoticeMailHist.FAIL, "이메일 주소 없음"));
+        noEmail.add(history(noticeId, user, group.langCd(), NoticeMailHist.FAIL, "이메일 주소 없음"));
       } else {
         withEmail.add(user);
       }
     }
+    saveHistories(noEmail);
+    receivers[0] += noEmail.size();
     int size = Math.max(1, properties.batchSize());
     for (int from = 0; from < withEmail.size(); from += size) {
       List<User> chunk = withEmail.subList(from, Math.min(from + size, withEmail.size()));
@@ -229,9 +254,12 @@ public class NoticeMailService {
         error = StringUtils.abbreviate(e.getMessage(), 1000);
         success = false;
       }
+      List<NoticeMailHist> histories = new ArrayList<>();
       for (User user : chunk) {
         histories.add(history(noticeId, user, group.langCd(), status, error));
       }
+      saveHistories(histories);
+      receivers[0] += chunk.size();
     }
     return success;
   }

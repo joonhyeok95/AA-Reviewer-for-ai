@@ -41,7 +41,7 @@ erDiagram
 |---|---|
 | 공통코드 | `TB_CODE_GROUP`, `TB_CODE_GROUP_LANG`, `TB_CODE`, `TB_CODE_LANG` |
 | 사용자/부서 | `TB_USER`, `TB_DEPT`, `TB_USER_DEPT` |
-| 권한 | `TB_ROLE`, `TB_ROLE_LANG`, `TB_USER_ROLE`, `TB_DEPT_ROLE` |
+| 권한 | `TB_ROLE`, `TB_ROLE_LANG`, `TB_USER_ROLE`, `TB_DEPT_ROLE`, `TB_ROLE_GRANT_HIST`(부여 변경 이력) |
 | 메뉴 | `TB_MENU`, `TB_MENU_LANG`, `TB_ROLE_MENU` |
 
 ---

@@ -1,6 +1,6 @@
 # 테스트 결과 리포트
 
-- 실행일시: 2026-11-06 (KST) — 관리 API(공통코드·메뉴·권한) 추가 후
+- 실행일시: 2026-11-06 (KST) — 다중 인스턴스 보완(캐시 무효화 전파·첨부 저장소·메일 발송 복구)·권한 부여 이력·scope 설정 검사 추가 후
 - 실행 명령: `mvnw clean test` (기본) / `mvnw test -Poracle-it` (실제 Oracle)
 - 환경: Java 17.0.12 / Spring Boot 4.1.2 / Spring Security 7.1.2 / Spring Session / H2 (Oracle 호환 모드) · Oracle Free 23ai (Testcontainers)
 
@@ -8,7 +8,7 @@
 
 | 구분 | 전체 | 성공 | 실패 | 결과 |
 |---|---|---|---|---|
-| 기본 (`mvnw test`) | 142 | 142 | 0 | ✅ BUILD SUCCESS |
+| 기본 (`mvnw test`) | 152 | 152 | 0 | ✅ BUILD SUCCESS |
 | Oracle (`-Poracle-it`) | 3 | 3 | 0 | ✅ BUILD SUCCESS |
 
 | 테스트 클래스 | 유형 | 대상 | 건수 | 결과 |
@@ -19,9 +19,12 @@
 | `AuthMenuCodeRepositoryTest` | 통합 (JPA + H2) | 공통코드 / 사용자·부서 / 권한 / 메뉴 Entity·Repository | 21 | ✅ |
 | `SecurityIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | Bearer / BFF / SAML2, sub 매핑, scope ∩ DB 권한, 기본 거부, 메뉴 API(사용자 언어 우선), Forwarded 헤더, 화면 연동(returnTo 검증, /auth/me 표시 언어) | 35 | ✅ |
 | `NoticeApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 공지 다국어 NT-60~66, 지원 언어(LANG), 사용자 언어, 조직도, 첨부, 권한 | 23 | ✅ |
-| `NoticeMailServiceTest` | 통합 (H2, MailGateway Mock) | 메일 NT-47~4A, 발송 시점 인사 마스터, 중복 발송 방지, 실패 이력 | 5 | ✅ |
+| `NoticeMailServiceTest` | 통합 (H2, MailGateway Mock) | 메일 NT-47~4A, 발송 시점 인사 마스터, 중복 발송 방지, 실패 이력, 발송 중단 복구(성공 수신자 제외) | 7 | ✅ |
+| `NoticeFileStorageTest` | 통합 (H2) | 첨부 DB 저장소(`storage-type=db`) 업로드·다운로드·삭제 | 1 | ✅ |
+| `BroadcastingCacheManagerTest` | 단위 | 캐시 무효화 전파 (커밋 후 전파, 다른 인스턴스 수신, 자기 메시지 무시, Redis 장애 무시) | 4 | ✅ |
+| `ScopeConsistencyTest` | 통합 (설정 파일 + H2) | scope 설정 누락 검사 (Keycloak 역할 = setup.sh = BFF scope, SecurityConfig 규칙, 메뉴 PERM_CD) | 3 | ✅ |
 | `BoardScopeIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 게시판(공지사항) scope 동의어(write/update/delete), IdP scope ∩ DB 권한, 공지사항 메뉴 권한 | 6 | ✅ |
-| `AdminApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 공통코드·메뉴·권한 관리 API, 즉시 반영(캐시), 권한 상승 방지, 본문 메뉴 | 20 | ✅ |
+| `AdminApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 공통코드·메뉴·권한 관리 API, 즉시 반영(캐시), 권한 상승 방지, 본문 메뉴, 부여 변경 이력 | 20 | ✅ |
 | `BrowserCookieWebTest` | 통합 (실제 포트 HTTP) | XSRF-TOKEN 첫 요청 발급·경로 `/`·재발급 없음, 미인증 401 은 세션 미생성 | 2 | ✅ |
 | `SessionSerializationTest` | 단위 | 세션 AES-GCM 암호화 + 허용목록 직렬화 (복원·위변조·다른 키·차단 클래스) | 7 | ✅ |
 | `SecurityStartupValidatorTest` | 단위 | prod 기동 보안 검사 | 3 | ✅ |

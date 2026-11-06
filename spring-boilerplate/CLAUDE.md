@@ -41,13 +41,13 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - 화면(`../vue-frontend`)은 Gateway `/**` 로 서비스 (API 와 같은 Origin). 로그인 `?returnTo=` (`LoginReturnUrlFilter`, 같은 호스트 절대 경로만), CSRF 쿠키 경로 `/` + 첫 요청 발급(`CsrfCookieFilter`), 요청 캐시 미사용(익명 요청이 세션을 만들지 않게). `/auth/me` 에 표시 언어(`langCd`)
 - 인증: 브라우저는 **BFF**(oauth2Login, 토큰은 Redis 세션에만, 클라이언트는 SESSION 쿠키만) 또는 SAML2 세션. 서버 간은 Client Credentials Bearer. **토큰 값을 응답/로그/쿠키에 절대 노출하지 말 것**
 - 인가: API 는 `SCOPE_{리소스}.{list|add|edit|del}` (+ `ROLE_SYS_ADMIN`). 동사 동의어 `write`=add, `update`=edit, `delete`=del 허용(`ScopeActions`, 예: 공지사항 API = board.list/write/update/delete) - 권한 이름은 scope 그대로. **SCOPE = IdP scope ∩ DB 권한** (`AuthorityResolver` / `UserAuthorityService`, 캐시 60s). DB 권한 = 유효 권한의 `TB_ROLE_MENU` 플래그 × `TB_MENU.PERM_CD`
-- **기본 거부** (`anyRequest().denyAll()`). 새 API = SecurityConfig 규칙 + 메뉴 `PERM_CD`/`TB_ROLE_MENU` + Keycloak 같은 이름 역할/client scope(setup.sh). 상세 `docs/design/02_auth_keycloak.md`
+- **기본 거부** (`anyRequest().denyAll()`). 새 API = SecurityConfig 규칙 + 메뉴 `PERM_CD`/`TB_ROLE_MENU` + Keycloak 같은 이름 역할/client scope(setup.sh) + BFF scope(application.yml). 누락은 `ScopeConsistencyTest` 가 잡는다. 상세 `docs/design/02_auth_keycloak.md`
 - 사용자 매핑은 `sub`(Keycloak user id = `TB_USER.IDP_SUBJECT`) 기준. `preferred_username`/NameID 로 권한을 매핑하지 말 것. 서비스 계정은 `app.security.service-account-clients` 의 azp 만
 - 세션: Spring Session Redis (`spring.session.data.redis.*` - Boot 4 속성명), flush-mode immediate. 값은 AES-256-GCM 암호화 + 허용목록 JDK 직렬화(`SessionStoreConfig`, 키 `SESSION_ENCRYPTION_KEY`). 세션에 넣는 객체는 Serializable 이고 허용목록 패키지(`java.lang/util/time`, `org.springframework.security/session`, `com.flowlog.backend`) 안에 있어야 함
 - 인증 감사 로그는 logger `AUDIT` (`AuthAuditLogger`: 로그인 성공/실패, 로그아웃, 401/403). 토큰·비밀번호 기록 금지
 - **다국어**: 언어는 공통코드 `LANG`(ko, en … USE_YN='Y', ATTR1 = 에디터 언어팩)만 기준. 언어 목록/코드를 하드코딩하지 말고 `LangService`(`activeLangs`, `isActive`, `defaultLang`, `resolveUserLang`)를 사용. 사용자 언어 = `TB_USER.LANG_CD` → `Accept-Language` → 기본 언어. 데이터 언어코드는 `ko`/`en`(응답 `locale` 필드는 메시지 Locale 로 `ko_KR` 형식 유지)
-- 관리 API(`code.*`/`menu.*`/`role.*`, 설계 01 6-1): 언어별 이름은 `LangService.normalizeNames`, 권한·메뉴 변경은 `@CacheEvict(userAuthority, allEntries)`, 공통코드 변경은 `codeItems` 캐시 삭제. 언어별 행 저장은 기존 행 수정 + 빠진 사용 중 언어만 삭제(같은 PK 삭제→삽입은 flush 순서로 충돌). 시스템관리자 권한(레벨 1) 변경·부여는 시스템관리자만
+- 관리 API(`code.*`/`menu.*`/`role.*`, 설계 01 6-1): 언어별 이름은 `LangService.normalizeNames`, 권한·메뉴 변경은 `@CacheEvict(userAuthority, allEntries)`, 공통코드 변경은 `codeItems` 캐시 삭제 (커밋 후 Redis Pub/Sub 로 모든 인스턴스에 전파 - `BroadcastingCacheManager`). 권한 부여·수정·회수는 `TB_ROLE_GRANT_HIST` 에 이력. 언어별 행 저장은 기존 행 수정 + 빠진 사용 중 언어만 삭제(같은 PK 삭제→삽입은 flush 순서로 충돌). 시스템관리자 권한(레벨 1) 변경·부여는 시스템관리자만
 - 인사 마스터(사업장/부서) 명칭은 업무 테이블에 저장하지 말고 코드만 저장, 조회 시 `OrgService` 로 (ko = 국문, 그 외 = 영문명)
-- 사용자 입력 HTML(에디터 본문)은 반드시 `HtmlSanitizer.sanitize` 후 저장, 메일 템플릿 치환값은 `HtmlSanitizer.escape`. 첨부는 `NoticeFileService` 방식(웹 경로 밖 UUID 저장, 확장자 허용목록, 저장소 밖 경로 거부)
+- 사용자 입력 HTML(에디터 본문)은 반드시 `HtmlSanitizer.sanitize` 후 저장, 메일 템플릿 치환값은 `HtmlSanitizer.escape`. 첨부는 `NoticeFileService` 방식(`FileStorage` - local 디렉터리 / db BLOB, 확장자 허용목록, 저장소 밖 경로 거부). 다중 인스턴스는 `storage-type=db` 또는 공유 디렉터리
 - 현재 시각은 `Clock` Bean 주입 (`LocalDateTime.now(clock)`)
 - API 통합 테스트는 `springSecurity()` + `jwt()`/`authentication()` post-processor 로 인증을 붙인다 (SampleApiIntegrationTest 참고). 세션 기반 변경 요청은 `csrf()` 필요

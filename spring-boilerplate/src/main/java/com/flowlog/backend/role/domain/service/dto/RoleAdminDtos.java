@@ -175,6 +175,28 @@ public final class RoleAdminDtos {
   }
 
   /**
+   * 권한 부여 변경 이력.
+   *
+   * @param histId 이력ID
+   * @param actionCd GRANT 부여 / UPDATE 수정 / REVOKE 회수
+   * @param targetType USER / DEPT
+   * @param targetId 사용자ID / 부서코드
+   * @param targetNm 사용자명 / 부서명 (표시 언어, 삭제된 대상은 null)
+   * @param startDt 시작일 (변경 후, 회수는 회수 전)
+   * @param endDt 종료일
+   * @param reason 사유
+   * @param changedBy 변경자ID
+   * @param changedByNm 변경자명
+   * @param changedAt 변경일시
+   */
+  @Schema(description = "권한 부여 변경 이력")
+  public record RoleGrantHistResponse(
+      Long histId, String actionCd, String targetType, String targetId, String targetNm,
+      LocalDate startDt, LocalDate endDt, String reason, String changedBy, String changedByNm,
+      LocalDateTime changedAt) {
+  }
+
+  /**
    * 권한 부여 등록/수정 요청. (수정 시 대상은 바꾸지 않음 - 기간·사유만)
    *
    * @param targetType USER / DEPT

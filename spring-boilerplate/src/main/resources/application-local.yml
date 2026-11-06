@@ -32,6 +32,7 @@ spring:
         - classpath:db/ddl/00_sample.sql
         - classpath:db/ddl/01_auth_menu_code.sql
         - classpath:db/ddl/02_notice.sql
+        - classpath:db/ddl/03_file_store.sql
       data-locations:
         - classpath:db/data/00_sample.sql
         - classpath:db/data/01_auth_menu_code.sql

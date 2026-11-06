@@ -1,6 +1,6 @@
 # 00. 전체 ERD (관계 요약)
 
-> 기준 : `src/main/resources/db/ddl/*.sql` (2026-11-06). 테이블 23개.
+> 기준 : `src/main/resources/db/ddl/*.sql` (2026-11-06). 테이블 25개.
 > 컬럼 정의는 영역별 설계 문서 ([01_auth_menu_code.md](01_auth_menu_code.md), [03_notice.md](03_notice.md))를 따른다.
 > 감사 컬럼(CREATED_BY/AT, UPDATED_BY/AT)은 모든 테이블 공통이라 생략한다.
 
@@ -10,10 +10,11 @@
 |---|---|---|
 | 공통코드 | TB_CODE_GROUP, TB_CODE_GROUP_LANG, TB_CODE, TB_CODE_LANG | 다른 모든 영역의 `*_CD` 값의 기준 (FK 없이 코드 참조) |
 | 인사 마스터 | TB_WORKPLACE, TB_DEPT, TB_USER, TB_USER_DEPT | 사업장 → 부서(계층) → 사용자(다중 소속) |
-| 권한 | TB_ROLE, TB_ROLE_LANG, TB_USER_ROLE, TB_DEPT_ROLE | 사용자·부서에 기간부 부여 |
+| 권한 | TB_ROLE, TB_ROLE_LANG, TB_USER_ROLE, TB_DEPT_ROLE, TB_ROLE_GRANT_HIST | 사용자·부서에 기간부 부여, 부여·수정·회수 이력 |
 | 메뉴 | TB_MENU, TB_MENU_LANG, TB_ROLE_MENU | 권한 × 메뉴 = LIST/ADD/EDIT/DEL, 메뉴 PERM_CD = API 리소스 |
 | 공지사항(게시판) | TB_NOTICE, TB_NOTICE_I18N, TB_NOTICE_FILE, TB_NOTICE_MAIL_TARGET, TB_NOTICE_MAIL_HIST, TB_NOTICE_VIEW_LOG | 권한 리소스 `board` |
 | 메일 | TB_MAIL_TEMPLATE | 언어별 템플릿 |
+| 파일 저장소 | TB_FILE_STORE | 첨부 내용 BLOB (`storage-type=db`) |
 | 샘플 | TB_SAMPLE | 독립 (구조 예시) |
 
 ## 2. ERD
@@ -51,6 +52,8 @@ erDiagram
   TB_USER ||..o{ TB_NOTICE_VIEW_LOG : "조회자 (논리)"
   TB_WORKPLACE ||..o{ TB_NOTICE_MAIL_TARGET : "TARGET_TYPE=WORKPLACE (논리)"
   TB_DEPT ||..o{ TB_NOTICE_MAIL_TARGET : "TARGET_TYPE=DEPT (논리)"
+  TB_ROLE ||..o{ TB_ROLE_GRANT_HIST : "부여 변경 이력 (논리)"
+  TB_NOTICE_FILE ||..o| TB_FILE_STORE : "SAVE_PATH = FILE_KEY (db 저장 시)"
 
   TB_CODE_GROUP {
     string GROUP_CD PK
@@ -192,6 +195,22 @@ erDiagram
     string LANG_CD PK
     string SUBJECT
   }
+  TB_ROLE_GRANT_HIST {
+    number HIST_ID PK
+    number ROLE_ID
+    string TARGET_TYPE "USER DEPT"
+    string TARGET_ID
+    number GRANT_ID
+    string ACTION_CD "GRANT UPDATE REVOKE"
+    date START_DT
+    date END_DT
+    string REASON
+  }
+  TB_FILE_STORE {
+    string FILE_KEY PK
+    number FILE_SIZE
+    blob FILE_DATA
+  }
   TB_SAMPLE {
     number SAMPLE_ID PK
     string NAME UK
@@ -230,6 +249,8 @@ erDiagram
 | TB_NOTICE_MAIL_HIST.NOTICE_ID / RECEIVER_ID | TB_NOTICE / TB_USER | 이력은 원본 삭제·퇴사와 무관하게 보존 |
 | TB_NOTICE_VIEW_LOG.NOTICE_ID / USER_ID | TB_NOTICE / TB_USER | 로그성 데이터 (하루 1회 조회수 집계) |
 | TB_MAIL_TEMPLATE.TEMPLATE_CD | 앱 상수 | 템플릿 종류는 코드에서 정의 |
+| TB_ROLE_GRANT_HIST.ROLE_ID / TARGET_ID / GRANT_ID | TB_ROLE / TB_USER·TB_DEPT / TB_USER_ROLE·TB_DEPT_ROLE | 감사 이력은 권한·대상·부여가 삭제돼도 보존 (회수 시 부여 행은 삭제됨) |
+| TB_NOTICE_FILE.SAVE_PATH | TB_FILE_STORE.FILE_KEY (db) 또는 디렉터리 경로 (local) | 저장 방식(`storage-type`)에 따라 대상이 다름 |
 | TB_MENU.PERM_CD | API 리소스 (SecurityConfig, Keycloak scope) | DB 밖 개념 (sample, board, code, menu, role) |
 | TB_USER.IDP_SUBJECT | Keycloak 사용자 id (토큰 `sub`) | 외부 IdP |
 | 감사 컬럼 CREATED_BY / UPDATED_BY | TB_USER.USER_ID | 공통 감사 (작성자 표시 등) |

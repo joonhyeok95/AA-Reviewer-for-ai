@@ -455,11 +455,24 @@ class AdminApiIntegrationTest {
               .value(hasItem("SCHEDULED")));
       as("emp01", "role.list", get(ROLES)).andExpect(status().isForbidden());
 
-      admin(delete(ROLES + "/2/grants/USER/" + grantId)).andExpect(status().isOk());
+      admin(delete(ROLES + "/2/grants/USER/" + grantId).param("reason", "대행 종료"))
+          .andExpect(status().isOk());
       admin(get(ROLES + "/2/grants"))
           .andExpect(jsonPath("$.result.users[*].targetId").value(not(hasItem("emp01"))))
           .andExpect(jsonPath("$.result.users[?(@.targetId == 'tx.master')].targetSubNm")
               .value(hasItem("TX팀")));
+
+      // 변경 이력 : 회수 후에도 부여·수정·회수가 변경자와 함께 남는다 (최신순)
+      admin(get(ROLES + "/2/grant-histories"))
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.result[0:3].actionCd").value(
+              org.hamcrest.Matchers.contains("REVOKE", "UPDATE", "GRANT")))
+          .andExpect(jsonPath("$.result[0].targetId").value("emp01"))
+          .andExpect(jsonPath("$.result[0].targetNm").value("임직원01"))
+          .andExpect(jsonPath("$.result[0].reason").value("대행 종료"))
+          .andExpect(jsonPath("$.result[0].startDt").value("2099-01-01"))
+          .andExpect(jsonPath("$.result[0].changedBy").value("admin"))
+          .andExpect(jsonPath("$.result[2].reason").value("대행"));
     }
 
     @Test

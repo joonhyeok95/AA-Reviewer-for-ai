@@ -160,4 +160,43 @@ class NoticeMailServiceTest {
     assertThat(english.subject()).isEqualTo("[Notice] Maintenance");
     assertThat(english.html()).contains("<p>Body</p>").doesNotContain("<p>본문</p>");
   }
+
+  @Test
+  @DisplayName("발송 중 인스턴스 중단 - SENDING 이 sending-timeout 을 넘으면 재발송, 이미 성공한 수신자는 제외")
+  void recoverStaleSending() {
+    // given : 1시간 전에 선점된 채 멈춘 발송 (tx.viewer 에게는 이미 성공)
+    Long id = koreanOnlyNoticeToSuwon();
+    noticeRepository.changeMailStatus(id, "READY", "SENDING", LocalDateTime.now().minusHours(1));
+    noticeMailHistRepository.saveAndFlush(NoticeMailHist.builder().noticeId(id)
+        .receiverId("tx.viewer").langCd("ko").sendDt(LocalDateTime.now().minusHours(1))
+        .statusCd("SUCCESS").build());
+
+    // when
+    int processed = noticeMailService.sendDueMails();
+
+    // then : 남은 수신자(partner01)에게만 발송하고 완료
+    ArgumentCaptor<Envelope> captor = ArgumentCaptor.forClass(Envelope.class);
+    verify(mailGateway, times(1)).send(captor.capture());
+    assertThat(processed).isEqualTo(1);
+    assertThat(captor.getValue().bcc()).containsExactly("partner01@example.com");
+    assertThat(noticeMailHistRepository.findByNoticeIdOrderByIdAsc(id))
+        .extracting(NoticeMailHist::getReceiverId).containsExactly("tx.viewer", "partner01");
+    assertThat(noticeRepository.findById(id).orElseThrow().getMailStatusCd()).isEqualTo("DONE");
+  }
+
+  @Test
+  @DisplayName("발송 중(SENDING)이지만 sending-timeout 이 지나지 않았으면 그대로 둠 (다른 인스턴스가 발송 중)")
+  void keepRecentSending() {
+    // given
+    Long id = koreanOnlyNoticeToSuwon();
+    noticeRepository.changeMailStatus(id, "READY", "SENDING", LocalDateTime.now());
+
+    // when
+    int processed = noticeMailService.sendDueMails();
+
+    // then
+    assertThat(processed).isZero();
+    verify(mailGateway, times(0)).send(any());
+    assertThat(noticeRepository.findById(id).orElseThrow().getMailStatusCd()).isEqualTo("SENDING");
+  }
 }

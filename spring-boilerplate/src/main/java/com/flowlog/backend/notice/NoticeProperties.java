@@ -19,15 +19,17 @@ public record NoticeProperties(File file, Mail mail) {
   /**
    * 첨부파일 설정.
    *
-   * @param storagePath 저장 경로 (서버 로컬 디렉터리, 웹 경로 밖)
+   * @param storagePath 저장 경로 (storage-type=local, 웹 경로 밖. 다중 인스턴스면 공유 디렉터리)
    * @param allowedExtensions 허용 확장자 (소문자)
    * @param maxFiles 공지당 최대 첨부 수
+   * @param storageType 저장소 : local (디렉터리) / db (TB_FILE_STORE BLOB)
    */
   public record File(
       String storagePath,
       @DefaultValue({"pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "hwp", "hwpx", "txt",
           "csv", "zip", "png", "jpg", "jpeg", "gif"}) List<String> allowedExtensions,
-      @DefaultValue("10") int maxFiles) {
+      @DefaultValue("10") int maxFiles,
+      @DefaultValue("local") String storageType) {
   }
 
   /**
@@ -38,12 +40,14 @@ public record NoticeProperties(File file, Mail mail) {
    * @param batchSize 메일 1통의 최대 수신자 수 (BCC)
    * @param from 발신 주소
    * @param linkTemplate 공지 링크 ({id} 치환)
+   * @param sendingTimeout 발송 중(SENDING) 상태가 이 시간을 넘으면 중단된 것으로 보고 재발송
    */
   public record Mail(
       @DefaultValue("true") boolean schedulerEnabled,
       @DefaultValue("60s") Duration pollInterval,
       @DefaultValue("100") int batchSize,
       String from,
-      String linkTemplate) {
+      String linkTemplate,
+      @DefaultValue("30m") Duration sendingTimeout) {
   }
 }

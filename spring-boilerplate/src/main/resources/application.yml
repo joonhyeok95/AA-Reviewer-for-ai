@@ -68,6 +68,9 @@ spring:
 #  - 로그인 시작: /oauth2/authorization/keycloak  →  콜백: /login/oauth2/code/keycloak
 #  - scopes 를 모두 요청해도 Keycloak 은 사용자 역할에 매핑된 scope 만 발급한다.
 app:
+  # 권한·공통코드 캐시 무효화를 Redis Pub/Sub 로 다른 인스턴스에 전파 (CacheConfig)
+  cache:
+    broadcast-enabled: ${CACHE_BROADCAST_ENABLED:true}
   security:
     oauth2:
       registration-id: keycloak
@@ -96,7 +99,7 @@ app:
     service-account-clients: ${SERVICE_ACCOUNT_CLIENTS:flowlog-batch}
     # X-Forwarded-* 를 신뢰할 직전 호출자 IP 정규식 = Gateway. 운영은 Gateway 대역으로 한정
     trusted-proxies: ${APP_TRUSTED_PROXIES:127\.0\.0\.1|0:0:0:0:0:0:0:1|::1}
-    # 사용자 DB 권한 캐시 (권한 변경은 최대 이 시간 뒤 반영)
+    # 사용자 DB 권한·공통코드 캐시 TTL. 관리 화면 변경은 app.cache.broadcast-enabled 로 모든 인스턴스에 즉시 반영
     authority-cache-ttl: ${AUTHORITY_CACHE_TTL:60s}
     # true 면 기동 시 https / Secure 쿠키 / 운영 시크릿 검사 (prod)
     require-https: false
@@ -111,6 +114,8 @@ app:
 # ------------------------------------------------------------
   notice:
     file:
+      # 첨부 저장소: local(디렉터리, 다중 인스턴스면 공유 디렉터리 필요) / db(TB_FILE_STORE BLOB, 인프라 불필요)
+      storage-type: ${NOTICE_FILE_STORAGE:local}
       storage-path: ${NOTICE_FILE_PATH:./data/notice-files}
       max-files: 10
     mail:
@@ -119,6 +124,8 @@ app:
       batch-size: ${NOTICE_MAIL_BATCH_SIZE:100}
       from: ${MAIL_FROM:noreply@flowlog.local}
       link-template: ${NOTICE_LINK_TEMPLATE:http://localhost:9909/notices/{id}}
+      # 발송 중(SENDING) 상태가 이 시간을 넘으면 발송 인스턴스 중단으로 보고 재발송 (성공 수신자 제외)
+      sending-timeout: ${NOTICE_MAIL_SENDING_TIMEOUT:30m}
 
 # MyBatis : 매퍼 XML 은 resources/mapper/{도메인}/*.xml (JPA 와 같은 DataSource/트랜잭션 사용)
 mybatis:

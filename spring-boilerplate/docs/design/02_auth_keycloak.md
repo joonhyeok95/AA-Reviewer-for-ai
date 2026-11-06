@@ -97,7 +97,7 @@ Browser                    Gateway/App                                Keycloak  
 | 최종 `SCOPE_*` | 둘 다 있는 것만. DB 미등록/미사용 사용자는 없음 |
 | `ROLE_*` | DB 유효 권한코드 (예: `ROLE_SYS_ADMIN` = 전체 허용) |
 | 서비스 계정 | `azp` ∈ `app.security.service-account-clients` **이고** 사용자명 = `service-account-{azp}` 일 때만 → 토큰 scope 만 |
-| 캐시 | `UserAuthorityService.loadBySubject` Caffeine 60초 (`AUTHORITY_CACHE_TTL`) |
+| 캐시 | `UserAuthorityService.loadBySubject` Caffeine 60초 (`AUTHORITY_CACHE_TTL`). 관리 화면 변경은 커밋 후 Redis Pub/Sub(`flowlog:cache:invalidate`)로 **모든 인스턴스** 캐시를 비움 (`CacheConfig`, `app.cache.broadcast-enabled`). Redis 장애 시 TTL 뒤 반영 |
 
 예) tx.viewer — Keycloak 은 `sample.list` 만 발급, DB 는 `TX_MANAGER_READ`(조회) → `SCOPE_sample.list`.
 Keycloak 이 `sample.add` 까지 허용하더라도 DB 가 조회 전용이면 등록 403 (커스텀 권한 반영).
@@ -251,7 +251,7 @@ issuer / SAML 메타데이터 / SP entityId 가 https, 세션 쿠키 Secure, cli
 | `global/security/SecurityStartupValidator` | prod 기동 검사 |
 | `global/config/SessionStoreConfig` | 세션 암호화 직렬화 |
 | `global/web/TrustedForwardedHeaderFilter` + `global/config/ForwardedHeaderConfig` | 신뢰 프록시 Forwarded 헤더 |
-| `global/config/CacheConfig` | Caffeine 캐시 |
+| `global/config/CacheConfig`, `global/cache/*` | Caffeine 캐시 + 인스턴스 간 무효화 전파 (Redis Pub/Sub) |
 | `menu/web/MenuController` | `GET /api/v1/menus/me` |
 | `infra/keycloak/realm/flowlog-realm.json` · `setup/setup.sh` | realm, client, 사용자(고정 ID), mapper / client scope 역할 제한 |
 | `infra/keycloak/e2e/auth_e2e.py` | 실제 연동 E2E 40건 |

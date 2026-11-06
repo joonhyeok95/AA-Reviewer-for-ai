@@ -49,15 +49,37 @@ public interface NoticeRepository extends JpaRepository<Notice, Long> {
 
   /**
    * 메일 상태를 원자적으로 바꾼다. (여러 인스턴스 중 1대만 발송을 선점)
+   * 수정일시를 함께 기록해 발송 중(SENDING) 멈춤 판단 기준으로 쓴다.
    *
    * @param id 공지ID
    * @param from 현재 상태
    * @param to 변경 상태
+   * @param now 현재 일시
    * @return 변경 건수 (1 이면 선점 성공)
    */
   @Modifying(clearAutomatically = true, flushAutomatically = true)
-  @Query("update Notice n set n.mailStatusCd = :to where n.id = :id and n.mailStatusCd = :from")
-  int changeMailStatus(@Param("id") Long id, @Param("from") String from, @Param("to") String to);
+  @Query("""
+      update Notice n set n.mailStatusCd = :to, n.updatedAt = :now
+       where n.id = :id and n.mailStatusCd = :from
+      """)
+  int changeMailStatus(@Param("id") Long id, @Param("from") String from, @Param("to") String to,
+      @Param("now") LocalDateTime now);
+
+  /**
+   * 발송 중(SENDING) 상태로 일정 시간 이상 멈춘 공지를 발송 대기(READY)로 되돌린다.
+   * (발송하던 인스턴스가 중단된 경우. 이미 성공한 수신자는 재발송에서 제외된다)
+   *
+   * @param staleBefore 이 일시 이전에 선점된 발송은 중단된 것으로 본다
+   * @param now 현재 일시
+   * @return 되돌린 건수
+   */
+  @Modifying(clearAutomatically = true, flushAutomatically = true)
+  @Query("""
+      update Notice n set n.mailStatusCd = 'READY', n.updatedAt = :now
+       where n.mailStatusCd = 'SENDING' and n.updatedAt < :staleBefore
+      """)
+  int recoverStaleSending(@Param("staleBefore") LocalDateTime staleBefore,
+      @Param("now") LocalDateTime now);
 
   /**
    * 조회수 1 증가. (원자적 update)

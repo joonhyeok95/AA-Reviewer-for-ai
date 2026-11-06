@@ -219,7 +219,8 @@ local 데이터: SEOUL(서울 본사 / Seoul Headquarters) — HQ, TX_TEAM, WS_T
 | 항목 | 처리 |
 |---|---|
 | 저장형 XSS | 본문 HTML 을 저장 시 jsoup Safelist(relaxed) 로 정화 — script/style/iframe/on* 이벤트/javascript: URL 제거, 링크·이미지는 http/https(/mailto)만, 링크에 `rel="noopener noreferrer"` |
-| 첨부 저장 | 웹 경로 밖 디렉터리(`app.notice.file.storage-path`)에 UUID 파일명으로 저장, 원본명은 DB 에만 |
+| 첨부 저장 | `FileStorage` (`app.notice.file.storage-type`) — `local`: 웹 경로 밖 디렉터리(`storage-path`)에 UUID 로 저장 (다중 인스턴스면 공유 디렉터리 필요) / `db`: `TB_FILE_STORE` BLOB (인프라 없이 인스턴스 공유). 원본명은 TB_NOTICE_FILE 에만 |
+| 메일 발송 중단 | 발송 인스턴스가 중단되어 SENDING 이 `sending-timeout`(30분)을 넘으면 READY 로 되돌려 재발송. 이력은 묶음마다 저장하고 이미 성공한 수신자는 제외 |
 | 경로 조작 | 원본 파일명에서 경로·제어문자 제거, 저장 경로가 저장소 밖으로 해석되면 거부 |
 | 업로드 제한 | 허용 확장자 목록, 공지당 최대 개수(10), 빈 파일 거부, 크기는 `spring.servlet.multipart` (20MB / 요청 100MB) |
 | 다운로드 | 파일이 해당 공지 소속인지 확인, `application/octet-stream` + `Content-Disposition: attachment` + `nosniff` |
@@ -244,7 +245,9 @@ local 데이터: SEOUL(서울 본사 / Seoul Headquarters) — HQ, TX_TEAM, WS_T
 
 | 속성 | 환경변수 | 기본값 |
 |---|---|---|
+| `app.notice.file.storage-type` | `NOTICE_FILE_STORAGE` | `local` (`db` = TB_FILE_STORE) |
 | `app.notice.file.storage-path` | `NOTICE_FILE_PATH` | `./data/notice-files` |
+| `app.notice.mail.sending-timeout` | `NOTICE_MAIL_SENDING_TIMEOUT` | `30m` |
 | `app.notice.file.max-files` | | 10 |
 | `app.notice.file.allowed-extensions` | | pdf, doc(x), xls(x), ppt(x), hwp(x), txt, csv, zip, png, jpg, jpeg, gif |
 | `app.notice.mail.scheduler-enabled` | `NOTICE_MAIL_SCHEDULER_ENABLED` | true (테스트 false) |

@@ -2,6 +2,8 @@ package com.flowlog.backend.notice.domain.service;
 
 import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.exception.BusinessException;
+import com.flowlog.backend.global.storage.FileStorage;
+import com.flowlog.backend.global.storage.FileStorageException;
 import com.flowlog.backend.notice.NoticeProperties;
 import com.flowlog.backend.notice.domain.model.NoticeFile;
 import com.flowlog.backend.notice.domain.repository.NoticeFileRepository;
@@ -10,18 +12,11 @@ import com.flowlog.backend.notice.domain.service.dto.NoticeResponses.NoticeFileR
 import com.flowlog.backend.notice.exception.NoticeErrorCode;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
-import java.time.Clock;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
-import org.springframework.core.io.PathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -31,9 +26,10 @@ import org.springframework.web.multipart.MultipartFile;
  * 공지 첨부파일 서비스. (게시물 공통 - 언어별 분리 안 함, NT-63)
  *
  * <ul>
- *   <li>저장 : {@code app.notice.file.storage-path}/{yyyy}/{MM}/{UUID} (원본 파일명은 DB 에만)</li>
+ *   <li>저장 : {@link FileStorage} (local 디렉터리 / db BLOB - {@code app.notice.file.storage-type}).
+ *       원본 파일명은 TB_NOTICE_FILE 에만, 저장 키는 SAVE_PATH</li>
  *   <li>허용 확장자만, 공지당 최대 개수 제한, 빈 파일 거부. 크기는 multipart 설정으로 제한</li>
- *   <li>다운로드 시 저장 경로가 저장소 밖을 가리키면 거부 (경로 조작 방지)</li>
+ *   <li>다운로드 시 저장 경로가 저장소 밖을 가리키면 거부 (경로 조작 방지, LocalFileStorage)</li>
  * </ul>
  *
  * @author flowlog
@@ -48,8 +44,7 @@ public class NoticeFileService {
   private final NoticeRepository noticeRepository;
   private final NoticeFileRepository noticeFileRepository;
   private final NoticeProperties.File properties;
-  private final Path root;
-  private final Clock clock;
+  private final FileStorage fileStorage;
 
   /**
    * 생성자.
@@ -57,16 +52,15 @@ public class NoticeFileService {
    * @param noticeRepository 공지 Repository
    * @param noticeFileRepository 첨부 Repository
    * @param properties 공지 설정
-   * @param clock 시계
+   * @param fileStorage 첨부 저장소
    */
   public NoticeFileService(
       NoticeRepository noticeRepository, NoticeFileRepository noticeFileRepository,
-      NoticeProperties properties, Clock clock) {
+      NoticeProperties properties, FileStorage fileStorage) {
     this.noticeRepository = noticeRepository;
     this.noticeFileRepository = noticeFileRepository;
     this.properties = properties.file();
-    this.root = Path.of(properties.file().storagePath()).toAbsolutePath().normalize();
-    this.clock = clock;
+    this.fileStorage = fileStorage;
   }
 
   /**
@@ -112,12 +106,17 @@ public class NoticeFileService {
   public Download download(Long noticeId, Long fileId) {
     requireNotice(noticeId);
     NoticeFile file = findFile(noticeId, fileId);
-    Path path = resolve(file.getSavePath());
-    if (!Files.isRegularFile(path)) {
-      log.error("[NoticeFile] 저장 파일 없음 fileId={}", fileId);
-      throw new BusinessException(NoticeErrorCode.NOTICE_FILE_NOT_FOUND, fileId);
+    try {
+      return new Download(file.getOrgFileNm(), file.getFileSize(),
+          fileStorage.load(file.getSavePath()));
+    } catch (FileStorageException e) {
+      if (e.isNotFound()) {
+        log.error("[NoticeFile] 저장 파일 없음 fileId={}", fileId);
+        throw new BusinessException(NoticeErrorCode.NOTICE_FILE_NOT_FOUND, fileId);
+      }
+      log.error("[NoticeFile] 읽기 실패 fileId={}", fileId, e);
+      throw new BusinessException(NoticeErrorCode.NOTICE_FILE_IO_FAILED);
     }
-    return new Download(file.getOrgFileNm(), file.getFileSize(), new PathResource(path));
   }
 
   /**
@@ -131,11 +130,7 @@ public class NoticeFileService {
     requireNotice(noticeId);
     NoticeFile file = findFile(noticeId, fileId);
     noticeFileRepository.delete(file);
-    try {
-      Files.deleteIfExists(resolve(file.getSavePath()));
-    } catch (IOException e) {
-      log.warn("[NoticeFile] 저장 파일 삭제 실패 fileId={} ({})", fileId, e.getMessage());
-    }
+    fileStorage.delete(file.getSavePath());
   }
 
   private void validate(MultipartFile file) {
@@ -150,27 +145,12 @@ public class NoticeFileService {
   }
 
   private String store(MultipartFile file) {
-    LocalDate today = LocalDate.now(clock);
-    String relative = String.format("%04d/%02d/%s", today.getYear(), today.getMonthValue(),
-        UUID.randomUUID());
-    Path target = resolve(relative);
     try (InputStream in = file.getInputStream()) {
-      Files.createDirectories(target.getParent());
-      Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-    } catch (IOException e) {
+      return fileStorage.store(in, file.getSize());
+    } catch (IOException | FileStorageException e) {
       log.error("[NoticeFile] 저장 실패", e);
       throw new BusinessException(NoticeErrorCode.NOTICE_FILE_IO_FAILED);
     }
-    return relative;
-  }
-
-  /** 저장소 기준 경로 해석. 저장소 밖이면 거부. */
-  private Path resolve(String relative) {
-    Path path = root.resolve(relative).normalize();
-    if (!path.startsWith(root)) {
-      throw new BusinessException(NoticeErrorCode.NOTICE_FILE_IO_FAILED);
-    }
-    return path;
   }
 
   private NoticeFile findFile(Long noticeId, Long fileId) {

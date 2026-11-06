@@ -7,6 +7,7 @@ import com.flowlog.backend.global.component.MessageHttpResponse;
 import com.flowlog.backend.role.domain.service.RoleAdminService;
 import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleAdminResponse;
 import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleGrantSaveRequest;
+import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleGrantHistResponse;
 import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleGrantsResponse;
 import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleMenuSaveRequest;
 import com.flowlog.backend.role.domain.service.dto.RoleAdminDtos.RoleMenusResponse;
@@ -17,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -219,17 +222,37 @@ public class RoleAdminController {
    * @param id 권한ID
    * @param targetType USER / DEPT
    * @param grantId 부여ID
+   * @param reason 회수 사유 (선택)
    * @param authentication 인증
    * @return result 없음
    */
-  @Operation(summary = "부여 회수", description = "즉시 삭제. 다음 요청부터 권한이 빠진다")
+  @Operation(summary = "부여 회수",
+      description = "즉시 삭제하고 회수 이력을 남긴다. 다음 요청부터 권한이 빠진다")
   @DeleteMapping("/{id}/grants/{targetType}/{grantId}")
   public ResponseEntity<MessageResponse<Void>> deleteGrant(
       @PathVariable("id") @Positive Long id,
       @PathVariable("targetType") @Pattern(regexp = TARGET_TYPE) String targetType,
-      @PathVariable("grantId") @Positive Long grantId, Authentication authentication) {
-    roleAdminService.deleteGrant(id, targetType, grantId, isSysAdmin(authentication));
+      @PathVariable("grantId") @Positive Long grantId,
+      @RequestParam(name = "reason", required = false) @Size(max = 1000) String reason,
+      Authentication authentication) {
+    roleAdminService.deleteGrant(id, targetType, grantId, reason, isSysAdmin(authentication));
     return messageHttpResponse.success();
+  }
+
+  /**
+   * 권한 부여 변경 이력.
+   *
+   * @param id 권한ID
+   * @param authentication 인증
+   * @param locale 요청 Locale
+   * @return 이력 (최신순)
+   */
+  @Operation(summary = "권한 부여 변경 이력", description = "부여·수정·회수와 변경자·변경일시 (감사)")
+  @GetMapping("/{id}/grant-histories")
+  public ResponseEntity<MessageResponse<List<RoleGrantHistResponse>>> getGrantHistories(
+      @PathVariable("id") @Positive Long id, Authentication authentication, Locale locale) {
+    return messageHttpResponse.success(
+        roleAdminService.getGrantHistories(id, lang(authentication, locale)));
   }
 
   private String lang(Authentication authentication, Locale locale) {

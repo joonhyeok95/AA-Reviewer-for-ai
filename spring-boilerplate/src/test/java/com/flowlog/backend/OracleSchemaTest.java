@@ -49,7 +49,8 @@ import org.testcontainers.oracle.OracleContainer;
     "spring.sql.init.mode=always",
     "spring.sql.init.encoding=UTF-8",
     "spring.sql.init.schema-locations=classpath:db/ddl/00_sample.sql,"
-        + "classpath:db/ddl/01_auth_menu_code.sql,classpath:db/ddl/02_notice.sql",
+        + "classpath:db/ddl/01_auth_menu_code.sql,classpath:db/ddl/02_notice.sql,"
+        + "classpath:db/ddl/03_file_store.sql",
     "spring.sql.init.data-locations=classpath:db/data/00_sample.sql,"
         + "classpath:db/data/01_auth_menu_code.sql,classpath:db/data/02_notice.sql",
     "spring.jpa.defer-datasource-initialization=false",
