@@ -14,6 +14,23 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 
 ## 실행
 
+### 한 번에 실행 (인프라 + 앱 + Gateway + 화면)
+
+`spring-boilerplate`, `spring-gateway`, `vue-frontend` 를 같은 폴더 아래 나란히 두고 실행한다.
+이미 쓰는 포트가 있으면 시작하지 않고 어떤 프로세스인지 알려준다. 로그는 `.run/*.log`.
+
+```powershell
+./scripts/dev-up.ps1                 # Windows PowerShell (-Instances 2 : 9092 두 번째 인스턴스, -NoFrontend)
+./scripts/dev-down.ps1               # 종료 (-Infra : Redis·Keycloak 컨테이너도 중지)
+```
+```bash
+./scripts/dev-up.sh                  # macOS / Linux / Git Bash (--instances 2, --no-frontend)
+./scripts/dev-down.sh                # 종료 (--infra)
+```
+접속은 http://localhost:9909 (Gateway). 화면 개발 서버 5173 에 직접 접속하지 않는다.
+
+### 개별 실행
+
 ```bash
 # 인프라: Redis (세션 저장소 + Gateway Rate Limit), Keycloak (realm/client/사용자 자동 구성)
 #  - 두 컨테이너 모두 127.0.0.1 에만 바인딩

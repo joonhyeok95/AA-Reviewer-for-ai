@@ -10,6 +10,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - Actuator 는 관리 포트 `127.0.0.1:9191` (health, info, prometheus). 서비스 포트·Gateway 로 노출 금지
 - Gateway 뒤에서 동작: `TrustedForwardedHeaderFilter` 가 `app.security.trusted-proxies`(Gateway IP)에서 온 X-Forwarded-* 만 반영 (`server.forward-headers-strategy=none` 유지). 앱에서 절대 URL 을 하드코딩하지 말 것
 - 작업 후 항상 `./mvnw test` 통과 확인. DDL/초기데이터/Entity 변경 시 `./mvnw test -Poracle-it` (실제 Oracle, Docker 필요)
+- 전체 실행: `scripts/dev-up.ps1` (Windows) / `scripts/dev-up.sh` → 종료 `dev-down`. 포트 충돌 시 시작 안 함
 - 인프라: `docker compose -f infra/redis/docker-compose.yml up -d` (:6379), `docker compose -f infra/keycloak/docker-compose.yml up -d` (:7000)
 - 인증 E2E: `python infra/keycloak/e2e/auth_e2e.py` (Gateway·앱(9091)·두 번째 인스턴스(9092) 실행 상태에서, `--quick` 은 refresh 대기 생략)
 
@@ -45,7 +46,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - 사용자 매핑은 `sub`(Keycloak user id = `TB_USER.IDP_SUBJECT`) 기준. `preferred_username`/NameID 로 권한을 매핑하지 말 것. 서비스 계정은 `app.security.service-account-clients` 의 azp 만
 - 세션: Spring Session Redis (`spring.session.data.redis.*` - Boot 4 속성명), flush-mode immediate. 값은 AES-256-GCM 암호화 + 허용목록 JDK 직렬화(`SessionStoreConfig`, 키 `SESSION_ENCRYPTION_KEY`). 세션에 넣는 객체는 Serializable 이고 허용목록 패키지(`java.lang/util/time`, `org.springframework.security/session`, `com.flowlog.backend`) 안에 있어야 함
 - 인증 감사 로그는 logger `AUDIT` (`AuthAuditLogger`: 로그인 성공/실패, 로그아웃, 401/403). 토큰·비밀번호 기록 금지
-- **다국어**: 언어는 공통코드 `LANG`(ko, en … USE_YN='Y', ATTR1 = 에디터 언어팩)만 기준. 언어 목록/코드를 하드코딩하지 말고 `LangService`(`activeLangs`, `isActive`, `defaultLang`, `resolveUserLang`)를 사용. 사용자 언어 = `TB_USER.LANG_CD` → `Accept-Language` → 기본 언어. 데이터 언어코드는 `ko`/`en`(응답 `locale` 필드는 메시지 Locale 로 `ko_KR` 형식 유지)
+- **다국어**: 언어는 공통코드 `LANG`(ko, en … USE_YN='Y', ATTR1 = 에디터 로케일 - 본문 lang 속성)만 기준. 언어 목록/코드를 하드코딩하지 말고 `LangService`(`activeLangs`, `isActive`, `defaultLang`, `resolveUserLang`)를 사용. 사용자 언어 = `TB_USER.LANG_CD` → `Accept-Language` → 기본 언어. 데이터 언어코드는 `ko`/`en`(응답 `locale` 필드는 메시지 Locale 로 `ko_KR` 형식 유지)
 - 관리 API(`code.*`/`menu.*`/`role.*`, 설계 01 6-1): 언어별 이름은 `LangService.normalizeNames`, 권한·메뉴 변경은 `@CacheEvict(userAuthority, allEntries)`, 공통코드 변경은 `codeItems` 캐시 삭제 (커밋 후 Redis Pub/Sub 로 모든 인스턴스에 전파 - `BroadcastingCacheManager`). 권한 부여·수정·회수는 `TB_ROLE_GRANT_HIST` 에 이력. 언어별 행 저장은 기존 행 수정 + 빠진 사용 중 언어만 삭제(같은 PK 삭제→삽입은 flush 순서로 충돌). 시스템관리자 권한(레벨 1) 변경·부여는 시스템관리자만
 - 인사 마스터(사업장/부서) 명칭은 업무 테이블에 저장하지 말고 코드만 저장, 조회 시 `OrgService` 로 (ko = 국문, 그 외 = 영문명)
 - 사용자 입력 HTML(에디터 본문)은 반드시 `HtmlSanitizer.sanitize` 후 저장, 메일 템플릿 치환값은 `HtmlSanitizer.escape`. 첨부는 `NoticeFileService` 방식(`FileStorage` - local 디렉터리 / db BLOB, 확장자 허용목록, 저장소 밖 경로 거부). 다중 인스턴스는 `storage-type=db` 또는 공유 디렉터리
