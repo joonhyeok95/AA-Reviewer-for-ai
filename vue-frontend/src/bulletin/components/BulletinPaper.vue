@@ -66,14 +66,26 @@ function fit(): void {
   }
 }
 
-let pageStyle: HTMLStyleElement | null = null
+const PRINT_CLASS = 'bulletin-printing'
+const PAGE_STYLE_ID = 'bulletin-print-page'
+
+/** 인쇄 준비 (여러 번 불러도 같음) : 앱 화면 숨김 표시 + @page A4 + 장 맞춤 */
+function preparePrint(): void {
+  document.documentElement.classList.add(PRINT_CLASS)
+  if (!document.getElementById(PAGE_STYLE_ID)) {
+    const style = document.createElement('style')
+    style.id = PAGE_STYLE_ID
+    style.textContent = '@page { size: A4 portrait; margin: 0; }'
+    document.head.appendChild(style)
+  }
+  fit()
+}
+
 onMounted(async () => {
   if (!props.print) return
-  document.documentElement.classList.add('bulletin-printing')
-  pageStyle = document.createElement('style')
-  pageStyle.textContent = '@page { size: A4 portrait; margin: 0; }'
-  document.head.appendChild(pageStyle)
-  window.addEventListener('beforeprint', fit)
+  preparePrint()
+  // 인쇄 버튼·Ctrl+P 모두 인쇄 직전에 다시 준비 (화면 갱신 중 표시가 지워졌어도 복구)
+  window.addEventListener('beforeprint', preparePrint)
   await nextTick()
   fit()
   await document.fonts?.ready
@@ -81,9 +93,12 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   if (!props.print) return
-  document.documentElement.classList.remove('bulletin-printing')
-  pageStyle?.remove()
-  window.removeEventListener('beforeprint', fit)
+  window.removeEventListener('beforeprint', preparePrint)
+  // 다른 인쇄 사본이 남아 있으면 (화면 전환·HMR 로 새 사본이 먼저 붙은 경우) 표시를 지우지 않는다
+  const others = [...document.querySelectorAll('.paper.print')].filter((el) => el !== root.value)
+  if (others.length) return
+  document.documentElement.classList.remove(PRINT_CLASS)
+  document.getElementById(PAGE_STYLE_ID)?.remove()
 })
 watch(() => [props.bulletin, churchName.value, servedBy.value], async () => {
   await nextTick()
@@ -248,7 +263,7 @@ watch(() => [props.bulletin, churchName.value, servedBy.value], async () => {
 }
 
 .print .cover-photo {
-  max-height: 70mm;
+  max-height: 50mm;
 }
 
 .print .order-table tr,

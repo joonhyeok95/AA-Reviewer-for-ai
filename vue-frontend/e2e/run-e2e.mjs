@@ -319,6 +319,13 @@ await step('교회 - 대시보드 · 주보 등록([+] 예배순서·소식 3단
   await admin.click('[data-test="dashboard-open"]')
   await admin.waitForSelector('[data-test="bulletin-print"] .page-flow')
   await admin.waitForTimeout(500)
+  // 브라우저 인쇄 미리보기와 같게 : 인쇄 직전 이벤트 + print 미디어
+  await admin.evaluate(() => window.dispatchEvent(new Event('beforeprint')))
+  await admin.emulateMedia({ media: 'print' })
+  const appHidden = await admin.locator('#app').evaluate((el) => getComputedStyle(el).display === 'none')
+  check('인쇄 미리보기 - 앱 화면 숨김, 주보 사본만', appHidden)
+  await admin.screenshot({ path: `${SHOTS}/07g-bulletin-print-preview.png`, fullPage: true })
+  await admin.emulateMedia({ media: null })
   const pdf = await admin.pdf({ preferCSSPageSize: true, printBackground: true })
   await import('node:fs').then((fs) => fs.writeFileSync(`${SHOTS}/07f-bulletin-print.pdf`, pdf))
   const pdfPages = (pdf.toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length
