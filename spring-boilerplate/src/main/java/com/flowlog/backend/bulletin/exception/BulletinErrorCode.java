@@ -30,7 +30,15 @@ public enum BulletinErrorCode implements ErrorCode {
   /** 섬김위원 같은 역할·날짜 중복. */
   DUTY_DUPLICATED(HttpStatus.BAD_REQUEST, "B8007"),
   /** 게시된 주보 없음 (이번 주 주보). */
-  CURRENT_NOT_FOUND(HttpStatus.NOT_FOUND, "B8008");
+  CURRENT_NOT_FOUND(HttpStatus.NOT_FOUND, "B8008"),
+  /** 대표사진 형식 오류 (jpg, png, gif, webp 만, 내용으로 판별). */
+  PHOTO_INVALID(HttpStatus.BAD_REQUEST, "B8009"),
+  /** 대표사진 크기 초과. */
+  PHOTO_TOO_LARGE(HttpStatus.BAD_REQUEST, "B8010"),
+  /** 대표사진 없음. */
+  PHOTO_NOT_FOUND(HttpStatus.NOT_FOUND, "B8011"),
+  /** 대표사진 저장·읽기 실패. */
+  PHOTO_IO_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B8012");
 
   private final HttpStatus status;
   private final String messageId;

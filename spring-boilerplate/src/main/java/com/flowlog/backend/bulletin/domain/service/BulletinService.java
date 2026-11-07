@@ -77,6 +77,7 @@ public class BulletinService {
   private final CatechismService catechismService;
   private final LiturgyService liturgyService;
   private final CodeService codeService;
+  private final BulletinPhotoService photoService;
   private final Clock clock;
 
   /**
@@ -173,7 +174,7 @@ public class BulletinService {
   }
 
   /**
-   * 주보 삭제. (하위 함께 삭제)
+   * 주보 삭제. (하위·대표사진 함께 삭제)
    *
    * @param id 주보 ID
    */
@@ -182,6 +183,7 @@ public class BulletinService {
     Bulletin bulletin = findBulletin(id);
     deleteChildren(id);
     bulletinRepository.delete(bulletin);
+    photoService.deleteAfterCommit(bulletin.getPhotoKey());
   }
 
   // ================================================================== 검증
@@ -288,7 +290,8 @@ public class BulletinService {
     return new BulletinDetail(id, bulletin.getWorshipDt(), bulletin.getVolumeNo(),
         bulletin.getIssueNo(), bulletin.getTitle(), bulletin.getThemeVerse(),
         bulletin.getThemeVerseRef(), bulletin.getSermonTitle(), bulletin.getSermonScripture(),
-        bulletin.getPreacherNm(), bulletin.getSermonMemo(), bulletin.getStatusCd(), orders,
+        bulletin.getPreacherNm(), bulletin.getSermonMemo(), bulletin.getStatusCd(),
+        bulletin.hasPhoto(), orders,
         newsTree(newsRepository.findByBulletinIdOrderBySortOrderAscIdAsc(id)), duties,
         catechismService.getUnitsInOrder(unitIds), liturgyService.getTextsInOrder(textIds),
         bulletin.getUpdatedBy(), bulletin.getUpdatedAt());

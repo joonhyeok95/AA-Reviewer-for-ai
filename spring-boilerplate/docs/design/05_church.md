@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | 구현 완료 · 테스트 통과 (기본 175/175, Oracle 3/3, 화면 단위 44/44, 화면 E2E 65/65) |
+| 상태 | 구현 완료 · 테스트 통과 (기본 175/175, Oracle 3/3, 화면 단위 44/44, 화면 E2E 67/67) |
 | 작성일 | 2026-11-08 |
 | 원본 | 교회 주보 PDF (2026-11-08, 통권 9권 45호) 분석 |
 | DDL (Oracle) | [`db/ddl/05_church.sql`](../../src/main/resources/db/ddl/05_church.sql) - 테이블 13개 |
@@ -16,7 +16,7 @@
 
 | 주보 영역 | 내용 | 설계 |
 |---|---|---|
-| 표지 | 날짜, 통권 n권 n호, 교회 이름, 섬기는 이, 표지 말씀·출처 | `TB_BULLETIN` (주보 1건 = 예배일 1일). 교회 이름·섬기는 이는 매주 같으므로 공통코드 `CHURCH_INFO` (언어별) |
+| 표지 | 날짜, 통권 n권 n호, 교회 이름, 섬기는 이, 표지 말씀·출처, 대표사진 | `TB_BULLETIN` (주보 1건 = 예배일 1일). 교회 이름·섬기는 이는 매주 같으므로 공통코드 `CHURCH_INFO` (언어별). 대표사진은 `PHOTO_KEY`·`PHOTO_TYPE` (아래 2-1) |
 | 예배순서 | (항목, 담당·내용) × n | `TB_BULLETIN_ORDER` n행, 화면 [+ 순서 추가] |
 | 말씀메모 | 자유 기록 | `TB_BULLETIN.SERMON_MEMO` (+ 설교 제목·본문·설교자 - 대시보드·목록용) |
 | 교회소식 | 번호 섹션 → ♣ 항목(일정 포함) → 하위 줄 | `TB_BULLETIN_NEWS` 자기 참조 트리 (최대 3단계), 섹션·항목·하위 항목 모두 [+] |
@@ -77,24 +77,35 @@ erDiagram
 - 이번 주 주보 = 오늘 ~ 6일 뒤의 가장 이른 게시 주보, 없으면 오늘 이전 가장 최근 게시 주보 (`Clock`)
 - 삭제 제약 : 하위 단위가 있는 단위(B9007), 주보에서 쓰는 단위(B9008)·전례문(B9503), 단위가 있는 교리문답(B9009)
 
+### 2-1. 대표사진
+
+- 주보당 1장. 파일은 공지 첨부와 같은 `FileStorage` (local 디렉터리 / db `TB_FILE_STORE`), 주보에는 저장 키(`PHOTO_KEY`)·형식(`PHOTO_TYPE`)만
+- 형식은 파일명·Content-Type 이 아니라 **내용(시그니처)** 로 판별 - JPG, PNG, GIF, WEBP 만, 최대 10MB (B8009, B8010).
+  응답 Content-Type 도 판별한 형식 + `nosniff` (HTML·SVG 위장 방지)
+- 작성 중 주보의 사진은 주보와 같이 편집 권한자만 (B8001). 바꾸거나 지우거나 주보를 삭제하면 이전 파일은 커밋 후 저장소에서 삭제
+- 화면 : 등록·수정 폼에서 고르면 미리보기(data URL - CSP 에 blob: 없음), 주보 저장 뒤 올린다 (새 주보는 ID 가 생긴 뒤).
+  주보 보기 표지·대시보드 상단에 표시, 주소에 `?v={수정일시}` 로 캐시 갱신. 템플릿(새 주보)에는 사진을 복사하지 않는다
+- 기존 Oracle DB : `ALTER TABLE TB_BULLETIN ADD (PHOTO_KEY VARCHAR2(64), PHOTO_TYPE VARCHAR2(50));`
+
 ## 3. API
 
 | 리소스 | 경로 | 권한 |
 |---|---|---|
 | 주보 | `GET /api/v1/bulletins` (목록), `GET /current` (이번 주), `GET/PUT/DELETE /{id}`, `POST` | bulletin.* |
+| 주보 대표사진 | `GET /{id}/photo` (조회), `POST /{id}/photo` multipart `file` (등록 또는 수정), `DELETE /{id}/photo` (수정) | bulletin.list / add·edit / edit |
 | 교리문답 | `GET /api/v1/catechisms` (단위 트리 + 단위별 문 범위), `POST/PUT/DELETE /{id}`, `GET/PUT/DELETE /units/{unitId}`, `POST /{id}/units` | catechism.* |
 | 전례문 | `GET/POST /api/v1/liturgy-texts`, `GET/PUT/DELETE /{id}` | liturgy.* |
 
-오류 : B8001~B8008 (주보), B9001~B9009 (교리문답), B9501~B9503 (전례문)
+오류 : B8001~B8012 (주보, 사진 B8009~B8012), B9001~B9009 (교리문답), B9501~B9503 (전례문)
 
 ## 4. 메뉴 · 권한
 
 | 메뉴 (ID) | URL | PERM_CD | 화면 |
 |---|---|---|---|
 | 교회 (18) | `/church` | - | 상위 |
-| 대시보드 (19) | `/church/dashboard` | bulletin | 이번 주 예배·예배순서·이번 주 축하(생일 달력)·섬김위원·다가오는 일정·교회소식·교리문답 |
+| 대시보드 (19) | `/church/dashboard` | bulletin | 대표사진·이번 주 예배·예배순서·이번 주 축하(생일 달력)·섬김위원·다가오는 일정·교회소식·교리문답 |
 | 주보 (20) | `/church/bulletins` | bulletin | 목록 → 보기(인쇄 배치) → 등록·수정·다음 주 주보 만들기 |
-| 교리문답 (21) | `/church/catechisms` | catechism | 왼쪽 목차 트리, 오른쪽 문답 보기 / 편집 (문답 → 답 단락 → 근거 성구 [+]) |
+| 교리문답 (21) | `/church/catechisms` | catechism | 왼쪽 목차 트리, 오른쪽 문답 보기 / 편집 (문답 → 답 단락 → 근거 성구 [+]). `?unit={단위ID}` 로 들어오면 그 단위를 연다 (대시보드 교리문답 링크) |
 | 전례문 (22) | `/church/liturgy` | liturgy | 화자별 줄 편집 [+ 줄] |
 
 권한 : 모듈마스터 전체, 모듈매니저 삭제 제외, 일반 사용자 조회 (DB) / Keycloak admin·tx.master 전체, tx.manager 조회·등록·수정, tx.viewer·emp01·partner01 조회

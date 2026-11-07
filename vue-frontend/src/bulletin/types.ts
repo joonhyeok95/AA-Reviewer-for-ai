@@ -37,6 +37,8 @@ export interface BulletinSummary {
   preacherNm: string | null
   /** 공통코드 BULLETIN_STATUS (DRAFT / PUBLISHED) */
   statusCd: string
+  /** 대표사진 여부 (GET /api/v1/bulletins/{id}/photo) */
+  hasPhoto: boolean
   updatedBy: string
   updatedAt: string
 }
@@ -55,6 +57,8 @@ export interface BulletinDetail {
   preacherNm: string | null
   sermonMemo: string | null
   statusCd: string
+  /** 대표사진 여부 (GET /api/v1/bulletins/{id}/photo) */
+  hasPhoto: boolean
   orders: OrderItem[]
   news: NewsNode[]
   duties: DutyItem[]

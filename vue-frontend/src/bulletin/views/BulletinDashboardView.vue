@@ -10,7 +10,7 @@ import { fetchOccurrences } from '@/calendar/api'
 import { parseIso } from '@/calendar/dates'
 import type { CalendarOccurrence } from '@/calendar/types'
 import { qaRange, unitLabel } from '@/catechism/labels'
-import { fetchCurrentBulletin } from '@/bulletin/api'
+import { bulletinPhotoUrl, fetchCurrentBulletin } from '@/bulletin/api'
 import { toGrid, weekOf } from '@/bulletin/form'
 import type { BulletinDetail, NewsNode } from '@/bulletin/types'
 
@@ -100,6 +100,8 @@ onMounted(load)
     <template v-if="bulletin">
       <!-- 이번 주 예배 -->
       <section class="hero panel panel-pad" data-test="dashboard-hero">
+        <img v-if="bulletin.hasPhoto" class="hero-photo" :src="bulletinPhotoUrl(bulletin)"
+          :alt="$t('bulletin.photo')" data-test="dashboard-photo">
         <div>
           <p class="hero-date num">{{ dateText(bulletin.worshipDt) }}
             <span v-if="bulletin.volumeNo || bulletin.issueNo" class="muted">
@@ -187,7 +189,8 @@ onMounted(load)
               <span class="tag tag-warn">{{ $t('catechism.qaOne', { no: qa.questionNo }) }}</span> {{ qa.question }}
             </li>
           </ul>
-          <RouterLink class="more" :to="{ name: 'catechism' }">{{ $t('catechism.title') }} &rarr;</RouterLink>
+          <RouterLink class="more" :to="{ name: 'catechism', query: { unit: unit.unitId } }"
+            data-test="dashboard-catechism-link">{{ $t('catechism.title') }} &rarr;</RouterLink>
         </section>
       </div>
     </template>
@@ -201,6 +204,14 @@ onMounted(load)
   align-items: center;
   gap: var(--space-5);
   margin-bottom: var(--space-4);
+}
+
+.hero-photo {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-height: 320px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
 }
 
 .hero-date {

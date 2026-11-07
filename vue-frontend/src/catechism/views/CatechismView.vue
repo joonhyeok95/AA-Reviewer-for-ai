@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/auth/store'
 import { useCodeStore } from '@/code/store'
 import type { Code } from '@/code/types'
@@ -31,6 +32,7 @@ const { t } = useI18n()
 
 const catechisms = ref<Catechism[]>([])
 const types = ref<Code[]>([])
+const route = useRoute()
 const selected = ref<{ catechismId: number; unitId: number | null } | null>(null)
 const detail = ref<UnitDetail | null>(null)
 const editing = ref(false)
@@ -69,12 +71,32 @@ async function load(): Promise<void> {
     catechisms.value = list
     types.value = typeCodes
     if (!selected.value && list.length) {
-      const firstUnit = flattenUnits(list[0].units).find(({ unit }) => unit.qaCount > 0)?.unit
-      await select(list[0].catechismId, firstUnit?.unitId ?? null)
+      const linked = linkedUnit(list)
+      if (linked) {
+        await select(linked.catechismId, linked.unitId)
+        await scrollToSelected()
+      } else {
+        const firstUnit = flattenUnits(list[0].units).find(({ unit }) => unit.qaCount > 0)?.unit
+        await select(list[0].catechismId, firstUnit?.unitId ?? null)
+      }
     }
   } catch (error) {
     feedback.failure(error)
   }
+}
+
+/** 주보·대시보드 링크 ?unit={unitId} 로 들어온 단위 */
+function linkedUnit(list: Catechism[]): { catechismId: number; unitId: number } | null {
+  const unitId = Number(route.query.unit)
+  if (!Number.isInteger(unitId) || unitId <= 0) return null
+  const owner = list.find((c) => flattenUnits(c.units).some(({ unit }) => unit.unitId === unitId))
+  return owner ? { catechismId: owner.catechismId, unitId } : null
+}
+
+/** 목차가 길어 (하이델베르크 52주일) 선택한 단위가 보이게 */
+async function scrollToSelected(): Promise<void> {
+  await nextTick()
+  document.querySelector('.pick[aria-current="true"]')?.scrollIntoView({ block: 'nearest' })
 }
 
 async function select(catechismId: number, unitId: number | null): Promise<void> {
@@ -197,6 +219,15 @@ async function confirmDelete(): Promise<void> {
     busy.value = false
   }
 }
+
+// 같은 화면에서 다른 단위 링크로 이동 (?unit= 만 바뀜)
+watch(() => route.query.unit, async () => {
+  const linked = linkedUnit(catechisms.value)
+  if (linked && linked.unitId !== selected.value?.unitId) {
+    await select(linked.catechismId, linked.unitId)
+    await scrollToSelected()
+  }
+})
 
 watch(() => auth.user?.langCd, () => {
   code.clearCodes()

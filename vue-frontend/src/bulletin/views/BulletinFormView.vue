@@ -18,7 +18,10 @@ import { flattenUnits, unitLabel } from '@/catechism/labels'
 import type { Catechism } from '@/catechism/types'
 import { fetchLiturgyTexts } from '@/liturgy/api'
 import type { LiturgyText } from '@/liturgy/types'
-import { createBulletin, fetchBulletin, fetchBulletins, updateBulletin } from '@/bulletin/api'
+import {
+  PHOTO_ACCEPT, PHOTO_MAX_MB, bulletinPhotoUrl, createBulletin, deleteBulletinPhoto, fetchBulletin,
+  fetchBulletins, updateBulletin, uploadBulletinPhoto,
+} from '@/bulletin/api'
 import DutyGridEditor from '@/bulletin/components/DutyGridEditor.vue'
 import NewsTreeEditor from '@/bulletin/components/NewsTreeEditor.vue'
 import {
@@ -48,6 +51,9 @@ const unitTypes = ref<Code[]>([])
 const catechisms = ref<Catechism[]>([])
 const texts = ref<LiturgyText[]>([])
 const templated = ref(false)
+/** 대표사진 : 저장된 사진 주소 / 새로 고른 파일(미리보기 data URL) / 지우기 */
+const photo = ref<{ savedUrl: string | null; file: File | null; preview: string | null; remove: boolean }>(
+  { savedUrl: null, file: null, preview: null, remove: false })
 const pickCatechism = ref<number | null>(null)
 const pickUnit = ref<number | null>(null)
 const pickText = ref<number | null>(null)
@@ -89,7 +95,9 @@ async function load(): Promise<void> {
     texts.value = textList
     pickCatechism.value = catechismList[0]?.catechismId ?? null
     if (props.id !== undefined) {
-      form.value = formFromDetail(await fetchBulletin(props.id))
+      const detail = await fetchBulletin(props.id)
+      form.value = formFromDetail(detail)
+      photo.value.savedUrl = detail.hasPhoto ? bulletinPhotoUrl(detail) : null
     } else {
       const fromId = route.query.from ? Number(route.query.from)
         : (await fetchBulletins({ page: 0, size: 1 })).content[0]?.bulletinId
@@ -112,6 +120,41 @@ function clearForm(): void {
   form.value = blank
   templated.value = false
 }
+
+/** 사진 고르기 : 형식·크기는 화면에서 먼저 거르고, 서버가 내용으로 다시 판별 */
+function pickPhoto(event: Event): void {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  if (!PHOTO_ACCEPT.split(',').includes(file.type)) {
+    toast.push('error', t('bulletin.photoType'))
+    return
+  }
+  if (file.size > PHOTO_MAX_MB * 1024 * 1024) {
+    toast.push('error', t('bulletin.photoSize', { mb: PHOTO_MAX_MB }))
+    return
+  }
+  // 미리보기는 data URL (CSP img-src 에 blob: 없음)
+  const reader = new FileReader()
+  reader.onload = () => {
+    photo.value = { ...photo.value, file, preview: String(reader.result), remove: false }
+  }
+  reader.readAsDataURL(file)
+}
+
+function removePhoto(): void {
+  photo.value = { ...photo.value, file: null, preview: null, remove: photo.value.savedUrl !== null }
+}
+
+/** 주보 저장 뒤 사진 반영 (새 주보는 ID 가 생긴 뒤라야 올릴 수 있다) */
+async function savePhoto(bulletinId: number): Promise<void> {
+  if (photo.value.file) await uploadBulletinPhoto(bulletinId, photo.value.file)
+  else if (photo.value.remove) await deleteBulletinPhoto(bulletinId)
+}
+
+const photoShown = computed(() => photo.value.preview
+  ?? (photo.value.remove ? null : photo.value.savedUrl))
 
 function addUnit(): void {
   if (pickUnit.value !== null && !form.value.catechismUnitIds.includes(pickUnit.value)) {
@@ -155,8 +198,15 @@ async function save(): Promise<void> {
     const body = toSaveRequest(form.value)
     const response = props.id !== undefined ? await updateBulletin(props.id, body)
       : await createBulletin(body)
-    feedback.success(response)
-    await router.push({ name: 'bulletin-detail', params: { id: response.result.bulletinId } })
+    const bulletinId = response.result.bulletinId
+    try {
+      await savePhoto(bulletinId)
+      feedback.success(response)
+    } catch (error) {
+      // 주보는 저장됨 - 사진 오류만 알리고 보기 화면으로 (수정에서 다시 올릴 수 있다)
+      feedback.failure(error)
+    }
+    await router.push({ name: 'bulletin-detail', params: { id: bulletinId } })
   } catch (error) {
     if (error instanceof ApiError && error.fieldErrors.length) {
       errors.value = Object.fromEntries(error.fieldErrors.map((e) => [e.field, e.reason]))
@@ -240,6 +290,25 @@ onMounted(load)
             <input id="b-verse-ref" v-model="form.themeVerseRef" class="input" maxlength="100">
           </div>
         </div>
+      </section>
+
+      <!-- 대표사진 -->
+      <section class="panel panel-pad">
+        <div class="section-bar">
+          <h2 class="section-title">{{ $t('bulletin.photo') }}</h2>
+          <div class="photo-actions">
+            <label class="btn btn-sm">
+              {{ photoShown ? $t('bulletin.photoChange') : `+ ${$t('bulletin.photoAdd')}` }}
+              <input type="file" class="file-input" :accept="PHOTO_ACCEPT" data-test="bulletin-photo-input"
+                @change="pickPhoto">
+            </label>
+            <button v-if="photoShown" type="button" class="btn btn-sm" data-test="bulletin-photo-remove"
+              @click="removePhoto">{{ $t('common.delete') }}</button>
+          </div>
+        </div>
+        <img v-if="photoShown" class="photo-preview" :src="photoShown" :alt="$t('bulletin.photo')"
+          data-test="bulletin-photo-preview">
+        <p v-else class="muted">{{ $t('bulletin.photoHint', { mb: PHOTO_MAX_MB }) }}</p>
       </section>
 
       <!-- 2. 예배순서 -->
@@ -341,6 +410,30 @@ onMounted(load)
 </template>
 
 <style scoped>
+.photo-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* 파일 선택은 버튼 모양 label 로 (input 은 화면에서 숨기되 키보드·스크린리더는 유지) */
+.file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.photo-preview {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  max-height: 360px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}
+
 .sections {
   display: flex;
   flex-direction: column;

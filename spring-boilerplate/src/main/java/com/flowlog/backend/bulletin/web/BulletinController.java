@@ -1,5 +1,6 @@
 package com.flowlog.backend.bulletin.web;
 
+import com.flowlog.backend.bulletin.domain.service.BulletinPhotoService;
 import com.flowlog.backend.bulletin.domain.service.BulletinService;
 import com.flowlog.backend.bulletin.domain.service.dto.BulletinDtos.BulletinDetail;
 import com.flowlog.backend.bulletin.domain.service.dto.BulletinDtos.BulletinSaveRequest;
@@ -17,6 +18,12 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import java.time.Duration;
+import org.springframework.core.io.Resource;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -27,7 +34,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 주보 API - 예배순서·교회소식·섬김위원·교리문답·전례문. (권한 bulletin.*)
@@ -49,6 +58,7 @@ public class BulletinController {
       Set.of("SCOPE_bulletin.add", "SCOPE_bulletin.edit", "ROLE_SYS_ADMIN");
 
   private final BulletinService bulletinService;
+  private final BulletinPhotoService photoService;
   private final MessageHttpResponse messageHttpResponse;
 
   /**
@@ -131,6 +141,54 @@ public class BulletinController {
   public ResponseEntity<MessageResponse<Void>> deleteBulletin(
       @PathVariable("id") @Positive Long id) {
     bulletinService.deleteBulletin(id);
+    return messageHttpResponse.success();
+  }
+
+  /**
+   * 대표사진 올리기 (있으면 바꾸기). JPG·PNG·GIF·WEBP, 최대 10MB - 형식은 내용으로 판별.
+   *
+   * @param id 주보 ID
+   * @param file 이미지 (multipart "file")
+   * @return 성공
+   */
+  @Operation(summary = "주보 대표사진 올리기 (등록·수정 권한)")
+  @PostMapping(value = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<MessageResponse<Void>> uploadPhoto(
+      @PathVariable("id") @Positive Long id, @RequestPart("file") MultipartFile file) {
+    photoService.upload(id, file);
+    return messageHttpResponse.success();
+  }
+
+  /**
+   * 대표사진 보기. (작성 중 주보는 편집 권한자만)
+   *
+   * @param id 주보 ID
+   * @param authentication 인증
+   * @return 이미지
+   */
+  @Operation(summary = "주보 대표사진")
+  @GetMapping("/{id}/photo")
+  public ResponseEntity<Resource> getPhoto(
+      @PathVariable("id") @Positive Long id, Authentication authentication) {
+    BulletinPhotoService.Photo photo = photoService.load(id, isEditor(authentication));
+    return ResponseEntity.ok()
+        .contentType(MediaType.parseMediaType(photo.contentType()))
+        .cacheControl(CacheControl.maxAge(Duration.ofDays(1)).cachePrivate())
+        .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.inline().build().toString())
+        .header("X-Content-Type-Options", "nosniff")
+        .body(photo.resource());
+  }
+
+  /**
+   * 대표사진 지우기.
+   *
+   * @param id 주보 ID
+   * @return 성공
+   */
+  @Operation(summary = "주보 대표사진 지우기 (수정 권한)")
+  @DeleteMapping("/{id}/photo")
+  public ResponseEntity<MessageResponse<Void>> deletePhoto(@PathVariable("id") @Positive Long id) {
+    photoService.delete(id);
     return messageHttpResponse.success();
   }
 

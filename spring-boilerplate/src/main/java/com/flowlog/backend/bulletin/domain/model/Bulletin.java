@@ -64,6 +64,12 @@ public class Bulletin extends BaseEntity {
   @Column(name = "STATUS_CD", length = 30, nullable = false)
   private String statusCd; // 상태 (공통코드 BULLETIN_STATUS)
 
+  @Column(name = "PHOTO_KEY", length = 64)
+  private String photoKey; // 대표사진 저장 키 (FileStorage)
+
+  @Column(name = "PHOTO_TYPE", length = 50)
+  private String photoType; // 대표사진 형식 (image/*)
+
   /**
    * 생성자.
    *
@@ -118,5 +124,28 @@ public class Bulletin extends BaseEntity {
     this.preacherNm = preacherNm;
     this.sermonMemo = sermonMemo;
     this.statusCd = statusCd;
+  }
+
+  /**
+   * 대표사진 여부.
+   *
+   * @return 대표사진이 있으면 true
+   */
+  public boolean hasPhoto() {
+    return photoKey != null;
+  }
+
+  /**
+   * 대표사진 바꾸기.
+   *
+   * @param key 저장 키 (null 이면 삭제)
+   * @param type 형식
+   * @return 이전 저장 키 (없으면 null) - 커밋 후 저장소에서 지운다
+   */
+  public String changePhoto(String key, String type) {
+    String previous = this.photoKey;
+    this.photoKey = key;
+    this.photoType = key == null ? null : type;
+    return previous;
   }
 }

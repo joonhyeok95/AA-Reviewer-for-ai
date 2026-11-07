@@ -64,6 +64,10 @@ public final class ApiAuthorizationRules {
     // 캘린더 (생일·결혼기념일·휴일)
     rules.addAll(crud("calendar", DEFAULT_VERBS, "/api/v1/calendar/**"));
     // 교회 : 주보, 교리문답, 전례문
+    // 주보 대표사진 : 올리기 = 등록(새 주보 저장 직후) 또는 수정, 지우기 = 수정 (주보 삭제 권한 불필요)
+    rules.add(rule(HttpMethod.POST, List.of("bulletin.add", "bulletin.edit"),
+        "/api/v1/bulletins/*/photo"));
+    rules.add(rule(HttpMethod.DELETE, List.of("bulletin.edit"), "/api/v1/bulletins/*/photo"));
     rules.addAll(crud("bulletin", DEFAULT_VERBS, "/api/v1/bulletins/**"));
     rules.addAll(crud("catechism", DEFAULT_VERBS, "/api/v1/catechisms/**"));
     rules.addAll(crud("liturgy", DEFAULT_VERBS, "/api/v1/liturgy-texts/**"));

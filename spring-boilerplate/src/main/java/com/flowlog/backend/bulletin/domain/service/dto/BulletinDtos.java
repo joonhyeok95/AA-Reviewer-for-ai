@@ -39,6 +39,7 @@ public final class BulletinDtos {
    * @param sermonScripture 설교 본문
    * @param preacherNm 설교자
    * @param statusCd 상태
+   * @param hasPhoto 대표사진 여부 ({@code GET /api/v1/bulletins/{id}/photo})
    * @param updatedBy 수정자
    * @param updatedAt 수정일시
    */
@@ -46,7 +47,7 @@ public final class BulletinDtos {
   public record BulletinSummary(
       Long bulletinId, LocalDate worshipDt, Integer volumeNo, Integer issueNo, String title,
       String sermonTitle, String sermonScripture, String preacherNm, String statusCd,
-      String updatedBy, LocalDateTime updatedAt) {
+      boolean hasPhoto, String updatedBy, LocalDateTime updatedAt) {
 
     /**
      * Entity → 목록 항목.
@@ -58,7 +59,8 @@ public final class BulletinDtos {
       return new BulletinSummary(bulletin.getId(), bulletin.getWorshipDt(),
           bulletin.getVolumeNo(), bulletin.getIssueNo(), bulletin.getTitle(),
           bulletin.getSermonTitle(), bulletin.getSermonScripture(), bulletin.getPreacherNm(),
-          bulletin.getStatusCd(), bulletin.getUpdatedBy(), bulletin.getUpdatedAt());
+          bulletin.getStatusCd(), bulletin.hasPhoto(), bulletin.getUpdatedBy(),
+          bulletin.getUpdatedAt());
     }
   }
 
@@ -77,6 +79,7 @@ public final class BulletinDtos {
    * @param preacherNm 설교자
    * @param sermonMemo 말씀메모
    * @param statusCd 상태
+   * @param hasPhoto 대표사진 여부 ({@code GET /api/v1/bulletins/{id}/photo})
    * @param orders 예배순서
    * @param news 교회소식 (섹션 → 항목 → 하위 항목)
    * @param duties 섬김위원 (역할 순서, 날짜 순)
@@ -89,7 +92,8 @@ public final class BulletinDtos {
   public record BulletinDetail(
       Long bulletinId, LocalDate worshipDt, Integer volumeNo, Integer issueNo, String title,
       String themeVerse, String themeVerseRef, String sermonTitle, String sermonScripture,
-      String preacherNm, String sermonMemo, String statusCd, List<OrderItem> orders,
+      String preacherNm, String sermonMemo, String statusCd, boolean hasPhoto,
+      List<OrderItem> orders,
       List<NewsNode> news, List<DutyItem> duties, List<UnitDetail> catechismUnits,
       List<LiturgyTextResponse> liturgyTexts, String updatedBy, LocalDateTime updatedAt) {
   }

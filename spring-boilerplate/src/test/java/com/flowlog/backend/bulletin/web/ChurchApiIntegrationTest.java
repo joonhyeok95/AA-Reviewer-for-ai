@@ -6,8 +6,11 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -26,6 +29,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
@@ -178,6 +182,40 @@ class ChurchApiIntegrationTest {
       editor.perform(get("/api/v1/bulletins"))
           .andExpect(jsonPath("$.result.totalElements").value(2));
       editor.perform(get("/api/v1/bulletins/" + id)).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("대표사진 - 내용으로 형식 판별(PNG 이름의 HTML 거부), 올리기 → 보기(판별한 Content-Type) → 지우기, 권한")
+    void photo() throws Exception {
+      byte[] png = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0};
+      admin.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
+              "fake.png", "image/png", "<script>alert(1)</script>".getBytes())))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.messageId").value("B8009"));
+
+      MockMvc manager = mvc("manager", "SCOPE_bulletin.list", "SCOPE_bulletin.add");
+      manager.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
+              "cover.jpg", "image/jpeg", png)))
+          .andExpect(status().isCreated());
+      admin.perform(get("/api/v1/bulletins/1"))
+          .andExpect(jsonPath("$.result.hasPhoto").value(true));
+      admin.perform(get("/api/v1/bulletins/1/photo"))
+          .andExpect(status().isOk())
+          .andExpect(header().string("Content-Type", "image/png"))
+          .andExpect(header().string("X-Content-Type-Options", "nosniff"))
+          .andExpect(content().bytes(png));
+
+      MockMvc viewer = mvc("viewer", "SCOPE_bulletin.list");
+      viewer.perform(get("/api/v1/bulletins/1/photo")).andExpect(status().isOk());
+      viewer.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
+              "cover.png", "image/png", png)))
+          .andExpect(status().isForbidden());
+      manager.perform(delete("/api/v1/bulletins/1/photo")).andExpect(status().isForbidden());
+
+      admin.perform(delete("/api/v1/bulletins/1/photo")).andExpect(status().isOk());
+      admin.perform(get("/api/v1/bulletins/1/photo"))
+          .andExpect(status().isNotFound())
+          .andExpect(jsonPath("$.messageId").value("B8011"));
     }
   }
 

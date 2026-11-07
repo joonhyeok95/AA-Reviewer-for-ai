@@ -315,6 +315,11 @@ await step('교회 - 대시보드 · 주보 등록([+] 예배순서·소식 3단
   await admin.waitForSelector('[data-test="dashboard-hero"]')
   check('대시보드 - 이번 주 주보 요약·교리문답', (await admin.locator('[data-test="dashboard-catechism"]').count()) >= 1)
   await shot(admin, '07d-church-dashboard')
+  await admin.click('[data-test="dashboard-catechism-link"] >> nth=0')
+  await admin.waitForSelector('[data-test="catechism-unit"]')
+  const linkedUnit = await admin.locator('[data-test="catechism-unit"]').innerText()
+  check('대시보드 교리문답 링크 → 이번 주 단위(제45주일)가 열림 (제1주일 아님)',
+    linkedUnit.includes('116') && !linkedUnit.includes('제1문'), admin.url())
 
   await admin.goto(`${BASE}/church/bulletins/new`)
   await admin.waitForSelector('[data-test="bulletin-templated"]')
@@ -343,6 +348,12 @@ await step('교회 - 대시보드 · 주보 등록([+] 예배순서·소식 3단
     .getAttribute('value')
   await admin.selectOption('[data-test="bulletin-pick-unit"]', lordsDay45)
   await admin.click('[data-test="bulletin-add-unit"]')
+  // 1x1 PNG
+  await admin.setInputFiles('[data-test="bulletin-photo-input"]', {
+    name: 'cover.png', mimeType: 'image/png',
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkaPhfDwAEhgGAeN3WbgAAAABJRU5ErkJggg==', 'base64'),
+  })
+  await admin.waitForSelector('[data-test="bulletin-photo-preview"]')
   await shot(admin, '07e-church-form')
   await admin.click('[data-test="bulletin-save"]')
   await admin.waitForSelector('[data-test="bulletin-paper"]')
@@ -350,6 +361,9 @@ await step('교회 - 대시보드 · 주보 등록([+] 예배순서·소식 3단
   check('주보 등록 → 보기 (예배순서 2, 소식 3단계, 섬김위원, 교리문답 본문)',
     paper.includes('말씀선포') && paper.includes('하위 항목') && paper.includes('가람') && paper.includes('116'),
     admin.url())
+  const photoLoaded = await admin.locator('[data-test="bulletin-photo"]')
+    .evaluate((img) => img.complete && img.naturalWidth > 0).catch(() => false)
+  check('대표사진 업로드 → 주보 표지에 표시', photoLoaded)
   await admin.click('[data-test="bulletin-delete"]')
   await admin.click('[data-test="confirm"]')
   await admin.waitForURL(/\/church\/bulletins$/)

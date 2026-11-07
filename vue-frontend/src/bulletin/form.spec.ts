@@ -16,7 +16,7 @@ function detail(): BulletinDetail {
   return {
     bulletinId: 1, worshipDt: '2026-11-08', volumeNo: 9, issueNo: 45, title: null, themeVerse: '말씀',
     themeVerseRef: '엡 2:15', sermonTitle: '설교', sermonScripture: '약 5:12', preacherNm: '목사',
-    sermonMemo: '메모', statusCd: 'PUBLISHED', orders: [{ itemNm: '찬양', detail: '8장' }],
+    sermonMemo: '메모', statusCd: 'PUBLISHED', hasPhoto: false, orders: [{ itemNm: '찬양', detail: '8장' }],
     news: [{ title: '기도제목', content: null, scheduleText: null, highlightYn: 'N', children: [] }],
     duties, catechismUnits: [], liturgyTexts: [], updatedBy: 'admin', updatedAt: '2026-11-08T10:00:00',
   }

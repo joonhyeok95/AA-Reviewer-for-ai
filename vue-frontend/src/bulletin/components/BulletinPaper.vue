@@ -5,6 +5,7 @@ import { useCodeStore } from '@/code/store'
 import CatechismUnitView from '@/catechism/components/CatechismUnitView.vue'
 import LiturgyTextView from '@/liturgy/components/LiturgyTextView.vue'
 import { parseIso } from '@/calendar/dates'
+import { bulletinPhotoUrl } from '@/bulletin/api'
 import { toGrid } from '@/bulletin/form'
 import type { BulletinDetail } from '@/bulletin/types'
 
@@ -38,6 +39,8 @@ const lines = (text: string | null): string[] => (text ?? '').split('\n').filter
       <p class="issue num">{{ dateText }} <span v-if="issueText">{{ issueText }}</span></p>
       <h2 class="church">{{ churchName }}</h2>
       <p class="served">{{ servedBy }}</p>
+      <img v-if="bulletin.hasPhoto" class="cover-photo" :src="bulletinPhotoUrl(bulletin)"
+        :alt="$t('bulletin.photo')" data-test="bulletin-photo">
       <p v-if="bulletin.title" class="special">{{ bulletin.title }}</p>
       <blockquote v-if="bulletin.themeVerse" class="verse">
         <p>{{ bulletin.themeVerse }}</p>
@@ -132,6 +135,15 @@ const lines = (text: string | null): string[] => (text ?? '').split('\n').filter
   border: 1px solid var(--rule);
   border-radius: var(--radius-md);
   background: var(--surface);
+}
+
+.cover-photo {
+  display: block;
+  width: 100%;
+  max-height: 420px;
+  margin: var(--space-3) 0;
+  border-radius: var(--radius-md);
+  object-fit: cover;
 }
 
 .cover {
