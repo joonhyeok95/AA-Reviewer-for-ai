@@ -1,0 +1,39 @@
+# ============================================================
+# 로컬 검증 : 운영 구성(deploy/docker-compose.yml) 앞에 ALB 대신 Caddy(HTTPS 종료)를 둔다
+#   cd deploy && docker compose --env-file verify/verify.env -f docker-compose.yml -f verify/docker-compose.verify.yml up -d --build
+#   브라우저 : https://flowlog.localtest.me (공개 DNS 가 127.0.0.1 로 알려 주는 이름 - hosts 수정 불필요)
+#  - 백엔드는 https://flowlog.localtest.me 를 Caddy(네트워크 별칭)로 조회하고, Caddy 내부 CA 를 신뢰하도록 실행
+# ============================================================
+services:
+  alb:
+    image: caddy:2-alpine
+    ports:
+      - "127.0.0.1:443:443"
+    volumes:
+      - ./verify/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    networks:
+      default:
+        aliases: [flowlog.localtest.me]
+
+  backend:
+    depends_on:
+      alb: { condition: service_started }
+    entrypoint: ["/bin/bash", "/verify/backend-entrypoint.sh"]
+    user: "0:0"
+    volumes:
+      - caddy-data:/caddy:ro
+      - ./verify/backend-entrypoint.sh:/verify/backend-entrypoint.sh:ro
+
+  # 로컬 개발 Keycloak(7000)과 겹치지 않게
+  keycloak:
+    ports: !override
+      - "127.0.0.1:7001:8080"
+
+  gateway:
+    ports: !override
+      - "127.0.0.1:${HTTP_PORT:-8088}:9909"
+
+volumes:
+  caddy-data:
+    name: flowlog-verify-caddy

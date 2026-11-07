@@ -1,0 +1,169 @@
+# ============================================================
+# flowlog 운영 (EC2 1대) - ALB(HTTPS 종료) → EC2:80 → Gateway
+#
+#   인터넷 ─443─▶ ALB (ACM 인증서) ─80─▶ gateway ─┬─▶ backend (H2 파일 DB, 첨부·사진, 백업)
+#                                                ├─▶ web (화면 정적 파일)
+#                                                └─▶ keycloak (로그인, /realms/** 만) ─▶ keycloak-db
+#                                     redis (세션·Rate Limit)
+#
+#  - 실행 : cd deploy && cp .env.example .env (또는 ./gen-secrets.sh) → docker compose up -d --build
+#  - EC2 에 여는 포트는 80 하나 (보안 그룹 : ALB 보안 그룹에서만). Keycloak 관리 콘솔은 127.0.0.1:7000 (SSM 포트 포워딩)
+#  - 데이터 : 볼륨 app-data(/data : db·files·backup), keycloak-db. EBS 스냅샷으로 함께 백업
+#  - 백엔드는 시작할 때 https://{DOMAIN}/realms/flowlog 를 조회한다 (ALB → 이 서버) → DNS·ALB 가 먼저 준비돼야 함
+# ============================================================
+name: flowlog
+
+x-restart: &restart
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: { max-size: "20m", max-file: "5" }
+
+services:
+  redis:
+    <<: *restart
+    image: redis:8.10.3-alpine
+    command: ["redis-server", "--appendonly", "no", "--save", ""]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+
+  keycloak-db:
+    <<: *restart
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KC_DB_PASSWORD:?KC_DB_PASSWORD}
+    volumes:
+      - keycloak-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    <<: *restart
+    image: quay.io/keycloak/keycloak:26.8.1
+    command: ["start", "--import-realm"]
+    depends_on:
+      keycloak-db: { condition: service_healthy }
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KC_DB_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD:?KC_ADMIN_PASSWORD}
+      # 브라우저·토큰의 공개 주소 (iss). TLS 는 ALB 가 끝내고 안쪽은 http
+      KC_HOSTNAME: https://${DOMAIN:?DOMAIN}
+      KC_HOSTNAME_ADMIN: http://localhost:7000
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      # X-Forwarded-* 는 Gateway(같은 Docker 네트워크)가 보낸 것만 믿는다
+      KC_PROXY_TRUSTED_ADDRESSES: 172.30.0.0/24
+      KC_HEALTH_ENABLED: "true"
+    volumes:
+      - ../spring-boilerplate/infra/keycloak/realm:/opt/keycloak/data/import:ro
+    ports:
+      # 관리 콘솔 : EC2 안에서만 (aws ssm start-session --document-name AWS-StartPortForwardingSession ... 7000)
+      - "127.0.0.1:7000:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q '\"UP\"' <&3"]
+      interval: 15s
+      timeout: 5s
+      start_period: 90s
+      retries: 10
+
+  # realm 후처리 : client scope, 운영 redirect URI·secret, 관리자 비밀번호, 테스트 계정 비활성화 (매 기동 1회 실행 후 종료)
+  keycloak-setup:
+    image: quay.io/keycloak/keycloak:26.8.1
+    depends_on:
+      keycloak: { condition: service_healthy }
+    entrypoint: ["/bin/bash", "/opt/setup/setup.sh"]
+    environment:
+      KC_SERVER: http://keycloak:8080
+      KC_ADMIN: admin
+      KC_ADMIN_PASSWORD: ${KC_ADMIN_PASSWORD}
+      PUBLIC_URL: https://${DOMAIN}
+      BFF_CLIENT_SECRET: ${BFF_CLIENT_SECRET:?BFF_CLIENT_SECRET}
+      BATCH_CLIENT_SECRET: ${BATCH_CLIENT_SECRET:?BATCH_CLIENT_SECRET}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD:?APP_ADMIN_PASSWORD}
+      KEEP_TEST_USERS: ${KEEP_TEST_USERS:-false}
+    volumes:
+      - ../spring-boilerplate/infra/keycloak/setup:/opt/setup:ro
+    restart: "no"
+
+  backend:
+    <<: *restart
+    build: ../spring-boilerplate
+    image: flowlog/backend:latest
+    depends_on:
+      redis: { condition: service_healthy }
+      keycloak-setup: { condition: service_completed_successfully }
+      gateway: { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: prod,h2file
+      H2_DB_PATH: /data/db/flowlog
+      H2_PASSWORD: ${H2_PASSWORD:?H2_PASSWORD}
+      NOTICE_FILE_PATH: /data/files
+      H2_BACKUP_DIR: /data/backup
+      H2_BACKUP_KEEP_DAYS: ${H2_BACKUP_KEEP_DAYS:-14}
+      H2_BACKUP_CRON: ${H2_BACKUP_CRON:-0 30 3 * * *}
+      REDIS_HOST: redis
+      KEYCLOAK_ISSUER_URI: https://${DOMAIN}/realms/flowlog
+      KEYCLOAK_SAML_METADATA_URI: https://${DOMAIN}/realms/flowlog/protocol/saml/descriptor
+      SAML_SP_ENTITY_ID: https://${DOMAIN}/cm/saml2/service-provider-metadata/keycloak
+      KEYCLOAK_BFF_CLIENT_SECRET: ${BFF_CLIENT_SECRET}
+      SESSION_ENCRYPTION_KEY: ${SESSION_ENCRYPTION_KEY:?SESSION_ENCRYPTION_KEY}
+      NOTICE_LINK_TEMPLATE: https://${DOMAIN}/notices/{id}
+      # Gateway(같은 Docker 네트워크)가 보낸 X-Forwarded-* 만 반영
+      APP_TRUSTED_PROXIES: 172\.30\.0\.\d+
+      TZ: Asia/Seoul
+    volumes:
+      - app-data:/data
+
+  gateway:
+    <<: *restart
+    build: ../spring-gateway
+    image: flowlog/gateway:latest
+    depends_on:
+      redis: { condition: service_healthy }
+      web: { condition: service_started }
+    environment:
+      REDIS_HOST: redis
+      CM_SERVICE_URI: http://backend:9091
+      WEB_SERVICE_URI: http://web:8080
+      # 로그인 화면(Keycloak)도 같은 도메인 /realms/** 로 (관리 콘솔·master realm 은 전달 안 함)
+      GATEWAY_IDP_PROXY_ENABLED: "true"
+      IDP_SERVICE_URI: http://keycloak:8080
+      # HTTPS 라 Keycloak 쿠키의 Secure 를 그대로 둔다
+      IDP_STRIP_SECURE_COOKIE: "false"
+      # ALB(사설 IP)가 붙인 X-Forwarded-For/Proto 를 믿는다. 보안 그룹으로 80 은 ALB 에서만 들어오게 할 것
+      GATEWAY_TRUSTED_PROXIES: ${TRUSTED_PROXIES:-10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|192\.168\.\d+\.\d+}
+      # Rate Limit 은 ALB 가 붙인 클라이언트 IP 기준 (0 이면 모든 사용자가 ALB IP 하나를 공유)
+      RATE_LIMIT_TRUSTED_PROXY_HOPS: "1"
+      TZ: Asia/Seoul
+    ports:
+      - "${HTTP_PORT:-80}:9909"
+
+  web:
+    <<: *restart
+    build: ../vue-frontend
+    image: flowlog/web:latest
+
+networks:
+  default:
+    name: flowlog
+    ipam:
+      config:
+        - subnet: 172.30.0.0/24
+
+volumes:
+  app-data:
+    name: flowlog-app-data
+  keycloak-db:
+    name: flowlog-keycloak-db

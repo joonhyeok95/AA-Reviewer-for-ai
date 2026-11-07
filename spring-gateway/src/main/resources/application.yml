@@ -75,6 +75,10 @@ spring:
             prefix-enabled: true
             host-append: false
             prefix-append: false
+          # RFC 7239 Forwarded 헤더는 보내지 않는다 - Gateway 자신의 proto=http 만 담겨, 백엔드(ForwardedHeaderFilter 는
+          # Forwarded 를 X-Forwarded-* 보다 우선)가 TLS 종료 LB(ALB) 뒤에서 https 대신 http 로 주소를 만들게 된다
+          forwarded:
+            enabled: false
 
 app:
   gateway:

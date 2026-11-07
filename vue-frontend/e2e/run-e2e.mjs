@@ -45,14 +45,16 @@ async function step(name, fn) {
   }
 }
 
+// 운영 구성 검증 (deploy/verify) : E2E_HOST_RULES='MAP flowlog.test 127.0.0.1', E2E_IGNORE_HTTPS_ERRORS=1 (로컬 CA)
 const browser = await chromium.launch({
   channel: process.env.E2E_BROWSER === 'chrome' ? 'chrome' : 'msedge',
   headless: !process.env.E2E_HEADED,
+  args: process.env.E2E_HOST_RULES ? [`--host-resolver-rules=${process.env.E2E_HOST_RULES}`] : [],
 })
 
 async function newPage(locale = 'ko-KR') {
   const context = await browser.newContext({ locale, viewport: { width: 1440, height: 900 },
-    deviceScaleFactor: 1 })
+    deviceScaleFactor: 1, ignoreHTTPSErrors: Boolean(process.env.E2E_IGNORE_HTTPS_ERRORS) })
   const page = await context.newPage()
   page.on('pageerror', (error) => {
     const stack = (error.stack ?? '').split('\n').slice(1, 5).join(' | ')

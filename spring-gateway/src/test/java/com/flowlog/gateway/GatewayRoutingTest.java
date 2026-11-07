@@ -115,10 +115,25 @@ class GatewayRoutingTest {
     assertThat(LAST_REQUEST.get("x-forwarded-prefix")).isEqualTo("/cm");
     assertThat(LAST_REQUEST.get("x-forwarded-host")).isEqualTo("localhost:" + gatewayPort);
     assertThat(LAST_REQUEST.get("x-forwarded-proto")).isEqualTo("http");
+    assertThat(LAST_REQUEST.get("forwarded")).isNull();
   }
 
   @Test
-  @DisplayName("신뢰 프록시(loopback)가 보낸 위조 Host/Prefix/Forwarded 는 Gateway 값으로 덮어씀 - 단일 값")
+  @DisplayName("TLS 종료 LB(ALB) 뒤 - 신뢰 프록시가 보낸 Proto https·Port 443 이 백엔드에 먼저 전달, Forwarded 없음")
+  void forwardedHeaders_tlsTerminatingLoadBalancer() {
+    client.get().uri("/cm/api/v1/samples")
+        .header("X-Forwarded-Proto", "https")
+        .header("X-Forwarded-Port", "443")
+        .exchange().expectStatus().isOk();
+
+    // 백엔드(ForwardedHeaderFilter)는 첫 값을 쓴다 → https://{host}/... (Forwarded 가 있으면 그것을 우선해 http 가 됨)
+    assertThat(LAST_REQUEST.get("x-forwarded-proto")).startsWith("https");
+    assertThat(LAST_REQUEST.get("x-forwarded-port")).startsWith("443");
+    assertThat(LAST_REQUEST.get("forwarded")).isNull();
+  }
+
+  @Test
+  @DisplayName("신뢰 프록시(loopback)가 보낸 위조 Host/Prefix 는 Gateway 값으로 덮어쓰고 Forwarded 는 제거 - 단일 값")
   void forwardedHeaders_spoofedFromTrustedProxy() {
     client.get().uri("/cm/api/v1/samples")
         .header("X-Forwarded-Host", "evil.example")
@@ -130,7 +145,8 @@ class GatewayRoutingTest {
     //         → 백엔드(ForwardedHeaderFilter)는 첫 Host 와 prefix 를 이어 붙인 "/evil/cm" 을 사용
     assertThat(LAST_REQUEST.get("x-forwarded-host")).isEqualTo("localhost:" + gatewayPort);
     assertThat(LAST_REQUEST.get("x-forwarded-prefix")).isEqualTo("/cm");
-    assertThat(LAST_REQUEST.get("forwarded")).doesNotContain("evil");
+    // Forwarded(RFC 7239)는 전달하지 않는다 (백엔드가 우선 적용하므로 LB 경유 위조 차단)
+    assertThat(LAST_REQUEST.get("forwarded")).isNull();
   }
 
   @Test

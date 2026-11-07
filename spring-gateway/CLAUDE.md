@@ -14,7 +14,9 @@ Spring Cloud Gateway (Server **WebFlux**, Netty) / Spring Boot 4.1 / Java 17 / M
 - `trusted-proxies` 가 없으면 X-Forwarded-* 가 추가되지 않는다 → 백엔드 SAML/Swagger URL 이 깨짐. 제거 금지.
 - `x-forwarded.host-append / prefix-append: false` 유지 (true 면 신뢰 프록시 경로에서 위조 Host/Prefix 가 백엔드까지 전달됨). `ForwardedHeaderSanitizerGlobalFilter` 제거 금지.
 - 화면 라우트 `web` (`/**`, order 100, `WEB_SERVICE_URI`) 는 맨 마지막. Rate Limit/서킷 미적용, `/actuator/**` 제외(predicate 정규식). 새 API 라우트는 `web` 보다 앞(기본 order 0)에 둔다. 화면·API 같은 Origin 유지 (CORS 추가 금지)
-- `idp` 라우트(`IdpProxyRouteConfig`, order 50)는 LAN 모드 전용(`GATEWAY_IDP_PROXY_ENABLED`, 기본 꺼짐). `/realms/{realm}/**`·`/resources/**` 만 Keycloak 으로 전달, `/admin`·master realm 전달 금지. http 접속용으로 Keycloak 쿠키의 Secure 제거·SameSite=Lax (`IDP_STRIP_SECURE_COOKIE`).
+- `idp` 라우트(`IdpProxyRouteConfig`, order 50)는 LAN 모드·운영(`deploy/`)에서 켠다 (`GATEWAY_IDP_PROXY_ENABLED`, 기본 꺼짐). `/realms/{realm}/**`·`/resources/**` 만 Keycloak 으로 전달, `/admin`·master realm 전달 금지. http 접속(LAN)용으로 Keycloak 쿠키의 Secure 제거·SameSite=Lax (`IDP_STRIP_SECURE_COOKIE`, HTTPS 운영은 false).
+- RFC 7239 `Forwarded` 는 보내지 않고(`forwarded.enabled: false`) 들어온 것도 항상 제거한다. 백엔드 ForwardedHeaderFilter 는 Forwarded 를 X-Forwarded-* 보다 우선하므로, 켜 두면 TLS 종료 LB(ALB) 뒤에서 Gateway 자신의 `proto=http` 로 https 주소가 http 로 바뀌고, LB 를 거친 클라이언트 값으로 host 를 위조할 수 있다.
+- LB 뒤 운영 : `GATEWAY_TRUSTED_PROXIES` = LB 사설 대역, `RATE_LIMIT_TRUSTED_PROXY_HOPS=1` (0 이면 모든 사용자가 LB IP 버킷 하나를 공유).
 - Actuator 는 관리 포트(9910)에서만. `gateway` 엔드포인트(라우트 쓰기 기능)는 노출 금지.
 - `PathSecurityWebFilter` 는 라우팅 전에 우회 형식 경로(400 G0006)와 차단 경로(404 G0001)를 거른다. 경로 정규화로 우회를 "허용"하도록 바꾸지 말 것 (거부가 원칙).
 - Rate Limit 키는 Redis 에 실존하는 세션만 세션 버킷 (`SessionOrIpKeyResolver`). 쿠키 값만 보고 키를 만들지 말 것 (위조 쿠키로 우회됨).

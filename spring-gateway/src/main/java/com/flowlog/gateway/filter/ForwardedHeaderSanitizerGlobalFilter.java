@@ -24,6 +24,9 @@ import reactor.core.publisher.Mono;
  * <ul>
  *   <li>{@code X-Forwarded-Prefix} 는 항상 제거한다. (prefix 는 Gateway 라우트가 정하는 값.
  *       Gateway 는 자기 값을 다시 추가한다)</li>
+ *   <li>{@code Forwarded}(RFC 7239) 도 항상 제거한다. Gateway 는 이 헤더를 보내지 않고(forwarded.enabled=false)
+ *       X-Forwarded-* 만 쓴다. 백엔드는 Forwarded 를 우선하므로 LB(ALB 는 임의 헤더를 그대로 전달)를 거친
+ *       클라이언트 값이 남으면 host/proto 를 위조할 수 있다</li>
  *   <li>신뢰 프록시({@code trusted-proxies}, 예: 앞단 LB)가 아닌 곳에서 온 요청은
  *       {@code Forwarded} 와 모든 {@code X-Forwarded-*} 를 제거한다.</li>
  * </ul>
@@ -43,8 +46,8 @@ public class ForwardedHeaderSanitizerGlobalFilter implements GlobalFilter, Order
       "X-Forwarded-Proto", "X-Forwarded-Prefix", "X-Forwarded-Server", "X-Forwarded-Ssl",
       "X-Real-IP");
 
-  /** Gateway 소유 헤더 (출처와 무관하게 항상 제거). */
-  private static final String PREFIX_HEADER = "X-Forwarded-Prefix";
+  /** 출처와 무관하게 항상 제거 (Gateway 소유 Prefix, 쓰지 않는 RFC 7239 Forwarded). */
+  private static final List<String> ALWAYS_REMOVED = List.of("X-Forwarded-Prefix", "Forwarded");
 
   private final TrustedProxies trustedProxies;
 
@@ -63,7 +66,7 @@ public class ForwardedHeaderSanitizerGlobalFilter implements GlobalFilter, Order
   public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
     HttpHeaders incoming = exchange.getRequest().getHeaders();
     boolean trusted = isTrusted(exchange.getRequest().getRemoteAddress());
-    List<String> targets = trusted ? List.of(PREFIX_HEADER) : FORWARDED_HEADERS;
+    List<String> targets = trusted ? ALWAYS_REMOVED : FORWARDED_HEADERS;
     ServerWebExchange result = exchange;
     if (targets.stream().anyMatch(incoming::containsHeader)) {
       if (log.isDebugEnabled()) {

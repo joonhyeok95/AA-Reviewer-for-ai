@@ -1,0 +1,7 @@
+# 운영 비밀값 - 절대 커밋하지 않는다
+.env
+# 데이터 이전 산출물 (개인정보 포함)
+export/
+!.env.example
+verify/verify.env
+!verify/verify.env.example

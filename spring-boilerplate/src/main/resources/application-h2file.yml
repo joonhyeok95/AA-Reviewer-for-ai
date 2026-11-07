@@ -1,0 +1,49 @@
+# ============================================================
+# h2file : 단일 서버용 H2 파일 DB (운영 EC2 - SPRING_PROFILES_ACTIVE=prod,h2file)
+#  - prod 의 Oracle 접속을 H2 파일로 바꾼다. 데이터는 H2_DB_PATH(.mv.db) 한 파일 - EBS 볼륨에 둔다
+#  - 스키마·초기 데이터는 DB 가 비어 있을 때만 (InitOnceDatabaseConfig). 기존 데이터를 옮겨 왔으면 건너뜀
+#  - 인스턴스는 1대만 (H2 파일은 한 프로세스만 연다)
+#  - 매일 온라인 백업 (H2BackupScheduler, BACKUP TO zip) - 보관 일수 지나면 삭제
+#  - H2 콘솔은 끈다 (운영에서 열면 원격 코드 실행 위험)
+# ============================================================
+spring:
+  datasource:
+    url: jdbc:h2:file:${H2_DB_PATH:/data/db/flowlog};MODE=Oracle;DEFAULT_NULL_ORDERING=HIGH
+    username: ${H2_USERNAME:sa}
+    password: ${H2_PASSWORD}
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 10
+  h2:
+    console:
+      enabled: false
+  jpa:
+    hibernate:
+      # H2 는 Oracle NUMBER 를 NUMERIC 으로 보고해 validate 가 오탐 → none (스키마 기준은 db/ddl)
+      ddl-auto: none
+  sql:
+    init:
+      mode: always
+      encoding: UTF-8
+      schema-locations:
+        - classpath:db/ddl/00_sample.sql
+        - classpath:db/ddl/01_auth_menu_code.sql
+        - classpath:db/ddl/02_notice.sql
+        - classpath:db/ddl/03_file_store.sql
+        - classpath:db/ddl/04_calendar.sql
+        - classpath:db/ddl/05_church.sql
+      data-locations:
+        - classpath:db/data/00_sample.sql
+        - classpath:db/data/01_auth_menu_code.sql
+        - classpath:db/data/02_notice.sql
+        - classpath:db/data/03_calendar.sql
+        - classpath:db/data/04_church.sql
+
+app:
+  h2:
+    backup:
+      enabled: ${H2_BACKUP_ENABLED:true}
+      # 매일 03:30 (서버 시간대)
+      cron: ${H2_BACKUP_CRON:0 30 3 * * *}
+      dir: ${H2_BACKUP_DIR:/data/backup}
+      keep-days: ${H2_BACKUP_KEEP_DAYS:14}

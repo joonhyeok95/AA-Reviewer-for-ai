@@ -11,6 +11,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - Gateway 뒤에서 동작: `TrustedForwardedHeaderFilter` 가 `app.security.trusted-proxies`(Gateway IP)에서 온 X-Forwarded-* 만 반영 (`server.forward-headers-strategy=none` 유지). 앱에서 절대 URL 을 하드코딩하지 말 것
 - 작업 후 항상 `./mvnw test` 통과 확인. DDL/초기데이터/Entity 변경 시 `./mvnw test -Poracle-it` (실제 Oracle, Docker 필요)
 - 노션: 저장소 docs 가 원본, `scripts/notion-sync` 로 동기화 (노션에서 직접 고치지 말 것, 새 문서는 pages.json 에 매핑)
+- 운영 배포: 저장소 루트 `deploy/` (EC2 1대 + ALB, `SPRING_PROFILES_ACTIVE=prod,h2file` - H2 파일 DB, 매일 `BACKUP TO`(`H2BackupScheduler`), 이미지 `Dockerfile`). 운영 Keycloak 은 `infra/keycloak/setup/setup.sh` 에 `PUBLIC_URL` 을 주면 redirect URI·secret·admin 비밀번호·테스트 계정 비활성화를 적용
 - 전체 실행: `scripts/dev-up.ps1` (Windows) / `scripts/dev-up.sh` → 종료 `dev-down`. 기본은 영속 DB(재시작해도 데이터 유지), 메모리 H2 는 `-InMemory`/`--in-memory`, 초기 데이터로 다시 만들기 `-ResetDb`/`--reset-db`. 포트 충돌 시 시작 안 함. 기본 LAN 모드(`http://{IP}:9909`, 로그인도 Gateway 경유), 이 PC 전용은 `-Local`/`--local`
 - 인프라: `docker compose -f infra/redis/docker-compose.yml up -d` (:6379), `docker compose -f infra/keycloak/docker-compose.yml up -d` (:7000)
 - 인증 E2E: `python infra/keycloak/e2e/auth_e2e.py` (Gateway·앱(9091)·두 번째 인스턴스(9092) 실행 상태에서, `--quick` 은 refresh 대기 생략)

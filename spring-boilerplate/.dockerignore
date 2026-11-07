@@ -1,0 +1,7 @@
+target/
+.run/
+logs/
+data/
+.idea/
+.vscode/
+*.log

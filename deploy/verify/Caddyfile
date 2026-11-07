@@ -1,0 +1,9 @@
+# 로컬 검증용 "ALB" : HTTPS 종료(Caddy 내부 인증서) → gateway:9909 (HTTP)
+#  X-Forwarded-For / X-Forwarded-Proto: https 를 붙여 ALB 와 같은 헤더로 전달
+flowlog.localtest.me {
+  tls internal
+  reverse_proxy gateway:9909 {
+    # ALB 처럼 원래 포트를 알린다 (ALB 는 X-Forwarded-For/Proto/Port 를 붙인다)
+    header_up X-Forwarded-Port 443
+  }
+}

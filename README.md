@@ -21,6 +21,12 @@ Flowlog 업무 시스템 모노레포. 아래 3개 프로젝트를 커밋 이력
 
 접속: http://localhost:9909 · 기본은 LAN 모드라 같은 네트워크의 다른 기기에서 `http://{이 PC IP}:9909` 로 접속 (이 PC 전용은 `-Local` / `--local`) · 자세한 내용은 [spring-boilerplate/README.md](spring-boilerplate/README.md)
 
+## 운영 배포 (AWS EC2 1대 + ALB)
+
+[deploy/README.md](deploy/README.md) - ALB 가 HTTPS 를 끝내고 EC2 는 80(HTTP)만, H2 파일 DB, Docker Compose
+(Gateway · 백엔드 · 화면 · Keycloak(PostgreSQL) · Redis). 지금 PC 데이터 이전(`deploy/migrate/oracle-to-h2.sh`),
+매일 백업, 로컬 운영 구성 검증(`deploy/verify`, Caddy 가 ALB 역할) 포함.
+
 ## 문서
 
 - [개발 가이드](spring-boilerplate/docs/DEVELOPMENT_GUIDE.md)
