@@ -12,7 +12,7 @@ Vue 3 + TypeScript + Vite 화면. spring-gateway(9909) 경유로 spring-boilerpl
 
 ## 구조
 - 공통 `src/global/{api,components,composables,i18n,layout,router,stores,styles,util,views}`, `global/session.ts`
-- 도메인 `src/{auth,code,user,menu,role,sample,notice}/{api.ts,types.ts,store.ts?,views,components}` - 백엔드 도메인/DTO 와 1:1
+- 도메인 `src/{auth,code,user,menu,role,sample,notice,calendar}/{api.ts,types.ts,store.ts?,views,components}` - 백엔드 도메인/DTO 와 1:1
 - 관리 화면(공통코드·메뉴·권한)은 `split` 레이아웃 + `LangNamesInput`(언어별 이름) + `HtmlEditor`(본문). 저장 후 관련 store 갱신(code/menu/auth)
 - 신규 도메인은 `sample` 폴더 구조를 따른다
 

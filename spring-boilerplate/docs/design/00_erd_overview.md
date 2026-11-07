@@ -15,6 +15,7 @@
 | 공지사항(게시판) | TB_NOTICE, TB_NOTICE_I18N, TB_NOTICE_FILE, TB_NOTICE_MAIL_TARGET, TB_NOTICE_MAIL_HIST, TB_NOTICE_VIEW_LOG | 권한 리소스 `board` |
 | 메일 | TB_MAIL_TEMPLATE | 언어별 템플릿 |
 | 파일 저장소 | TB_FILE_STORE | 첨부 내용 BLOB (`storage-type=db`) |
+| 생일(캘린더) | TB_CAL_EVENT | 생일·결혼기념일·휴일 등 일정, 매년 반복. 권한 리소스 `calendar` ([설계 04](04_calendar.md)) |
 | 샘플 | TB_SAMPLE | 독립 (구조 예시) |
 
 ## 2. ERD
@@ -54,6 +55,7 @@ erDiagram
   TB_DEPT ||..o{ TB_NOTICE_MAIL_TARGET : "TARGET_TYPE=DEPT (논리)"
   TB_ROLE ||..o{ TB_ROLE_GRANT_HIST : "부여 변경 이력 (논리)"
   TB_NOTICE_FILE ||..o| TB_FILE_STORE : "SAVE_PATH = FILE_KEY (db 저장 시)"
+  TB_CODE ||..o{ TB_CAL_EVENT : "EVENT_TYPE_CD (CAL_EVENT_TYPE, 논리)"
 
   TB_CODE_GROUP {
     string GROUP_CD PK
@@ -211,6 +213,13 @@ erDiagram
     number FILE_SIZE
     blob FILE_DATA
   }
+  TB_CAL_EVENT {
+    number EVENT_ID PK
+    string EVENT_TYPE_CD
+    date START_DT
+    date END_DT
+    string REPEAT_YEARLY_YN
+  }
   TB_SAMPLE {
     number SAMPLE_ID PK
     string NAME UK
@@ -244,14 +253,14 @@ erDiagram
 | 컬럼 | 참조 | FK 를 두지 않은 이유 |
 |---|---|---|
 | 모든 `LANG_CD` | TB_CODE (LANG) | 언어 추가·사용 중지를 공통코드만으로 (코드 수정 없이 확장) |
-| `USER_TYPE_CD`, `ROLE_TYPE_CD`, `MODULE_CD`, `VIEW_TYPE_CD`, `CATEGORY_CD`, `TAG_CD`, `MAIL_*_CD`, `TARGET_TYPE`, `STATUS_CD` | TB_CODE (각 그룹) | 공통코드 그룹 참조 (복합키 FK 대신 앱 검증) |
+| `USER_TYPE_CD`, `ROLE_TYPE_CD`, `MODULE_CD`, `VIEW_TYPE_CD`, `CATEGORY_CD`, `TAG_CD`, `MAIL_*_CD`, `TARGET_TYPE`, `STATUS_CD`, `EVENT_TYPE_CD` | TB_CODE (각 그룹) | 공통코드 그룹 참조 (복합키 FK 대신 앱 검증) |
 | TB_NOTICE_MAIL_TARGET.TARGET_CD | TB_WORKPLACE 또는 TB_DEPT (TARGET_TYPE 에 따라) | 다형 참조. 명칭은 저장하지 않고 조회 시 인사 마스터에서 |
 | TB_NOTICE_MAIL_HIST.NOTICE_ID / RECEIVER_ID | TB_NOTICE / TB_USER | 이력은 원본 삭제·퇴사와 무관하게 보존 |
 | TB_NOTICE_VIEW_LOG.NOTICE_ID / USER_ID | TB_NOTICE / TB_USER | 로그성 데이터 (하루 1회 조회수 집계) |
 | TB_MAIL_TEMPLATE.TEMPLATE_CD | 앱 상수 | 템플릿 종류는 코드에서 정의 |
 | TB_ROLE_GRANT_HIST.ROLE_ID / TARGET_ID / GRANT_ID | TB_ROLE / TB_USER·TB_DEPT / TB_USER_ROLE·TB_DEPT_ROLE | 감사 이력은 권한·대상·부여가 삭제돼도 보존 (회수 시 부여 행은 삭제됨) |
 | TB_NOTICE_FILE.SAVE_PATH | TB_FILE_STORE.FILE_KEY (db) 또는 디렉터리 경로 (local) | 저장 방식(`storage-type`)에 따라 대상이 다름 |
-| TB_MENU.PERM_CD | API 리소스 (SecurityConfig, Keycloak scope) | DB 밖 개념 (sample, board, code, menu, role) |
+| TB_MENU.PERM_CD | API 리소스 (SecurityConfig, Keycloak scope) | DB 밖 개념 (sample, board, code, menu, role, calendar) |
 | TB_USER.IDP_SUBJECT | Keycloak 사용자 id (토큰 `sub`) | 외부 IdP |
 | 감사 컬럼 CREATED_BY / UPDATED_BY | TB_USER.USER_ID | 공통 감사 (작성자 표시 등) |
 

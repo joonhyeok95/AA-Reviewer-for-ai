@@ -8,7 +8,7 @@
 
 | 구분 | 전체 | 성공 | 실패 | 결과 |
 |---|---|---|---|---|
-| 기본 (`mvnw test`) | 153 | 153 | 0 | ✅ BUILD SUCCESS |
+| 기본 (`mvnw test`) | 165 | 165 | 0 | ✅ BUILD SUCCESS |
 | Oracle (`-Poracle-it`) | 3 | 3 | 0 | ✅ BUILD SUCCESS |
 
 | 테스트 클래스 | 유형 | 대상 | 건수 | 결과 |
@@ -28,6 +28,8 @@
 | `BrowserCookieWebTest` | 통합 (실제 포트 HTTP) | XSRF-TOKEN 첫 요청 발급·경로 `/`·재발급 없음, 미인증 401 은 세션 미생성 | 2 | ✅ |
 | `SessionSerializationTest` | 단위 | 세션 AES-GCM 암호화 + 허용목록 직렬화 (복원·위변조·다른 키·차단 클래스) | 7 | ✅ |
 | `SecurityStartupValidatorTest` | 단위 | prod 기동 보안 검사 | 3 | ✅ |
+| `CalendarOccurrencesTest` | 단위 | 생일(캘린더) 매년 반복 펼치기 - 나이·주년, 2월 29일, 해 넘김, 시작 전 미발생, 여러 해 | 6 | ✅ |
+| `CalendarApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 캘린더 API 기간 조회·등록·수정·삭제, 검증(B7002~B7005), calendar.* 인가 | 6 | ✅ |
 | `OracleSchemaTest` | 통합 (Oracle 컨테이너, `@Tag("oracle")`) | DDL·초기데이터·`validate`·권한/메뉴 쿼리·공지 MyBatis 검색·샘플 LIKE ESCAPE·관리 조회(그룹별 건수, 사용자 검색) | 3 | ✅ |
 
 ## SpringBoilerplateApplicationTests

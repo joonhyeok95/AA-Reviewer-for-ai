@@ -90,12 +90,12 @@ class AuthMenuCodeRepositoryTest {
   class CodeTest {
 
     @Test
-    @DisplayName("초기 코드그룹 10개(공지 포함, WORKPLACE 그룹 없음)와 MODULE 코드(TX, WS)를 정렬순서대로 조회")
+    @DisplayName("초기 코드그룹 11개(공지·캘린더 포함, WORKPLACE 그룹 없음)와 MODULE 코드(TX, WS)를 정렬순서대로 조회")
     void findCodes() {
       assertThat(codeGroupRepository.findByUseYnOrderBySortOrderAsc(YesNo.Y))
           .extracting(CodeGroup::getGroupCd)
           .containsExactly("LANG", "MODULE", "ROLE_TYPE", "USER_TYPE", "MENU_VIEW_TYPE",
-              "NOTICE_CATEGORY", "NOTICE_TAG", "MAIL_SEND_TYPE", "MAIL_TARGET_TYPE", "MAIL_STATUS");
+              "NOTICE_CATEGORY", "NOTICE_TAG", "MAIL_SEND_TYPE", "MAIL_TARGET_TYPE", "MAIL_STATUS", "CAL_EVENT_TYPE");
 
       assertThat(codeRepository.findByIdGroupCdAndUseYnOrderBySortOrderAsc("MODULE", YesNo.Y))
           .extracting(code -> code.getId().getCode())
@@ -214,7 +214,7 @@ class AuthMenuCodeRepositoryTest {
     }
 
     @Test
-    @DisplayName("권한 부여 저장 - 종료일 미지정 시 무기한(9999-12-31), 시퀀스는 고정 ID(1~16) 이후 101부터")
+    @DisplayName("권한 부여 저장 - 종료일 미지정 시 무기한(9999-12-31), 시퀀스는 고정 ID(1~17) 이후 101부터")
     void grantRole_defaultEndDate() {
       // given
       Long roleId = roleRepository.findByRoleCd("WS_MANAGER").orElseThrow().getId();
@@ -276,7 +276,7 @@ class AuthMenuCodeRepositoryTest {
       }
 
       // then
-      assertThat(menus).hasSize(16);
+      assertThat(menus).hasSize(17);
       assertThat(path).containsExactly("TX", "거래관리", "거래목록", "거래상세");
       assertThat(menuRepository.findByParentMenuIdOrderBySortOrderAsc(2L))
           .extracting(Menu::getMenuUrl)
@@ -293,7 +293,7 @@ class AuthMenuCodeRepositoryTest {
       assertThat(byId.get(4L).getDisplayYn()).isEqualTo(YesNo.N);
       assertThat(byId.values()).filteredOn(m -> YesNo.isYes(m.getSideMenuYn()))
           .extracting(Menu::getViewTypeCd)
-          .containsExactlyInAnyOrder("MENU", "LINK");
+          .containsExactlyInAnyOrder("MENU", "MENU", "LINK");
       assertThat(byId.get(10L).getViewTypeCd()).isEqualTo("IFRAME");
     }
 

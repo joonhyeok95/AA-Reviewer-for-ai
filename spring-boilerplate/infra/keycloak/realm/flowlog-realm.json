@@ -174,7 +174,11 @@
         "role.list",
         "role.add",
         "role.edit",
-        "role.del"
+        "role.del",
+        "calendar.list",
+        "calendar.add",
+        "calendar.edit",
+        "calendar.del"
       ]
     },
     {
@@ -200,7 +204,11 @@
         "board.list",
         "board.write",
         "board.update",
-        "board.delete"
+        "board.delete",
+        "calendar.list",
+        "calendar.add",
+        "calendar.edit",
+        "calendar.del"
       ]
     },
     {
@@ -224,7 +232,10 @@
         "sample.edit",
         "board.list",
         "board.write",
-        "board.update"
+        "board.update",
+        "calendar.list",
+        "calendar.add",
+        "calendar.edit"
       ]
     },
     {
@@ -244,7 +255,8 @@
       ],
       "realmRoles": [
         "sample.list",
-        "board.list"
+        "board.list",
+        "calendar.list"
       ]
     },
     {
@@ -264,7 +276,8 @@
       ],
       "realmRoles": [
         "sample.list",
-        "board.list"
+        "board.list",
+        "calendar.list"
       ]
     },
     {
@@ -284,7 +297,8 @@
       ],
       "realmRoles": [
         "sample.list",
-        "board.list"
+        "board.list",
+        "calendar.list"
       ]
     },
     {
@@ -479,6 +493,22 @@
       {
         "name": "board.delete",
         "description": "게시판(공지사항) 삭제 (scope board.delete 발급 조건)"
+      },
+      {
+        "name": "calendar.list",
+        "description": "캘린더 조회 (scope calendar.list 발급 조건)"
+      },
+      {
+        "name": "calendar.add",
+        "description": "캘린더 등록 (scope calendar.add 발급 조건)"
+      },
+      {
+        "name": "calendar.edit",
+        "description": "캘린더 수정 (scope calendar.edit 발급 조건)"
+      },
+      {
+        "name": "calendar.del",
+        "description": "캘린더 삭제 (scope calendar.del 발급 조건)"
       }
     ]
   },

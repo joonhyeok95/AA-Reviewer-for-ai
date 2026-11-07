@@ -61,6 +61,8 @@ public final class ApiAuthorizationRules {
         "/api/v1/notices/*/files"));
     rules.add(rule(HttpMethod.DELETE, List.of("board.update"), "/api/v1/notices/*/files/*"));
     rules.addAll(crud("board", BOARD_VERBS, "/api/v1/notices/**"));
+    // 캘린더 (생일·결혼기념일·휴일)
+    rules.addAll(crud("calendar", DEFAULT_VERBS, "/api/v1/calendar/**"));
     // 샘플
     rules.addAll(crud("sample", DEFAULT_VERBS, "/api/v1/samples/**"));
     return rules;

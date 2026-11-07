@@ -24,6 +24,9 @@
   (Keycloak 관리 콘솔은 계속 http://localhost:7000 에서만 접속)
   방화벽 9909 인바운드 허용 규칙이 없으면 관리자 승인(UAC) 창을 띄워 추가한다 (최초 1회).
 
+.PARAMETER SkipFirewall
+  방화벽 규칙 확인·추가(관리자 승인 창)를 건너뛴다. (관리자 권한이 없거나 이미 다른 방법으로 열어 둔 경우)
+
 .PARAMETER LanHost
   LAN 모드에서 사용할 이 PC 의 IP. 생략하면 기본 경로(인터넷 연결)의 IPv4 를 쓴다.
 
@@ -37,6 +40,7 @@ param(
   [switch]$NoFrontend,
   [switch]$Local,
   [string]$LanHost,
+  [switch]$SkipFirewall,
   # 이전 옵션 호환 (LAN 이 기본)
   [switch]$Lan
 )
@@ -147,7 +151,7 @@ if ($Lan) {
   # 다른 기기에서 9909 로 들어오는 연결 허용 (개인/도메인 네트워크만, 공용 Wi-Fi 는 열지 않음)
   $ruleName = 'Flowlog LAN 9909'
   $ruleCommand = "New-NetFirewallRule -DisplayName '$ruleName' -Direction Inbound -Protocol TCP -LocalPort 9909 -Action Allow -Profile Private,Domain"
-  if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
+  if (-not $SkipFirewall -and -not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
     Write-Step '방화벽 9909 허용 규칙 추가 - 관리자 승인 창(UAC)에서 "예" 를 눌러 주세요 (최초 1회)'
     try {
       Start-Process powershell.exe -Verb RunAs -Wait -WindowStyle Hidden `

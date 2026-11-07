@@ -8,8 +8,8 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 | 진입점 | [spring-gateway](../spring-gateway) **9909**, `/cm/**` → 9091 (`/cm` 제거), 그 외 `/**` → 화면 |
 | 화면 | [vue-frontend](../vue-frontend) (Vue 3) — **http://localhost:9909** 접속, 모든 API 연동 |
 | 영속성 | JPA (기본) + MyBatis (DB 종속/복잡 조회 - `resources/mapper/**/*.xml`, 예: 공지 목록 검색) |
-| 테스트 | `./mvnw test` **142/142** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **52/52** (`--quick`) · 화면 E2E **50/50** |
-| 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **관리 API (공통코드·메뉴·권한 - 언어별 이름, 메뉴 접근, 사용자/부서 부여)**, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일 |
+| 테스트 | `./mvnw test` **165/165** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **52/52** (`--quick`) · 화면 E2E **57/57** |
+| 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **관리 API (공통코드·메뉴·권한 - 언어별 이름, 메뉴 접근, 사용자/부서 부여)**, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일, **생일(캘린더)** — 월/목록, 생일·결혼기념일·휴일, 매년 반복 |
 | CI | 저장소 루트 `.github/workflows/backend-ci.yml` (build: `./mvnw -B verify`, oracle: `-Poracle-it`) |
 
 ## 실행
@@ -71,6 +71,7 @@ docker compose -f infra/keycloak/docker-compose.yml up -d
 | http://localhost:9909/cm/api/v1/auth/me | 현재 로그인 사용자 |
 | http://localhost:9909/cm/api/v1/menus/me | 내 메뉴 트리 (유효 권한, 다국어, 메뉴별 list/add/edit/del) |
 | http://localhost:9909/cm/api/v1/notices | 공지사항 (목록/상세/등록/수정/삭제, 첨부, 메일 이력) — `board.*` 권한 (공지사항 = 게시판) |
+| http://localhost:9909/cm/api/v1/calendar/events?from=2026-11-01&to=2026-11-30 | 생일(캘린더) 일정 - 매년 반복은 해마다 펼쳐서 (`calendar.*`) |
 | http://localhost:9909/cm/api/v1/langs | 지원 언어 (LANG 코드 기반, 에디터 언어팩) |
 | http://localhost:9909/cm/api/v1/org/tree | 조직도 (인사 마스터 사업장 → 부서, 국문/영문) |
 | `PUT` http://localhost:9909/cm/api/v1/users/me/lang | 내 언어 설정 변경 |
@@ -141,4 +142,5 @@ prod 프로필은 기동 시 IdP URL https, 세션 쿠키 Secure, local 기본 �
 - [설계 01 - 권한/메뉴/공통코드](docs/design/01_auth_menu_code.md)
 - [설계 02 - 인증 (Keycloak OAuth2/SAML2)](docs/design/02_auth_keycloak.md)
 - [설계 03 - 공지사항 다국어 (v0.4)](docs/design/03_notice.md)
+- [설계 04 - 생일 (캘린더)](docs/design/04_calendar.md)
 - [테스트 결과](docs/reports/TEST_REPORT.md) / [인증 E2E 결과](docs/reports/AUTH_E2E_REPORT.md) / [보안 점검 및 조치](docs/reports/SECURITY_REVIEW.md)

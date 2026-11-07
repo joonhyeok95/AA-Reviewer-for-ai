@@ -266,6 +266,49 @@ await step('거래 목록 (샘플 CRUD)', async () => {
   check('거래 삭제', after === 0, `rows=${after}`)
 })
 
+await step('생일 (캘린더 - 월/목록, 매년 반복 등록·수정·삭제)', async () => {
+  await admin.goto(`${BASE}/birthdays?ym=2026-11`)
+  await admin.waitForSelector('[data-test="calendar-chip"]')
+  const month = await admin.locator('[data-test="calendar-month"]').innerText()
+  const birthday = await admin.locator('[data-day="2026-11-12"] [data-test="calendar-chip"]').innerText()
+  check('월 달력 - 연·월 제목, 매년 반복 생일에 나이 표시', month.includes('2026') && birthday.includes('36'),
+    `${month} / ${birthday.replace(/\s+/g, ' ')}`)
+  await shot(admin, '07b-calendar-month')
+  await admin.click('[data-test="calendar-next"]')
+  await admin.waitForURL(/ym=2026-12/)
+  await admin.click('[data-test="calendar-today"]')
+  check('[>] 다음 달 → 오늘 이동 (주소 ym 유지)', !admin.url().includes('ym=2026-12'), admin.url())
+  await admin.goto(`${BASE}/birthdays?ym=2026-11`)
+  await admin.click('[data-test="calendar-view-list"]')
+  await admin.waitForSelector('[data-test="calendar-row"]')
+  const rows = await admin.locator('[data-test="calendar-row"]').count()
+  check('목록 보기 - 이번 달 일정', rows >= 3 && admin.url().includes('view=list'), `rows=${rows}`)
+  await shot(admin, '07c-calendar-list')
+  await admin.click('[data-test="calendar-view-month"]')
+  await admin.click('[data-test="calendar-create"]')
+  await admin.selectOption('[data-test="calendar-type"]', 'BIRTHDAY')
+  await admin.fill('[data-test="calendar-title"]', `E2E 생일 ${stamp}`)
+  await admin.fill('[data-test="calendar-start"]', '1995-11-20')
+  await admin.check('[data-test="calendar-repeat"]')
+  await admin.click('[data-test="calendar-save"]')
+  const chip = admin.locator(`[data-day="2026-11-20"] [data-test="calendar-chip"]:has-text("${stamp}")`)
+  await chip.waitFor()
+  check('매년 반복 생일 등록 → 올해 날짜에 표시 (만 31세)', (await chip.innerText()).includes('31'))
+  await chip.click()
+  // 원본을 불러온 뒤 수정 (불러오기 전에 입력하면 덮어써짐)
+  await admin.waitForFunction((title) => document.querySelector('[data-test="calendar-title"]')?.value === title,
+    `E2E 생일 ${stamp}`)
+  await admin.fill('[data-test="calendar-title"]', `E2E 생일 수정 ${stamp}`)
+  await admin.click('[data-test="calendar-save"]')
+  await admin.locator(`[data-day="2026-11-20"] >> text=E2E 생일 수정 ${stamp}`).waitFor()
+  check('일정 수정', true)
+  await admin.locator(`[data-day="2026-11-20"] [data-test="calendar-chip"]:has-text("${stamp}")`).click()
+  await admin.click('[data-test="calendar-delete"]')
+  await admin.click('[data-test="confirm"]')
+  await chip.waitFor({ state: 'detached' })
+  check('일정 삭제', true)
+})
+
 await step('공통코드 / 조직도 / 내 정보', async () => {
   await admin.goto(`${BASE}/system/codes?group=NOTICE_CATEGORY`)
   await admin.waitForSelector('.table tbody tr')
@@ -483,6 +526,18 @@ await step('부여받은 권한 효과 (emp01)', async () => {
   const api = await emp.request.get(`${BASE}/cm/api/v1/code-groups`)
   check('IdP 역할(code.list)이 없으면 화면·API 불가 (IdP scope ∩ DB 권한)', api.status() === 403,
     `status=${api.status()}`)
+  await emp.goto(`${BASE}/birthdays?ym=2026-11`)
+  await emp.waitForSelector('[data-test="calendar-chip"]')
+  const create = await emp.locator('[data-test="calendar-create"]').count()
+  await emp.locator('[data-test="calendar-chip"]').first().click()
+  await emp.waitForSelector('dialog[open] [data-test="calendar-title"]')
+  const readonly = await emp.locator('[data-test="calendar-title"]').getAttribute('readonly') !== null
+  const add = await emp.request.post(`${BASE}/cm/api/v1/calendar/events`, {
+    data: { eventTypeCd: 'ETC', title: 'x', startDt: '2026-11-01', repeatYearlyYn: 'N' },
+    headers: { 'X-XSRF-TOKEN': (await emp.context().cookies()).find((c) => c.name === 'XSRF-TOKEN')?.value ?? '' },
+  })
+  check('생일 조회 전용(calendar.list) - 등록 버튼 없음, 읽기 전용, 등록 API 403',
+    create === 0 && readonly && add.status() === 403, `create=${create} readonly=${readonly} api=${add.status()}`)
 })
 
 const cleanup = await newPage()

@@ -70,6 +70,12 @@ const routes: RouteRecordRaw[] = [
         meta: { resource: 'board', action: 'edit', title: 'notice.form.editTitle' },
       },
       {
+        path: 'birthdays',
+        name: 'calendar',
+        component: () => import('@/calendar/views/CalendarView.vue'),
+        meta: { resource: 'calendar', title: 'calendar.title' },
+      },
+      {
         path: 'tx/trades/list',
         name: 'sample-list',
         component: () => import('@/sample/views/SampleListView.vue'),
