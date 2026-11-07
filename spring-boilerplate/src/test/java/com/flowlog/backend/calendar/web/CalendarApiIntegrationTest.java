@@ -142,7 +142,25 @@ class CalendarApiIntegrationTest {
   }
 
   @Test
-  @DisplayName("등록 검증 - 유형 코드 오류 B7002, 종료일 < 시작일 B7003, 반복 일정 31일 초과 B7004, 필수값 400")
+  @DisplayName("연도 모름(yearKnownYn=N) - 매년 반복은 하되 나이·주년(yearsSince)은 0")
+  void yearUnknown() throws Exception {
+    String created = mockMvc.perform(post(BASE_URL).contentType(MediaType.APPLICATION_JSON)
+            .content("""
+                {"eventTypeCd": "BIRTHDAY", "title": "연도 모름 생일", "startDt": "2026-03-07",
+                 "repeatYearlyYn": "Y", "yearKnownYn": "N"}
+                """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.result.yearKnownYn").value("N"))
+        .andReturn().getResponse().getContentAsString();
+    long id = ((Number) JsonPath.read(created, "$.result.id")).longValue();
+
+    mockMvc.perform(get(BASE_URL).param("from", "2030-03-01").param("to", "2030-03-31"))
+        .andExpect(jsonPath("$.result[?(@.eventId == " + id + ")].startDt").value(hasItem("2030-03-07")))
+        .andExpect(jsonPath("$.result[?(@.eventId == " + id + ")].yearsSince").value(hasItem(0)));
+  }
+
+  @Test
+  @DisplayName("등록 검증 -유형 코드 오류 B7002, 종료일 < 시작일 B7003, 반복 일정 31일 초과 B7004, 필수값 400")
   void create_validation() throws Exception {
     mockMvc.perform(post(BASE_URL).contentType(MediaType.APPLICATION_JSON).content("""
             {"eventTypeCd": "NOPE", "title": "x", "startDt": "2026-11-01", "repeatYearlyYn": "N"}

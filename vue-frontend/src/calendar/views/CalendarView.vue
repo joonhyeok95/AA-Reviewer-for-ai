@@ -112,11 +112,14 @@ function isHoliday(day: string): boolean {
   return (byDay.value.get(day) ?? []).some((item) => color(item.eventTypeCd) === 'danger')
 }
 
-/** 생일 = 만 n세, 결혼기념일 = n주년, 그 외 반복 = n년째 (최초 해는 표시 안 함) */
+/**
+ * 생일 = 만 n세, 결혼기념일 = n주년. 문구가 있는 유형만 (휴일 등은 표시 안 함).
+ * 최초 해, 반복 안 함, 연도 모름(yearsSince 0)은 표시 안 함
+ */
 function yearsText(item: CalendarOccurrence): string {
-  if (item.repeatYearlyYn !== 'Y' || item.yearsSince <= 0) return ''
   const key = `calendar.years.${item.eventTypeCd}`
-  return t(te(key) ? key : 'calendar.years.other', { n: item.yearsSince })
+  if (item.repeatYearlyYn !== 'Y' || item.yearsSince <= 0 || !te(key)) return ''
+  return t(key, { n: item.yearsSince })
 }
 
 

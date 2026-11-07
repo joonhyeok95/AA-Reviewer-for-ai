@@ -377,8 +377,8 @@ const ko = {
     years: {
       BIRTHDAY: '만 {n}세',
       WEDDING: '{n}주년',
-      other: '{n}년째',
     },
+    yearUnknown: '연도 모름 (나이·주년 표시 안 함)',
   },
   notice: {
     title: '공지사항',

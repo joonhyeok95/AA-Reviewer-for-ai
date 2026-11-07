@@ -13,7 +13,7 @@ export interface CalendarOccurrence {
   startDt: string
   endDt: string
   repeatYearlyYn: YesNo
-  /** 최초 일자부터 지난 햇수 (생일 = 나이, 결혼기념일 = 주년, 반복 안 함 0) */
+  /** 최초 일자부터 지난 햇수 (생일 = 나이, 결혼기념일 = 주년, 반복 안 함·연도 모름 0) */
   yearsSince: number
   originStartDt: string
   memo: string | null
@@ -27,6 +27,8 @@ export interface CalendarEvent {
   startDt: string
   endDt: string
   repeatYearlyYn: YesNo
+  /** 시작 연도를 아는지 (N = 출생·결혼 연도 모름 → 나이·주년 표시 안 함) */
+  yearKnownYn: YesNo
   memo: string | null
   createdBy: string
   createdAt: string
@@ -41,5 +43,6 @@ export interface CalendarEventSaveRequest {
   startDt: string
   endDt: string | null
   repeatYearlyYn: YesNo
+  yearKnownYn: YesNo
   memo: string
 }

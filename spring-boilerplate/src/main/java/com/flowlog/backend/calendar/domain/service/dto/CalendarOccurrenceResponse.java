@@ -2,6 +2,7 @@ package com.flowlog.backend.calendar.domain.service.dto;
 
 import com.flowlog.backend.calendar.domain.model.CalendarEvent;
 import com.flowlog.backend.calendar.domain.service.CalendarOccurrences.Occurrence;
+import com.flowlog.backend.global.constant.YesNo;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.LocalDate;
 
@@ -14,7 +15,7 @@ import java.time.LocalDate;
  * @param startDt 이번 발생 시작일
  * @param endDt 이번 발생 종료일
  * @param repeatYearlyYn 매년 반복 여부
- * @param yearsSince 최초 일자부터 지난 햇수 (생일 = 나이, 결혼기념일 = 주년, 반복 안 함 0)
+ * @param yearsSince 최초 일자부터 지난 햇수 (생일 = 나이, 결혼기념일 = 주년, 반복 안 함·연도 모름 0)
  * @param originStartDt 최초 시작일 (원본)
  * @param memo 메모
  * @author flowlog
@@ -42,6 +43,7 @@ public record CalendarOccurrenceResponse(
   public static CalendarOccurrenceResponse of(CalendarEvent event, Occurrence occurrence) {
     return new CalendarOccurrenceResponse(event.getId(), event.getEventTypeCd(), event.getTitle(),
         occurrence.startDt(), occurrence.endDt(), event.getRepeatYearlyYn(),
-        occurrence.yearsSince(), event.getStartDt(), event.getMemo());
+        YesNo.N.equals(event.getYearKnownYn()) ? 0 : occurrence.yearsSince(), event.getStartDt(),
+        event.getMemo());
   }
 }

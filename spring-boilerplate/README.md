@@ -8,7 +8,7 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 | 진입점 | [spring-gateway](../spring-gateway) **9909**, `/cm/**` → 9091 (`/cm` 제거), 그 외 `/**` → 화면 |
 | 화면 | [vue-frontend](../vue-frontend) (Vue 3) — **http://localhost:9909** 접속, 모든 API 연동 |
 | 영속성 | JPA (기본) + MyBatis (DB 종속/복잡 조회 - `resources/mapper/**/*.xml`, 예: 공지 목록 검색) |
-| 테스트 | `./mvnw test` **165/165** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **52/52** (`--quick`) · 화면 E2E **57/57** |
+| 테스트 | `./mvnw test` **166/166** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **52/52** (`--quick`) · 화면 E2E **57/57** |
 | 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **관리 API (공통코드·메뉴·권한 - 언어별 이름, 메뉴 접근, 사용자/부서 부여)**, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일, **생일(캘린더)** — 월/목록, 생일·결혼기념일·휴일, 매년 반복 |
 | CI | 저장소 루트 `.github/workflows/backend-ci.yml` (build: `./mvnw -B verify`, oracle: `-Poracle-it`) |
 

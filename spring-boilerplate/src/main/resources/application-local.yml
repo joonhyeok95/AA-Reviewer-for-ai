@@ -39,6 +39,9 @@ spring:
         - classpath:db/data/01_auth_menu_code.sql
         - classpath:db/data/02_notice.sql
         - classpath:db/data/03_calendar.sql
+        # 외부 캘린더 이관분 (scripts/calendar-import 로 생성, 개인정보라 저장소에 올리지 않음 - /data/ gitignore)
+        #  없으면 건너뜀. 있으면 샘플 일정을 지우고 이관 일정으로 바꾼다
+        - optional:file:./data/calendar-import.sql
 
 logging:
   level:

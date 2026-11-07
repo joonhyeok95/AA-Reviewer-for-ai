@@ -375,8 +375,8 @@ const en: MessageSchema = {
     years: {
       BIRTHDAY: 'turns {n}',
       WEDDING: '{n} years',
-      other: 'year {n}',
     },
+    yearUnknown: 'Year unknown (no age or anniversary)',
   },
   notice: {
     title: 'Notices',

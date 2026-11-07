@@ -50,17 +50,21 @@ public class CalendarEvent extends BaseEntity {
   @Column(name = "REPEAT_YEARLY_YN", length = 1, nullable = false)
   private String repeatYearlyYn; // 매년 반복 여부 (Y/N)
 
+  @Column(name = "YEAR_KNOWN_YN", length = 1, nullable = false)
+  private String yearKnownYn; // 시작 연도를 아는지 (N = 나이·주년 표시 안 함)
+
   @Column(name = "MEMO", length = 1000)
   private String memo; // 메모
 
   @Builder
   private CalendarEvent(String eventTypeCd, String title, LocalDate startDt, LocalDate endDt,
-      String repeatYearlyYn, String memo) {
+      String repeatYearlyYn, String yearKnownYn, String memo) {
     this.eventTypeCd = eventTypeCd;
     this.title = title;
     this.startDt = startDt;
     this.endDt = endDt;
     this.repeatYearlyYn = repeatYearlyYn;
+    this.yearKnownYn = yearKnownYn;
     this.memo = memo;
   }
 
@@ -72,15 +76,17 @@ public class CalendarEvent extends BaseEntity {
    * @param startDt 시작일
    * @param endDt 종료일
    * @param repeatYearlyYn 매년 반복 여부
+   * @param yearKnownYn 시작 연도를 아는지
    * @param memo 메모
    */
   public void update(String eventTypeCd, String title, LocalDate startDt, LocalDate endDt,
-      String repeatYearlyYn, String memo) {
+      String repeatYearlyYn, String yearKnownYn, String memo) {
     this.eventTypeCd = eventTypeCd;
     this.title = title;
     this.startDt = startDt;
     this.endDt = endDt;
     this.repeatYearlyYn = repeatYearlyYn;
+    this.yearKnownYn = yearKnownYn;
     this.memo = memo;
   }
 }

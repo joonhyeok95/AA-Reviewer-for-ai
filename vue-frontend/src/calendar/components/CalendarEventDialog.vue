@@ -30,7 +30,7 @@ const emit = defineEmits<{ close: []; saved: [] }>()
 const { t } = useI18n()
 const feedback = useApiFeedback()
 const form = reactive<CalendarEventSaveRequest>({
-  eventTypeCd: '', title: '', startDt: '', endDt: null, repeatYearlyYn: 'N', memo: '',
+  eventTypeCd: '', title: '', startDt: '', endDt: null, repeatYearlyYn: 'N', yearKnownYn: 'Y', memo: '',
 })
 const original = ref<CalendarEvent | null>(null)
 const errors = ref<Record<string, string>>({})
@@ -53,7 +53,7 @@ watch(() => props.open, async (open) => {
   confirmDelete.value = false
   Object.assign(form, {
     eventTypeCd: props.types[0]?.code ?? '', title: '', startDt: props.initialDate, endDt: null,
-    repeatYearlyYn: 'N', memo: '',
+    repeatYearlyYn: 'N', yearKnownYn: 'Y', memo: '',
   })
   if (props.eventId === null) return
   loading.value = true
@@ -63,7 +63,7 @@ watch(() => props.open, async (open) => {
     Object.assign(form, {
       eventTypeCd: event.eventTypeCd, title: event.title, startDt: event.startDt,
       endDt: event.endDt === event.startDt ? null : event.endDt,
-      repeatYearlyYn: event.repeatYearlyYn, memo: event.memo ?? '',
+      repeatYearlyYn: event.repeatYearlyYn, yearKnownYn: event.yearKnownYn, memo: event.memo ?? '',
     })
   } catch (error) {
     feedback.failure(error)
@@ -130,6 +130,10 @@ async function remove(): Promise<void> {
           <label class="check repeat">
             <input v-model="form.repeatYearlyYn" type="checkbox" true-value="Y" false-value="N"
               :disabled="readonly" data-test="calendar-repeat">{{ $t('calendar.repeatYearly') }}
+          </label>
+          <label v-if="form.repeatYearlyYn === 'Y'" class="check">
+            <input v-model="form.yearKnownYn" type="checkbox" true-value="N" false-value="Y"
+              :disabled="readonly" data-test="calendar-year-unknown">{{ $t('calendar.yearUnknown') }}
           </label>
         </div>
       </div>

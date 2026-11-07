@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | 구현 완료 · 테스트 통과 (기본 165/165, Oracle 3/3, 화면 단위 37/37, 화면 E2E 57/57) |
+| 상태 | 구현 완료 · 테스트 통과 (기본 166/166, Oracle 3/3, 화면 단위 37/37, 화면 E2E 57/57) |
 | 작성일 | 2026-11-07 |
 | DDL (Oracle) | [`db/ddl/04_calendar.sql`](../../src/main/resources/db/ddl/04_calendar.sql) |
 | 초기 데이터 (local) | [`db/data/03_calendar.sql`](../../src/main/resources/db/data/03_calendar.sql) (일정 유형 코드, 샘플 일정 16건), 메뉴·권한은 [`db/data/01_auth_menu_code.sql`](../../src/main/resources/db/data/01_auth_menu_code.sql) (메뉴 17) |
@@ -34,6 +34,7 @@
 | START_DT | DATE | N | 시작일. 매년 반복이면 **최초 일자** (생일 = 출생일, 결혼기념일 = 결혼일) |
 | END_DT | DATE | N | 종료일. 하루 일정은 시작일과 같음 (`CK_CAL_EVENT_02 : END_DT >= START_DT`) |
 | REPEAT_YEARLY_YN | VARCHAR2(1) | N | 매년 반복 여부 (기본 N, `CK_CAL_EVENT_01`) |
+| YEAR_KNOWN_YN | VARCHAR2(1) | N | 시작 연도를 아는지 (기본 Y, `CK_CAL_EVENT_03`). N = 출생·결혼 연도 모름 → 반복은 하되 나이·주년 표시 안 함 |
 | MEMO | VARCHAR2(1000) | Y | 메모 |
 | CREATED_BY / CREATED_AT / UPDATED_BY / UPDATED_AT | | N | 공통 감사 컬럼 |
 
@@ -75,7 +76,8 @@ ATTR1 = `accent / info / danger / warn / neutral` (화면 색 토큰). 새 유�
    - 2월 29일은 평년에 2월 28일
    - 해를 넘기는 일정(12/31~1/1)도 1월 조회에 나오도록 전년도부터 확인
    - 시작한 해 이전에는 발생하지 않음
-4. `yearsSince` = 발생 연도 - 시작 연도 (생일 = 만 나이, 결혼기념일 = 주년)
+4. `yearsSince` = 발생 연도 - 시작 연도 (생일 = 만 나이, 결혼기념일 = 주년). `YEAR_KNOWN_YN='N'` 이면 0
+5. 화면은 문구가 있는 유형(생일 `만 n세`, 결혼기념일 `n주년`)만 표시 (휴일·기타는 표시 안 함)
 
 제약 : 매년 반복 일정은 최대 31일(해마다 겹치지 않도록), 그 외 최대 366일. 한 번에 조회할 수 있는 기간은 400일.
 
@@ -113,3 +115,31 @@ ATTR1 = `accent / info / danger / warn / neutral` (화면 색 토큰). 새 유�
 - 날짜를 누르면 그 날짜로 등록, 일정을 누르면 원본 수정 (매년 반복은 최초 일자 기준이라는 안내 표시)
 - 일요일·휴일 유형이 있는 날은 휴일 색, 토요일은 파란색, 오늘은 강조
 - 요일·월 이름은 `Intl` 로 화면 언어에 맞춰 표시
+
+## 7. 외부 캘린더 이관 (`scripts/calendar-import/import_calendar.py`)
+
+FullCalendar 이벤트 API(`GET /api/calendar/list?start&end` → `[{id, title, start, color}]`)를 읽어 이관 SQL 을 만든다.
+
+```bash
+python scripts/calendar-import/import_calendar.py --dry-run     # 분류 결과만
+python scripts/calendar-import/import_calendar.py               # data/calendar-import.sql 생성 → 앱 재시작
+python scripts/calendar-import/import_calendar.py --year 2027 --url https://...
+```
+
+| 원본 | 이관 |
+|---|---|
+| 제목에 `결혼기념일` | WEDDING, 매년 반복, 연도 모름 |
+| 빨간색 + 양력 고정 공휴일(신정·삼일절·어린이날·현충일·광복절·개천절·한글날·성탄절) | HOLIDAY, 매년 반복 |
+| 빨간색 + 그 외(설날·추석·석가탄신일·대체공휴일) | HOLIDAY, 그해만. 같은 제목 연속 날짜는 기간 1건으로 합침 |
+| 제목에 `결혼식` | ETC, 그해만 |
+| 제목에 `기념일` | ETC, 매년 반복, 연도 모름 |
+| 그 외 (이름만) | BIRTHDAY, 제목 뒤에 ` 생일`, 매년 반복, 연도 모름 |
+
+- 같은 제목·날짜 중복은 1건, 스크립트의 `SKIP` 항목은 제외하고 사유를 출력. 메모에 `이관: {사이트} (원본 id)` 기록
+- **결과에 개인정보(이름·생일)가 있어 저장소에 올리지 않는다.** `data/calendar-import.sql` 은 `/data/` gitignore 대상이고,
+  local 프로필이 `optional:file:./data/calendar-import.sql` 로 읽는다 (없으면 건너뜀, 있으면 샘플 일정을 지우고 이관 일정으로 대체)
+- 테스트는 저장소 초기 데이터만 사용 (`src/test/resources/config/application-local.yml` 의 data-locations)
+- Oracle(dev/prod)에는 같은 SQL 을 직접 실행 (`SQ_CAL_EVENT.NEXTVAL`, DATE 리터럴)
+
+2026-11-07 이관 결과 (yehan.dothome.co.kr, 2026년) : 원본 60건 → 52건 (생일 29, 결혼기념일 6, 휴일 15, 기타 2).
+제외 3건 = 2026-02-06~08 `설날` (2/16~18 설날이 따로 있어 날짜 오류로 판단), 중복 1건 (같은 이름·같은 날짜 생일).

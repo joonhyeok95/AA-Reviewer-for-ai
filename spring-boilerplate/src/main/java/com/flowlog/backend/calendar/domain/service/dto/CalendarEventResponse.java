@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
  * @param startDt 시작일
  * @param endDt 종료일
  * @param repeatYearlyYn 매년 반복 여부
+ * @param yearKnownYn 시작 연도를 아는지
  * @param memo 메모
  * @param createdBy 생성자
  * @param createdAt 생성일시
@@ -30,6 +31,7 @@ public record CalendarEventResponse(
     @Schema(description = "시작일", example = "1990-11-12") LocalDate startDt,
     @Schema(description = "종료일", example = "1990-11-12") LocalDate endDt,
     @Schema(description = "매년 반복 여부(Y/N)", example = "Y") String repeatYearlyYn,
+    @Schema(description = "시작 연도를 아는지(Y/N)", example = "Y") String yearKnownYn,
     @Schema(description = "메모") String memo,
     @Schema(description = "생성자", example = "admin") String createdBy,
     @Schema(description = "생성일시") LocalDateTime createdAt,
@@ -44,7 +46,7 @@ public record CalendarEventResponse(
    */
   public static CalendarEventResponse from(CalendarEvent event) {
     return new CalendarEventResponse(event.getId(), event.getEventTypeCd(), event.getTitle(),
-        event.getStartDt(), event.getEndDt(), event.getRepeatYearlyYn(), event.getMemo(),
-        event.getCreatedBy(), event.getCreatedAt(), event.getUpdatedBy(), event.getUpdatedAt());
+        event.getStartDt(), event.getEndDt(), event.getRepeatYearlyYn(), event.getYearKnownYn(),
+        event.getMemo(), event.getCreatedBy(), event.getCreatedAt(), event.getUpdatedBy(), event.getUpdatedAt());
   }
 }

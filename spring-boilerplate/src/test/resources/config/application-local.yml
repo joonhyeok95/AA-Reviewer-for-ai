@@ -9,6 +9,14 @@ spring:
   h2:
     console:
       enabled: false
+  # 테스트는 저장소의 초기 데이터만 (로컬 이관 파일 data/calendar-import.sql 제외)
+  sql:
+    init:
+      data-locations:
+        - classpath:db/data/00_sample.sql
+        - classpath:db/data/01_auth_menu_code.sql
+        - classpath:db/data/02_notice.sql
+        - classpath:db/data/03_calendar.sql
 
 logging:
   level:

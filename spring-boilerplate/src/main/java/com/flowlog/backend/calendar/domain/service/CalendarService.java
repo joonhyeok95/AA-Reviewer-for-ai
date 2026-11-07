@@ -101,6 +101,7 @@ public class CalendarService {
         .startDt(request.startDt())
         .endDt(request.endOrStart())
         .repeatYearlyYn(request.repeatYearlyYn())
+        .yearKnownYn(request.yearKnownOrDefault())
         .memo(StringUtils.trimToNull(request.memo()))
         .build());
     return CalendarEventResponse.from(saved);
@@ -119,7 +120,8 @@ public class CalendarService {
     CalendarEvent event = findEvent(id);
     validate(request);
     event.update(request.eventTypeCd(), request.title().strip(), request.startDt(),
-        request.endOrStart(), request.repeatYearlyYn(), StringUtils.trimToNull(request.memo()));
+        request.endOrStart(), request.repeatYearlyYn(), request.yearKnownOrDefault(),
+        StringUtils.trimToNull(request.memo()));
     calendarEventRepository.flush();
     return CalendarEventResponse.from(event);
   }

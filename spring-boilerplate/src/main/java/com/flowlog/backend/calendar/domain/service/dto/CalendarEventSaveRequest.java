@@ -15,6 +15,7 @@ import java.time.LocalDate;
  * @param startDt 시작일 (매년 반복이면 최초 일자 - 생일은 출생일)
  * @param endDt 종료일 (생략하면 시작일과 같음)
  * @param repeatYearlyYn 매년 반복 여부 (Y/N)
+ * @param yearKnownYn 시작 연도를 아는지 (Y/N, 생략 시 Y - N 이면 나이·주년 표시 안 함)
  * @param memo 메모
  * @author flowlog
  * @since 2026-11-07
@@ -42,6 +43,10 @@ public record CalendarEventSaveRequest(
     @NotBlank @Pattern(regexp = "^[YN]$")
     String repeatYearlyYn,
 
+    @Schema(description = "시작 연도를 아는지(Y/N, 생략 시 Y). N 이면 나이·주년 표시 안 함", example = "Y")
+    @Pattern(regexp = "^[YN]$")
+    String yearKnownYn,
+
     @Schema(description = "메모", example = "케이크 준비")
     @Size(max = 1000)
     String memo) {
@@ -53,5 +58,14 @@ public record CalendarEventSaveRequest(
    */
   public LocalDate endOrStart() {
     return endDt == null ? startDt : endDt;
+  }
+
+  /**
+   * 시작 연도를 아는지 (생략 시 Y).
+   *
+   * @return Y/N
+   */
+  public String yearKnownOrDefault() {
+    return yearKnownYn == null ? "Y" : yearKnownYn;
   }
 }
