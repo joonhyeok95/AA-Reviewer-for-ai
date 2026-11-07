@@ -19,7 +19,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - 공통: `global/{aop,common,component,config,constant,exception,interceptor,security,util,web}`
 - 도메인: `{domain}/web`, `{domain}/exception`, `{domain}/domain/{model,repository,service/dto}`
 - 신규 도메인은 `sample` 패키지 구조/코드 스타일을 그대로 따른다.
-- 도메인: `sample`, `auth`, `code`(공통코드·지원 언어 API, 공통코드 관리 `code-groups`), `user`(인사 마스터 조직도·사용자 언어·사용자 검색), `role`(권한 관리: 권한·메뉴 접근·부여), `menu`(메뉴 관리, 본문 메뉴), `notice`(공지 다국어·첨부·메일), `mail`(메일 템플릿·발송). 공지 설계 `docs/design/03_notice.md`
+- 도메인: `sample`, `auth`, `code`(공통코드·지원 언어 API, 공통코드 관리 `code-groups`), `user`(인사 마스터 조직도·사용자 언어·사용자 검색), `role`(권한 관리: 권한·메뉴 접근·부여), `menu`(메뉴 관리, 본문 메뉴), `notice`(공지 다국어·첨부·메일), `mail`(메일 템플릿·발송), `calendar`(생일 달력), `bulletin`·`catechism`·`liturgy`(교회 주보·교리문답·전례문, 설계 05). 공지 설계 `docs/design/03_notice.md`
 
 ## 필수 규칙
 - 응답은 항상 `MessageHttpResponse` 로 생성 → `ResponseEntity<MessageResponse<T>>`

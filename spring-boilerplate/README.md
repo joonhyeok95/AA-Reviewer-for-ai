@@ -8,8 +8,8 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 | 진입점 | [spring-gateway](../spring-gateway) **9909**, `/cm/**` → 9091 (`/cm` 제거), 그 외 `/**` → 화면 |
 | 화면 | [vue-frontend](../vue-frontend) (Vue 3) — **http://localhost:9909** 접속, 모든 API 연동 |
 | 영속성 | JPA (기본) + MyBatis (DB 종속/복잡 조회 - `resources/mapper/**/*.xml`, 예: 공지 목록 검색) |
-| 테스트 | `./mvnw test` **166/166** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **52/52** (`--quick`) · 화면 E2E **57/57** |
-| 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **관리 API (공통코드·메뉴·권한 - 언어별 이름, 메뉴 접근, 사용자/부서 부여)**, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일, **생일(캘린더)** — 월/목록, 생일·결혼기념일·휴일, 매년 반복 |
+| 테스트 | `./mvnw test` **175/175** · `./mvnw test -Poracle-it` (실제 Oracle) **3/3** · 인증 E2E **52/52** (`--quick`) · 화면 E2E **64/64** |
+| 주요 기능 | 인증/인가(Keycloak BFF·SAML2·Bearer), 권한/메뉴/공통코드, **관리 API (공통코드·메뉴·권한 - 언어별 이름, 메뉴 접근, 사용자/부서 부여)**, **공지사항 다국어 (v0.4)** — 언어 탭/대표 언어/대체 표시/검색, 첨부, 수신자 언어별 메일, **생일(캘린더)** — 월/목록, 생일·결혼기념일·휴일, 매년 반복, **교회** — 주보(예배순서·교회소식·섬김위원)·교리문답(5단계)·전례문·대시보드 |
 | CI | 저장소 루트 `.github/workflows/backend-ci.yml` (build: `./mvnw -B verify`, oracle: `-Poracle-it`) |
 
 ## 실행
@@ -143,4 +143,5 @@ prod 프로필은 기동 시 IdP URL https, 세션 쿠키 Secure, local 기본 �
 - [설계 02 - 인증 (Keycloak OAuth2/SAML2)](docs/design/02_auth_keycloak.md)
 - [설계 03 - 공지사항 다국어 (v0.4)](docs/design/03_notice.md)
 - [설계 04 - 생일 (캘린더)](docs/design/04_calendar.md)
+- [설계 05 - 교회 (주보·교리문답·전례문)](docs/design/05_church.md)
 - [테스트 결과](docs/reports/TEST_REPORT.md) / [인증 E2E 결과](docs/reports/AUTH_E2E_REPORT.md) / [보안 점검 및 조치](docs/reports/SECURITY_REVIEW.md)

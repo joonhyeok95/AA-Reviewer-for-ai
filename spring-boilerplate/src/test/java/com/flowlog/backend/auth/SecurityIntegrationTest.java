@@ -614,7 +614,7 @@ class SecurityIntegrationTest {
       mockMvc.perform(get(MENU_URL).header(HttpHeaders.AUTHORIZATION, token)
               .header(HttpHeaders.ACCEPT_LANGUAGE, "en-US"))
           .andExpect(status().isOk())
-          .andExpect(jsonPath("$.result.length()").value(6))
+          .andExpect(jsonPath("$.result.length()").value(7))
           .andExpect(jsonPath("$.result[0].children[0].menuNm").value("거래관리"))
           .andExpect(jsonPath("$.result[0].children[0].permission.del").value(true));
     }

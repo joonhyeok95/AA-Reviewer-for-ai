@@ -50,10 +50,11 @@ import org.testcontainers.oracle.OracleContainer;
     "spring.sql.init.encoding=UTF-8",
     "spring.sql.init.schema-locations=classpath:db/ddl/00_sample.sql,"
         + "classpath:db/ddl/01_auth_menu_code.sql,classpath:db/ddl/02_notice.sql,"
-        + "classpath:db/ddl/03_file_store.sql,classpath:db/ddl/04_calendar.sql",
+        + "classpath:db/ddl/03_file_store.sql,classpath:db/ddl/04_calendar.sql,"
+        + "classpath:db/ddl/05_church.sql",
     "spring.sql.init.data-locations=classpath:db/data/00_sample.sql,"
         + "classpath:db/data/01_auth_menu_code.sql,classpath:db/data/02_notice.sql,"
-        + "classpath:db/data/03_calendar.sql",
+        + "classpath:db/data/03_calendar.sql,classpath:db/data/04_church.sql",
     "spring.jpa.defer-datasource-initialization=false",
     "spring.jpa.hibernate.ddl-auto=validate"
 })
@@ -84,9 +85,10 @@ class OracleSchemaTest {
 
     assertThat(viewer.userId()).isEqualTo("tx.viewer");
     assertThat(viewer.roleCds()).contains("TX_MANAGER_READ", "USER_EMP");
-    assertThat(viewer.permissions()).containsExactly("board.list", "calendar.list", "sample.list");
+    assertThat(viewer.permissions()).containsExactly("board.list", "bulletin.list", "calendar.list",
+        "catechism.list", "liturgy.list", "sample.list");
     assertThat(menuService.getMyMenus("00000000-0000-4000-8000-000000000001", "ko"))
-        .hasSize(6);
+        .hasSize(7);
     assertThat(sampleRepository.count()).isPositive();
     // LIKE ... ESCAPE '\' (사용자 입력 와일드카드 이스케이프)
     assertThat(sampleRepository.search(LikePatterns.contains("샘플"), null, PageRequest.of(0, 10))

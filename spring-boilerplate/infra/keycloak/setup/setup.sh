@@ -60,7 +60,10 @@ for entry in "sample.list:샘플 조회" "sample.add:샘플 등록" "sample.edit
     "role.list:권한 조회" "role.add:권한 등록" "role.edit:권한 수정" "role.del:권한 삭제" \
     "board.list:게시판(공지) 조회" "board.write:게시판(공지) 작성" "board.update:게시판(공지) 수정" \
     "board.delete:게시판(공지) 삭제" \
-    "calendar.list:캘린더 조회" "calendar.add:캘린더 등록" "calendar.edit:캘린더 수정" "calendar.del:캘린더 삭제"; do
+    "calendar.list:캘린더 조회" "calendar.add:캘린더 등록" "calendar.edit:캘린더 수정" "calendar.del:캘린더 삭제" \
+    "bulletin.list:주보 조회" "bulletin.add:주보 등록" "bulletin.edit:주보 수정" "bulletin.del:주보 삭제" \
+    "catechism.list:교리문답 조회" "catechism.add:교리문답 등록" "catechism.edit:교리문답 수정" "catechism.del:교리문답 삭제" \
+    "liturgy.list:전례문 조회" "liturgy.add:전례문 등록" "liturgy.edit:전례문 수정" "liturgy.del:전례문 삭제"; do
   name="${entry%%:*}"
   sid=$(ensure_scope "$name" "${entry#*:}")
   # scope 를 같은 이름의 realm 역할에 매핑 → 해당 역할이 있는 사용자/서비스계정에게만 scope 발급

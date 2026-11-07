@@ -8,7 +8,7 @@
 
 | 구분 | 전체 | 성공 | 실패 | 결과 |
 |---|---|---|---|---|
-| 기본 (`mvnw test`) | 166 | 166 | 0 | ✅ BUILD SUCCESS |
+| 기본 (`mvnw test`) | 175 | 175 | 0 | ✅ BUILD SUCCESS |
 | Oracle (`-Poracle-it`) | 3 | 3 | 0 | ✅ BUILD SUCCESS |
 
 | 테스트 클래스 | 유형 | 대상 | 건수 | 결과 |
@@ -30,6 +30,7 @@
 | `SecurityStartupValidatorTest` | 단위 | prod 기동 보안 검사 | 3 | ✅ |
 | `CalendarOccurrencesTest` | 단위 | 생일(캘린더) 매년 반복 펼치기 - 나이·주년, 2월 29일, 해 넘김, 시작 전 미발생, 여러 해 | 6 | ✅ |
 | `CalendarApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 캘린더 API 기간 조회·등록·수정·삭제, 검증(B7002~B7005), 연도 모름(나이 미표시), calendar.* 인가 | 7 | ✅ |
+| `ChurchApiIntegrationTest` | 통합 (Spring Security + MockMvc + H2) | 주보(이번 주·등록·수정·삭제·검증·작성 중 노출), 교리문답(트리·단위 문답 교체·검증), 전례문(줄 교체·사용 중 삭제 불가·인가) | 9 | ✅ |
 | `OracleSchemaTest` | 통합 (Oracle 컨테이너, `@Tag("oracle")`) | DDL·초기데이터·`validate`·권한/메뉴 쿼리·공지 MyBatis 검색·샘플 LIKE ESCAPE·관리 조회(그룹별 건수, 사용자 검색) | 3 | ✅ |
 
 ## SpringBoilerplateApplicationTests

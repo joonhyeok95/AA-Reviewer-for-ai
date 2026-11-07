@@ -34,14 +34,18 @@ spring:
         - classpath:db/ddl/02_notice.sql
         - classpath:db/ddl/03_file_store.sql
         - classpath:db/ddl/04_calendar.sql
+        - classpath:db/ddl/05_church.sql
       data-locations:
         - classpath:db/data/00_sample.sql
         - classpath:db/data/01_auth_menu_code.sql
         - classpath:db/data/02_notice.sql
         - classpath:db/data/03_calendar.sql
+        - classpath:db/data/04_church.sql
         # 외부 캘린더 이관분 (scripts/calendar-import 로 생성, 개인정보라 저장소에 올리지 않음 - /data/ gitignore)
         #  없으면 건너뜀. 있으면 샘플 일정을 지우고 이관 일정으로 바꾼다
         - optional:file:./data/calendar-import.sql
+        # 실제 주보 (개인정보 - 저장소에 올리지 않음). 있으면 샘플 주보·교회 정보를 바꾼다
+        - optional:file:./data/church-import.sql
 
 logging:
   level:

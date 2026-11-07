@@ -178,7 +178,19 @@
         "calendar.list",
         "calendar.add",
         "calendar.edit",
-        "calendar.del"
+        "calendar.del",
+        "bulletin.list",
+        "bulletin.add",
+        "bulletin.edit",
+        "bulletin.del",
+        "catechism.list",
+        "catechism.add",
+        "catechism.edit",
+        "catechism.del",
+        "liturgy.list",
+        "liturgy.add",
+        "liturgy.edit",
+        "liturgy.del"
       ]
     },
     {
@@ -208,7 +220,19 @@
         "calendar.list",
         "calendar.add",
         "calendar.edit",
-        "calendar.del"
+        "calendar.del",
+        "bulletin.list",
+        "bulletin.add",
+        "bulletin.edit",
+        "bulletin.del",
+        "catechism.list",
+        "catechism.add",
+        "catechism.edit",
+        "catechism.del",
+        "liturgy.list",
+        "liturgy.add",
+        "liturgy.edit",
+        "liturgy.del"
       ]
     },
     {
@@ -235,7 +259,16 @@
         "board.update",
         "calendar.list",
         "calendar.add",
-        "calendar.edit"
+        "calendar.edit",
+        "bulletin.list",
+        "bulletin.add",
+        "bulletin.edit",
+        "catechism.list",
+        "catechism.add",
+        "catechism.edit",
+        "liturgy.list",
+        "liturgy.add",
+        "liturgy.edit"
       ]
     },
     {
@@ -256,7 +289,10 @@
       "realmRoles": [
         "sample.list",
         "board.list",
-        "calendar.list"
+        "calendar.list",
+        "bulletin.list",
+        "catechism.list",
+        "liturgy.list"
       ]
     },
     {
@@ -277,7 +313,10 @@
       "realmRoles": [
         "sample.list",
         "board.list",
-        "calendar.list"
+        "calendar.list",
+        "bulletin.list",
+        "catechism.list",
+        "liturgy.list"
       ]
     },
     {
@@ -298,7 +337,10 @@
       "realmRoles": [
         "sample.list",
         "board.list",
-        "calendar.list"
+        "calendar.list",
+        "bulletin.list",
+        "catechism.list",
+        "liturgy.list"
       ]
     },
     {
@@ -509,6 +551,54 @@
       {
         "name": "calendar.del",
         "description": "캘린더 삭제 (scope calendar.del 발급 조건)"
+      },
+      {
+        "name": "bulletin.list",
+        "description": "주보 조회 (scope bulletin.list 발급 조건)"
+      },
+      {
+        "name": "bulletin.add",
+        "description": "주보 등록 (scope bulletin.add 발급 조건)"
+      },
+      {
+        "name": "bulletin.edit",
+        "description": "주보 수정 (scope bulletin.edit 발급 조건)"
+      },
+      {
+        "name": "bulletin.del",
+        "description": "주보 삭제 (scope bulletin.del 발급 조건)"
+      },
+      {
+        "name": "catechism.list",
+        "description": "교리문답 조회 (scope catechism.list 발급 조건)"
+      },
+      {
+        "name": "catechism.add",
+        "description": "교리문답 등록 (scope catechism.add 발급 조건)"
+      },
+      {
+        "name": "catechism.edit",
+        "description": "교리문답 수정 (scope catechism.edit 발급 조건)"
+      },
+      {
+        "name": "catechism.del",
+        "description": "교리문답 삭제 (scope catechism.del 발급 조건)"
+      },
+      {
+        "name": "liturgy.list",
+        "description": "전례문 조회 (scope liturgy.list 발급 조건)"
+      },
+      {
+        "name": "liturgy.add",
+        "description": "전례문 등록 (scope liturgy.add 발급 조건)"
+      },
+      {
+        "name": "liturgy.edit",
+        "description": "전례문 수정 (scope liturgy.edit 발급 조건)"
+      },
+      {
+        "name": "liturgy.del",
+        "description": "전례문 삭제 (scope liturgy.del 발급 조건)"
       }
     ]
   },

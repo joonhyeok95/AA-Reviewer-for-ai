@@ -16,6 +16,7 @@
 | 메일 | TB_MAIL_TEMPLATE | 언어별 템플릿 |
 | 파일 저장소 | TB_FILE_STORE | 첨부 내용 BLOB (`storage-type=db`) |
 | 생일(캘린더) | TB_CAL_EVENT | 생일·결혼기념일·휴일 등 일정, 매년 반복. 권한 리소스 `calendar` ([설계 04](04_calendar.md)) |
+| 교회 | TB_BULLETIN (+ORDER, NEWS, DUTY, CATECHISM, TEXT), TB_CATECHISM (+UNIT, QA, ANSWER, PROOF), TB_LITURGY_TEXT (+LINE) | 주보·교리문답·전례문. 권한 리소스 `bulletin`, `catechism`, `liturgy` ([설계 05](05_church.md)) |
 | 샘플 | TB_SAMPLE | 독립 (구조 예시) |
 
 ## 2. ERD
@@ -260,7 +261,7 @@ erDiagram
 | TB_MAIL_TEMPLATE.TEMPLATE_CD | 앱 상수 | 템플릿 종류는 코드에서 정의 |
 | TB_ROLE_GRANT_HIST.ROLE_ID / TARGET_ID / GRANT_ID | TB_ROLE / TB_USER·TB_DEPT / TB_USER_ROLE·TB_DEPT_ROLE | 감사 이력은 권한·대상·부여가 삭제돼도 보존 (회수 시 부여 행은 삭제됨) |
 | TB_NOTICE_FILE.SAVE_PATH | TB_FILE_STORE.FILE_KEY (db) 또는 디렉터리 경로 (local) | 저장 방식(`storage-type`)에 따라 대상이 다름 |
-| TB_MENU.PERM_CD | API 리소스 (SecurityConfig, Keycloak scope) | DB 밖 개념 (sample, board, code, menu, role, calendar) |
+| TB_MENU.PERM_CD | API 리소스 (SecurityConfig, Keycloak scope) | DB 밖 개념 (sample, board, code, menu, role, calendar, bulletin, catechism, liturgy) |
 | TB_USER.IDP_SUBJECT | Keycloak 사용자 id (토큰 `sub`) | 외부 IdP |
 | 감사 컬럼 CREATED_BY / UPDATED_BY | TB_USER.USER_ID | 공통 감사 (작성자 표시 등) |
 

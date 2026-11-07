@@ -63,6 +63,10 @@ public final class ApiAuthorizationRules {
     rules.addAll(crud("board", BOARD_VERBS, "/api/v1/notices/**"));
     // 캘린더 (생일·결혼기념일·휴일)
     rules.addAll(crud("calendar", DEFAULT_VERBS, "/api/v1/calendar/**"));
+    // 교회 : 주보, 교리문답, 전례문
+    rules.addAll(crud("bulletin", DEFAULT_VERBS, "/api/v1/bulletins/**"));
+    rules.addAll(crud("catechism", DEFAULT_VERBS, "/api/v1/catechisms/**"));
+    rules.addAll(crud("liturgy", DEFAULT_VERBS, "/api/v1/liturgy-texts/**"));
     // 샘플
     rules.addAll(crud("sample", DEFAULT_VERBS, "/api/v1/samples/**"));
     return rules;

@@ -17,6 +17,7 @@ spring:
         - classpath:db/data/01_auth_menu_code.sql
         - classpath:db/data/02_notice.sql
         - classpath:db/data/03_calendar.sql
+        - classpath:db/data/04_church.sql
 
 logging:
   level:
