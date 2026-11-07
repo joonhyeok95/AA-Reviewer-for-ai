@@ -22,14 +22,15 @@ import { createBulletin, fetchBulletin, fetchBulletins, updateBulletin } from '@
 import DutyGridEditor from '@/bulletin/components/DutyGridEditor.vue'
 import NewsTreeEditor from '@/bulletin/components/NewsTreeEditor.vue'
 import {
-  type BulletinForm, celebrationNews, emptyForm, emptyOrder, formFromDetail, nextWeekForm,
+  type BulletinForm, celebrationNews, emptyForm, emptyOrder, formFromDetail, templateForm,
   toSaveRequest, weekOf,
 } from '@/bulletin/form'
 
 /**
  * 주보 등록·수정.
  *  - 예배순서·교회소식(섹션→항목→하위)·섬김위원(역할×날짜)·교리문답·전례문은 모두 [+] 로 n개
- *  - 새 주보 : "지난 주보 불러오기" = 예배일 +7, 호 +1, 섬김위원 한 주 밀기
+ *  - 새 주보 : 가장 최근 주보(또는 ?from=)의 내용을 모두 템플릿으로 채움 (예배일 +7, 호 +1, 작성 중).
+ *    "빈 양식으로" 로 비우고 새로 쓸 수 있다
  *  - 교회소식 "달력에서 축하 가져오기" = 그 주(일~토)의 생일·결혼기념일 (calendar.list 권한)
  */
 const props = defineProps<{ id?: number }>()
@@ -46,7 +47,7 @@ const statuses = ref<Code[]>([])
 const unitTypes = ref<Code[]>([])
 const catechisms = ref<Catechism[]>([])
 const texts = ref<LiturgyText[]>([])
-const latestId = ref<number | null>(null)
+const templated = ref(false)
 const pickCatechism = ref<number | null>(null)
 const pickUnit = ref<number | null>(null)
 const pickText = ref<number | null>(null)
@@ -89,24 +90,27 @@ async function load(): Promise<void> {
     pickCatechism.value = catechismList[0]?.catechismId ?? null
     if (props.id !== undefined) {
       form.value = formFromDetail(await fetchBulletin(props.id))
-    } else if (route.query.from) {
-      form.value = nextWeekForm(await fetchBulletin(Number(route.query.from)))
     } else {
-      latestId.value = (await fetchBulletins({ page: 0, size: 1 })).content[0]?.bulletinId ?? null
-      form.value.liturgyTextIds = textList.filter((text) => text.useYn === 'Y').map((text) => text.textId)
+      const fromId = route.query.from ? Number(route.query.from)
+        : (await fetchBulletins({ page: 0, size: 1 })).content[0]?.bulletinId
+      if (fromId !== undefined) {
+        form.value = templateForm(await fetchBulletin(fromId), nextSunday())
+        templated.value = true
+      } else {
+        form.value.liturgyTextIds = textList.filter((text) => text.useYn === 'Y').map((text) => text.textId)
+      }
     }
   } catch (error) {
     feedback.failure(error)
   }
 }
 
-async function loadLatest(): Promise<void> {
-  if (latestId.value === null) return
-  try {
-    form.value = nextWeekForm(await fetchBulletin(latestId.value))
-  } catch (error) {
-    feedback.failure(error)
-  }
+/** 템플릿 대신 빈 양식 (예배일은 유지, 전례문은 사용 중인 것) */
+function clearForm(): void {
+  const blank = emptyForm(form.value.worshipDt)
+  blank.liturgyTextIds = texts.value.filter((text) => text.useYn === 'Y').map((text) => text.textId)
+  form.value = blank
+  templated.value = false
 }
 
 function addUnit(): void {
@@ -172,10 +176,11 @@ onMounted(load)
       <div>
         <h1>{{ editing ? $t('bulletin.editTitle') : $t('bulletin.createTitle') }}</h1>
         <p class="lede">{{ $t('bulletin.formLede') }}</p>
+        <p v-if="!editing && templated" class="lede" data-test="bulletin-templated">{{ $t('bulletin.templated') }}</p>
       </div>
       <div class="page-actions">
-        <button v-if="!editing && latestId !== null && !route.query.from" type="button" class="btn"
-          data-test="bulletin-load-latest" @click="loadLatest">{{ $t('bulletin.loadLatest') }}</button>
+        <button v-if="!editing && templated" type="button" class="btn"
+          data-test="bulletin-clear" @click="clearForm">{{ $t('bulletin.clearForm') }}</button>
         <button type="button" class="btn" @click="router.back()">{{ $t('common.cancel') }}</button>
         <button type="button" class="btn btn-primary" :disabled="saving" data-test="bulletin-save"
           @click="save">{{ $t('common.save') }}</button>

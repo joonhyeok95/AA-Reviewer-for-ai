@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CalendarOccurrence } from '@/calendar/types'
 import {
-  celebrationNews, cleanNews, emptyNews, fromGrid, nextWeekForm, shiftGrid, toGrid, weekOf,
+  celebrationNews, cleanNews, emptyNews, fromGrid, templateForm, shiftGrid, toGrid, weekOf,
 } from './form'
 import type { BulletinDetail, DutyItem } from './types'
 
@@ -37,15 +37,23 @@ describe('주보 화면 변환', () => {
     expect(shifted.roles[0].members).toEqual({ '2026-11-08': '나래', '2026-11-15': '' })
   })
 
-  it('다음 주 주보 : 예배일 +7, 호 +1, 작성 중, 설교 제목·메모·교리문답 비움', () => {
-    const form = nextWeekForm(detail())
+  it('지난 주보 템플릿 : 내용은 모두 복사, 예배일 +7, 호 +1, 작성 중', () => {
+    const form = templateForm({ ...detail(), catechismUnits: [{ unitId: 4 } as never] })
     expect(form.worshipDt).toBe('2026-11-15')
     expect(form.issueNo).toBe(46)
     expect(form.statusCd).toBe('DRAFT')
-    expect(form.sermonTitle).toBe('')
-    expect(form.sermonMemo).toBe('')
-    expect(form.catechismUnitIds).toEqual([])
+    expect(form.sermonTitle).toBe('설교')
+    expect(form.sermonMemo).toBe('메모')
+    expect(form.themeVerse).toBe('말씀')
+    expect(form.catechismUnitIds).toEqual([4])
     expect(form.orders).toEqual([{ itemNm: '찬양', detail: '8장' }])
+    expect(form.news.map((node) => node.title)).toEqual(['기도제목'])
+    expect(form.duties.dates).toEqual(['2026-11-01', '2026-11-08'])
+  })
+
+  it('지난 주보 템플릿 : 지난 주보가 오래됐으면 예배일은 다가오는 주일', () => {
+    expect(templateForm(detail(), '2026-12-06').worshipDt).toBe('2026-12-06')
+    expect(templateForm(detail(), '2026-11-01').worshipDt).toBe('2026-11-15')
   })
 
   it('교회소식 정리 : 제목·내용·하위가 모두 빈 항목은 뺀다 (하위부터)', () => {

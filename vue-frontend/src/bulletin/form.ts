@@ -7,7 +7,7 @@ import type {
 /**
  * 주보 등록·수정 화면 상태 ↔ API 변환.
  *  - 섬김위원은 화면에서 표(역할 × 날짜)로 편집하고 저장할 때 칸 목록으로 바꾼다
- *  - "지난 주보로 새 주보" : 예배일 +7일, 호 +1, 작성 중, 섬김위원 표는 한 주씩 밀기
+ *  - 새 주보는 가장 최근 주보를 템플릿으로 : 내용은 모두 복사, 예배일 +7일, 호 +1, 작성 중
  */
 
 /** 화면 상태 (섬김위원은 표) */
@@ -49,16 +49,16 @@ export function formFromDetail(detail: BulletinDetail): BulletinForm {
   }
 }
 
-/** 지난 주보로 다음 주 주보 : 예배일 +7, 호 +1, 작성 중, 섬김위원 한 주 밀기, 교리문답은 비움 */
-export function nextWeekForm(detail: BulletinDetail): BulletinForm {
+/**
+ * 지난 주보를 템플릿으로 새 주보 : 내용(설교·말씀메모·예배순서·교회소식·섬김위원·교리문답·전례문)은 모두 그대로,
+ * 예배일만 +7일(minDate 보다 이르면 minDate), 호 +1, 작성 중
+ */
+export function templateForm(detail: BulletinDetail, minDate?: string): BulletinForm {
   const form = formFromDetail(detail)
-  form.worshipDt = addDays(detail.worshipDt, 7)
+  const next = addDays(detail.worshipDt, 7)
+  form.worshipDt = minDate && minDate > next ? minDate : next
   form.issueNo = detail.issueNo === null ? null : detail.issueNo + 1
   form.statusCd = 'DRAFT'
-  form.sermonTitle = ''
-  form.sermonMemo = ''
-  form.catechismUnitIds = []
-  form.duties = shiftGrid(form.duties)
   return form
 }
 
