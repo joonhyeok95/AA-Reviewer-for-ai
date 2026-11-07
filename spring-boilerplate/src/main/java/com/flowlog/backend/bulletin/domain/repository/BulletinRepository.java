@@ -6,6 +6,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.util.List;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -68,4 +69,11 @@ public interface BulletinRepository extends JpaRepository<Bulletin, Long> {
    */
   Optional<Bulletin> findFirstByStatusCdAndWorshipDtLessThanEqualOrderByWorshipDtDesc(
       String statusCd, LocalDate date);
+
+  /**
+   * 대표사진이 있는 주보. (저장 사진 정리용)
+   *
+   * @return 주보
+   */
+  List<Bulletin> findByPhotoKeyIsNotNull();
 }

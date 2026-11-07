@@ -4,7 +4,9 @@ import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.exception.BusinessException;
 import com.flowlog.backend.global.storage.FileStorage;
 import com.flowlog.backend.global.storage.FileStorageException;
+import com.flowlog.backend.global.storage.FileSignatures;
 import com.flowlog.backend.notice.NoticeProperties;
+import com.flowlog.backend.notice.domain.model.Notice;
 import com.flowlog.backend.notice.domain.model.NoticeFile;
 import com.flowlog.backend.notice.domain.repository.NoticeFileRepository;
 import com.flowlog.backend.notice.domain.repository.NoticeRepository;
@@ -14,6 +16,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.Locale;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -29,6 +33,9 @@ import org.springframework.web.multipart.MultipartFile;
  *   <li>저장 : {@link FileStorage} (local 디렉터리 / db BLOB - {@code app.notice.file.storage-type}).
  *       원본 파일명은 TB_NOTICE_FILE 에만, 저장 키는 SAVE_PATH</li>
  *   <li>허용 확장자만, 공지당 최대 개수 제한, 빈 파일 거부. 크기는 multipart 설정으로 제한</li>
+ *   <li><b>내용이 확장자와 맞아야</b> 한다 ({@link FileSignatures} - 확장자만 바꾼 실행 파일·HTML 거부)</li>
+ *   <li>등록 : 수정 권한(board.update)이 없으면 <b>본인이 쓴 공지에만</b></li>
+ *   <li>내려받기 : 게시 전(예약) 공지의 첨부는 관리 권한자만 (공지 상세와 같은 규칙)</li>
  *   <li>다운로드 시 저장 경로가 저장소 밖을 가리키면 거부 (경로 조작 방지, LocalFileStorage)</li>
  * </ul>
  *
@@ -45,6 +52,7 @@ public class NoticeFileService {
   private final NoticeFileRepository noticeFileRepository;
   private final NoticeProperties.File properties;
   private final FileStorage fileStorage;
+  private final Clock clock;
 
   /**
    * 생성자.
@@ -53,14 +61,16 @@ public class NoticeFileService {
    * @param noticeFileRepository 첨부 Repository
    * @param properties 공지 설정
    * @param fileStorage 첨부 저장소
+   * @param clock 시계 (게시 여부)
    */
   public NoticeFileService(
       NoticeRepository noticeRepository, NoticeFileRepository noticeFileRepository,
-      NoticeProperties properties, FileStorage fileStorage) {
+      NoticeProperties properties, FileStorage fileStorage, Clock clock) {
     this.noticeRepository = noticeRepository;
     this.noticeFileRepository = noticeFileRepository;
     this.properties = properties.file();
     this.fileStorage = fileStorage;
+    this.clock = clock;
   }
 
   /**
@@ -68,11 +78,17 @@ public class NoticeFileService {
    *
    * @param noticeId 공지ID
    * @param files 업로드 파일
+   * @param canUpdate 수정 권한 여부 (없으면 본인이 쓴 공지에만)
+   * @param user 요청자 (감사 컬럼 CREATED_BY 와 같은 값)
    * @return 등록된 파일
    */
   @Transactional
-  public List<NoticeFileResponse> upload(Long noticeId, List<MultipartFile> files) {
-    requireNotice(noticeId);
+  public List<NoticeFileResponse> upload(Long noticeId, List<MultipartFile> files,
+      boolean canUpdate, String user) {
+    Notice notice = requireNotice(noticeId);
+    if (!canUpdate && (user == null || !user.equals(notice.getCreatedBy()))) {
+      throw new BusinessException(NoticeErrorCode.NOTICE_FILE_FORBIDDEN);
+    }
     long current = noticeFileRepository.countByNoticeId(noticeId);
     if (files.isEmpty()) {
       throw new BusinessException(NoticeErrorCode.NOTICE_FILE_EMPTY);
@@ -101,10 +117,14 @@ public class NoticeFileService {
    *
    * @param noticeId 공지ID
    * @param fileId 파일ID
+   * @param manager 관리 권한 여부 (게시 전 공지의 첨부도 받을 수 있음)
    * @return 파일 정보 + 리소스
    */
-  public Download download(Long noticeId, Long fileId) {
-    requireNotice(noticeId);
+  public Download download(Long noticeId, Long fileId, boolean manager) {
+    Notice notice = requireNotice(noticeId);
+    if (!manager && !notice.isPosted(LocalDateTime.now(clock))) {
+      throw new BusinessException(NoticeErrorCode.NOTICE_NOT_FOUND, noticeId);
+    }
     NoticeFile file = findFile(noticeId, fileId);
     try {
       return new Download(file.getOrgFileNm(), file.getFileSize(),
@@ -142,6 +162,15 @@ public class NoticeFileService {
       throw new BusinessException(NoticeErrorCode.NOTICE_FILE_EXT_NOT_ALLOWED,
           StringUtils.defaultIfBlank(ext, "-"));
     }
+    byte[] head;
+    try (InputStream in = file.getInputStream()) {
+      head = in.readNBytes(FileSignatures.HEAD_BYTES);
+    } catch (IOException e) {
+      throw new BusinessException(NoticeErrorCode.NOTICE_FILE_IO_FAILED);
+    }
+    if (!FileSignatures.matches(ext, head)) {
+      throw new BusinessException(NoticeErrorCode.NOTICE_FILE_CONTENT_MISMATCH, ext);
+    }
   }
 
   private String store(MultipartFile file) {
@@ -158,8 +187,8 @@ public class NoticeFileService {
         .orElseThrow(() -> new BusinessException(NoticeErrorCode.NOTICE_FILE_NOT_FOUND, fileId));
   }
 
-  private void requireNotice(Long noticeId) {
-    noticeRepository.findById(noticeId).filter(notice -> !notice.isDeleted())
+  private Notice requireNotice(Long noticeId) {
+    return noticeRepository.findById(noticeId).filter(notice -> !notice.isDeleted())
         .orElseThrow(() -> new BusinessException(NoticeErrorCode.NOTICE_NOT_FOUND, noticeId));
   }
 

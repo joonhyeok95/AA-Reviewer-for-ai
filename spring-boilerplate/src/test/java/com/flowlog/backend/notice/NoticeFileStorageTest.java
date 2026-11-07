@@ -46,12 +46,12 @@ class NoticeFileStorageTest {
 
     // when : 업로드
     List<NoticeFileResponse> saved = noticeFileService.upload(1L, List.of(
-        new MockMultipartFile("files", "guide.txt", "text/plain", content)));
+        new MockMultipartFile("files", "guide.txt", "text/plain", content)), true, "admin");
     Long fileId = saved.get(0).fileId();
 
     // then : DB 에 저장, 다운로드 내용 일치
     assertThat(storedFileRepository.count()).isEqualTo(1);
-    NoticeFileService.Download download = noticeFileService.download(1L, fileId);
+    NoticeFileService.Download download = noticeFileService.download(1L, fileId, false);
     assertThat(download.fileName()).isEqualTo("guide.txt");
     assertThat(download.resource().getContentAsByteArray()).isEqualTo(content);
 
@@ -60,7 +60,7 @@ class NoticeFileStorageTest {
 
     // then
     assertThat(storedFileRepository.count()).isZero();
-    assertThatThrownBy(() -> noticeFileService.download(1L, fileId))
+    assertThatThrownBy(() -> noticeFileService.download(1L, fileId, false))
         .isInstanceOf(BusinessException.class);
   }
 }

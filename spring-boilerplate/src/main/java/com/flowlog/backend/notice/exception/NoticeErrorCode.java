@@ -44,7 +44,11 @@ public enum NoticeErrorCode implements ErrorCode {
   /** 빈 파일. */
   NOTICE_FILE_EMPTY(HttpStatus.BAD_REQUEST, "B2014"),
   /** 파일 저장/조회 실패. */
-  NOTICE_FILE_IO_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B2015");
+  NOTICE_FILE_IO_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B2015"),
+  /** 내용이 확장자와 다름 (위장 파일). */
+  NOTICE_FILE_CONTENT_MISMATCH(HttpStatus.BAD_REQUEST, "B2016"),
+  /** 첨부 권한 없음 (수정 권한 없이 남의 공지). */
+  NOTICE_FILE_FORBIDDEN(HttpStatus.FORBIDDEN, "B2017");
 
   private final HttpStatus status;
   private final String messageId;

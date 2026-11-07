@@ -154,8 +154,8 @@ local 데이터: SEOUL(서울 본사 / Seoul Headquarters) — HQ, TX_TEAM, WS_T
 | POST | `/api/v1/notices` | board.write | 등록 (201) |
 | PUT | `/api/v1/notices/{id}` | board.update | 수정 (언어 버전은 요청 기준으로 교체) |
 | DELETE | `/api/v1/notices/{id}` | board.delete | 논리 삭제 |
-| POST | `/api/v1/notices/{id}/files` | board.write 또는 board.update | 첨부 등록 (multipart `files`) |
-| GET | `/api/v1/notices/{id}/files/{fileId}` | board.list | 다운로드 (attachment, RFC 5987 파일명, nosniff) |
+| POST | `/api/v1/notices/{id}/files` | board.update, 또는 board.write + 본인 공지 | 첨부 등록 (multipart `files`, 내용이 확장자와 맞아야 함) |
+| GET | `/api/v1/notices/{id}/files/{fileId}` | board.list (게시 전 공지는 board.update) | 다운로드 (attachment, RFC 5987 파일명, nosniff) |
 | DELETE | `/api/v1/notices/{id}/files/{fileId}` | board.update | 첨부 삭제 |
 | GET | `/api/v1/notices/{id}/mail-histories` | board.update | 수신자별 발송 이력 |
 
@@ -172,6 +172,7 @@ local 데이터: SEOUL(서울 본사 / Seoul Headquarters) — HQ, TX_TEAM, WS_T
 | B2006 | 대표 언어가 입력한 언어가 아님 | B2014 | 빈 파일 |
 | B2007 | 분류/태그/발송유형 코드 오류 | B2015 | 파일 처리 오류 (500) |
 | B2008 | 팝업 기간 오류 | B3001 / B3002 | 미등록 사용자 / 미지원 언어 (사용자 설정) |
+| B2016 | 내용이 확장자와 다름 (위장 파일) | B2017 | 남의 공지에 첨부 (수정 권한 없음, 403) |
 
 ---
 

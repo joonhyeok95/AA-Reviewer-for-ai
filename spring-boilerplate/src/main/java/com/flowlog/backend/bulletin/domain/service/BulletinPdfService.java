@@ -16,6 +16,7 @@ import com.flowlog.backend.global.exception.BusinessException;
 import com.flowlog.backend.liturgy.domain.service.dto.LiturgyDtos.LineResponse;
 import com.flowlog.backend.liturgy.domain.service.dto.LiturgyDtos.LiturgyTextResponse;
 import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder.FontStyle;
+import com.openhtmltopdf.outputdevice.helper.ExternalResourceControlPriority;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -32,6 +33,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
@@ -55,6 +58,8 @@ import org.springframework.transaction.annotation.Transactional;
  *   <li><b>단마다 맞춤</b> : 단 하나를 단 크기 쪽 PDF 로 먼저 찍어 1쪽을 넘으면 글자 배율을 이분 탐색으로 줄인다
  *       (최소 {@value #MIN_SCALE}). 그래서 내용이 많아도 항상 2장</li>
  *   <li>사용자 입력은 모두 XML 이스케이프 (본문은 문자열만 - HTML 을 받지 않는다)</li>
+ *   <li>외부 자원 차단 : 렌더러는 data: URI(대표사진)만 읽는다 (파일·http 접근 없음 - SSRF·로컬 파일 읽기 방지)</li>
+ *   <li>동시 생성 {@value #MAX_CONCURRENT}건 (CPU 사용이 커서 몰리면 B8016 - 잠시 후 다시)</li>
  * </ul>
  *
  * @author flowlog
@@ -68,6 +73,9 @@ public class BulletinPdfService {
 
   static final String FONT = "NanumGothic";
   static final double MIN_SCALE = 0.45;
+  static final int MAX_CONCURRENT = 2;
+  private static final long WAIT_SECONDS = 20;
+  private final Semaphore slots = new Semaphore(MAX_CONCURRENT, true);
 
   /** 단 크기 (mm) : A4 가로 297 × 210, 바깥 여백 8, 단 사이 10. */
   static final double PAGE_MARGIN = 8;
@@ -125,7 +133,14 @@ public class BulletinPdfService {
     }
     String fileName = messageSource.getMessage("bulletin.pdf.fileName",
         new Object[] {bulletin.worshipDt().toString()}, "bulletin.pdf", locale);
-    return new Pdf(fileName, render(bulletin, photo, langCd, locale));
+    if (!acquire()) {
+      throw new BusinessException(BulletinErrorCode.PDF_BUSY);
+    }
+    try {
+      return new Pdf(fileName, render(bulletin, photo, langCd, locale));
+    } finally {
+      slots.release();
+    }
   }
 
   /**
@@ -158,6 +173,15 @@ public class BulletinPdfService {
     }
     return toPdf(document("@page { size: 297mm 210mm; margin: " + fmt(PAGE_MARGIN) + "mm; }",
         body.toString()));
+  }
+
+  private boolean acquire() {
+    try {
+      return slots.tryAcquire(WAIT_SECONDS, TimeUnit.SECONDS);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return false;
+    }
   }
 
   // ================================================================== 단 맞춤
@@ -464,6 +488,13 @@ public class BulletinPdfService {
       builder.useFastMode();
       FONTS.forEach((weight, bytes) -> builder.useFont(() -> new ByteArrayInputStream(bytes), FONT,
           weight, FontStyle.NORMAL, true));
+      // data: 외의 자원(file:, http:, jar: …)은 읽지 않는다
+      builder.useExternalResourceAccessControl(
+          (uri, type) -> uri != null && uri.startsWith("data:"),
+          ExternalResourceControlPriority.RUN_BEFORE_RESOLVING_URI);
+      builder.useExternalResourceAccessControl(
+          (uri, type) -> uri != null && uri.startsWith("data:"),
+          ExternalResourceControlPriority.RUN_AFTER_RESOLVING_URI);
       builder.withHtmlContent(html, null);
       builder.toStream(out);
       builder.run();

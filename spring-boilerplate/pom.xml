@@ -34,6 +34,7 @@
 		<commons-collections4.version>4.6.0</commons-collections4.version>
 		<jsoup.version>1.21.2</jsoup.version>
 		<openhtmltopdf.version>1.1.108</openhtmltopdf.version>
+		<twelvemonkeys.version>3.15.3</twelvemonkeys.version>
 		<mybatis-spring-boot.version>4.1.0</mybatis-spring-boot.version>
 	</properties>
 	<dependencies>
@@ -97,6 +98,17 @@
 			<groupId>io.github.openhtmltopdf</groupId>
 			<artifactId>openhtmltopdf-pdfbox</artifactId>
 			<version>${openhtmltopdf.version}</version>
+		</dependency>
+		<!-- 업로드 이미지 정규화 (WEBP·CMYK JPEG 읽기 - 다시 저장해 메타데이터(GPS 등) 제거) -->
+		<dependency>
+			<groupId>com.twelvemonkeys.imageio</groupId>
+			<artifactId>imageio-jpeg</artifactId>
+			<version>${twelvemonkeys.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.twelvemonkeys.imageio</groupId>
+			<artifactId>imageio-webp</artifactId>
+			<version>${twelvemonkeys.version}</version>
 		</dependency>
 		<!-- 게시물 본문 HTML XSS 정화 -->
 		<dependency>

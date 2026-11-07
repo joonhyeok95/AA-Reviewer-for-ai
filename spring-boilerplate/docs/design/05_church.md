@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | 구현 완료 · 테스트 통과 (기본 178/178, Oracle 3/3, 화면 단위 46/46, 화면 E2E 70/70) |
+| 상태 | 구현 완료 · 테스트 통과 (기본 188/188, Oracle 3/3, 화면 단위 46/46, 화면 E2E 70/70) |
 | 작성일 | 2026-11-08 |
 | 원본 | 교회 주보 PDF (2026-11-08, 통권 9권 45호) 분석 |
 | DDL (Oracle) | [`db/ddl/05_church.sql`](../../src/main/resources/db/ddl/05_church.sql) - 테이블 13개 |
@@ -82,6 +82,10 @@ erDiagram
 - 주보당 1장. 파일은 공지 첨부와 같은 `FileStorage` (local 디렉터리 / db `TB_FILE_STORE`), 주보에는 저장 키(`PHOTO_KEY`)·형식(`PHOTO_TYPE`)만
 - 형식은 파일명·Content-Type 이 아니라 **내용(시그니처)** 로 판별 - JPG, PNG, GIF, WEBP 만, 최대 10MB (B8009, B8010).
   응답 Content-Type 도 판별한 형식 + `nosniff` (HTML·SVG 위장 방지)
+- **다시 그려 저장** (`ImageNormalizer`) : 촬영 위치(EXIF GPS) 등 메타데이터 제거(회전은 반영), 최대 4천만 화소(B8014), 긴 변 2560px, 결과 JPEG/PNG.
+  도입 전 사진은 기동 시 `BulletinPhotoMaintenance` 가 정리
+- 올리기 권한 : bulletin.edit, 또는 bulletin.add + **본인이 등록한 주보** (B8015)
+- PDF : 동시 생성 2건(B8016), 렌더러는 data: URI 만 읽음 (보안 점검 23~29 - `docs/reports/SECURITY_REVIEW.md`)
 - 작성 중 주보의 사진은 주보와 같이 편집 권한자만 (B8001). 바꾸거나 지우거나 주보를 삭제하면 이전 파일은 커밋 후 저장소에서 삭제
 - 화면 : 등록·수정 폼에서 고르면 미리보기(data URL - CSP 에 blob: 없음), 주보 저장 뒤 올린다 (새 주보는 ID 가 생긴 뒤).
   주보 보기 표지·대시보드 상단에 표시, 주소에 `?v={수정일시}` 로 캐시 갱신. 템플릿(새 주보)에는 사진을 복사하지 않는다
@@ -97,7 +101,7 @@ erDiagram
 | 교리문답 | `GET /api/v1/catechisms` (단위 트리 + 단위별 문 범위), `POST/PUT/DELETE /{id}`, `GET/PUT/DELETE /units/{unitId}`, `POST /{id}/units` | catechism.* |
 | 전례문 | `GET/POST /api/v1/liturgy-texts`, `GET/PUT/DELETE /{id}` | liturgy.* |
 
-오류 : B8001~B8013 (주보, 사진 B8009~B8012, PDF B8013), B9001~B9009 (교리문답), B9501~B9503 (전례문)
+오류 : B8001~B8016 (주보, 사진 B8009~B8012·B8014·B8015, PDF B8013·B8016), B9001~B9009 (교리문답), B9501~B9503 (전례문)
 
 ## 4. 메뉴 · 권한
 

@@ -21,9 +21,14 @@ import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.text.PDFTextStripper;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import javax.imageio.ImageIO;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -243,31 +248,32 @@ class ChurchApiIntegrationTest {
     }
 
     @Test
-    @DisplayName("대표사진 - 내용으로 형식 판별(PNG 이름의 HTML 거부), 올리기 → 보기(판별한 Content-Type) → 지우기, 권한")
+    @DisplayName("대표사진 - 내용으로 형식 판별(PNG 이름의 HTML 거부), 다시 그려 저장(형식·nosniff), 권한")
     void photo() throws Exception {
-      byte[] png = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0};
       admin.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
               "fake.png", "image/png", "<script>alert(1)</script>".getBytes())))
           .andExpect(status().isBadRequest())
           .andExpect(jsonPath("$.messageId").value("B8009"));
 
-      MockMvc manager = mvc("manager", "SCOPE_bulletin.list", "SCOPE_bulletin.add");
-      manager.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
+      byte[] png = image(6, 4, true, "png");
+      admin.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
               "cover.jpg", "image/jpeg", png)))
           .andExpect(status().isCreated());
       admin.perform(get("/api/v1/bulletins/1"))
           .andExpect(jsonPath("$.result.hasPhoto").value(true));
-      admin.perform(get("/api/v1/bulletins/1/photo"))
+      byte[] stored = admin.perform(get("/api/v1/bulletins/1/photo"))
           .andExpect(status().isOk())
           .andExpect(header().string("Content-Type", "image/png"))
           .andExpect(header().string("X-Content-Type-Options", "nosniff"))
-          .andExpect(content().bytes(png));
+          .andReturn().getResponse().getContentAsByteArray();
+      assertThat(ImageIO.read(new ByteArrayInputStream(stored)).getWidth()).isEqualTo(6);
 
       MockMvc viewer = mvc("viewer", "SCOPE_bulletin.list");
       viewer.perform(get("/api/v1/bulletins/1/photo")).andExpect(status().isOk());
       viewer.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
               "cover.png", "image/png", png)))
           .andExpect(status().isForbidden());
+      MockMvc manager = mvc("manager", "SCOPE_bulletin.list", "SCOPE_bulletin.add");
       manager.perform(delete("/api/v1/bulletins/1/photo")).andExpect(status().isForbidden());
 
       admin.perform(delete("/api/v1/bulletins/1/photo")).andExpect(status().isOk());
@@ -275,6 +281,101 @@ class ChurchApiIntegrationTest {
           .andExpect(status().isNotFound())
           .andExpect(jsonPath("$.messageId").value("B8011"));
     }
+
+    @Test
+    @DisplayName("보안 - 대표사진 촬영 위치(EXIF GPS) 등 메타데이터 제거, 회전값은 픽셀에 반영")
+    void photoStripsMetadata() throws Exception {
+      byte[] jpeg = withExif(image(8, 4, false, "jpeg"), 6, "GPS-SECRET-37.5665,126.9780");
+      assertThat(new String(jpeg, StandardCharsets.ISO_8859_1)).contains("GPS-SECRET");
+
+      admin.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
+              "phone.jpg", "image/jpeg", jpeg)))
+          .andExpect(status().isCreated());
+      byte[] stored = admin.perform(get("/api/v1/bulletins/1/photo"))
+          .andExpect(status().isOk())
+          .andExpect(header().string("Content-Type", "image/jpeg"))
+          .andReturn().getResponse().getContentAsByteArray();
+
+      String text = new String(stored, StandardCharsets.ISO_8859_1);
+      assertThat(text).doesNotContain("GPS-SECRET").doesNotContain("Exif");
+      BufferedImage shown = ImageIO.read(new ByteArrayInputStream(stored));
+      assertThat(shown.getWidth()).isEqualTo(4);   // 시계 90° 회전 반영 (8x4 → 4x8)
+      assertThat(shown.getHeight()).isEqualTo(8);
+    }
+
+    @Test
+    @DisplayName("보안 - 해상도 폭탄(작은 파일이 2만x2만 화소를 주장) 거부 - B8014")
+    void photoRejectsPixelBomb() throws Exception {
+      byte[] bomb = withSize(image(1, 1, false, "png"), 20_000, 20_000);
+      admin.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
+              "bomb.png", "image/png", bomb)))
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.messageId").value("B8014"));
+    }
+
+    @Test
+    @DisplayName("보안 - 등록 권한만 있으면 본인이 등록한 주보 사진만 바꿀 수 있다 - B8015")
+    void photoOwnership() throws Exception {
+      byte[] png = image(2, 2, false, "png");
+      MockMvc manager = mvc("manager", "SCOPE_bulletin.list", "SCOPE_bulletin.add");
+      manager.perform(multipart("/api/v1/bulletins/1/photo").file(new MockMultipartFile("file",
+              "x.png", "image/png", png)))
+          .andExpect(status().isForbidden())
+          .andExpect(jsonPath("$.messageId").value("B8015"));
+
+      String created = manager.perform(post("/api/v1/bulletins").contentType(MediaType.APPLICATION_JSON)
+              .content(BULLETIN_BODY.formatted("2026-11-29", 48, "DRAFT")))
+          .andExpect(status().isCreated())
+          .andReturn().getResponse().getContentAsString();
+      long id = ((Number) JsonPath.read(created, "$.result.bulletinId")).longValue();
+      manager.perform(multipart("/api/v1/bulletins/" + id + "/photo").file(new MockMultipartFile("file",
+              "x.png", "image/png", png)))
+          .andExpect(status().isCreated());
+    }
+  }
+
+  /** 테스트 이미지. */
+  private static byte[] image(int width, int height, boolean alpha, String format) throws Exception {
+    BufferedImage img = new BufferedImage(width, height,
+        alpha ? BufferedImage.TYPE_INT_ARGB : BufferedImage.TYPE_INT_RGB);
+    img.setRGB(0, 0, 0xFFFF0000);
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    ImageIO.write(img, format, out);
+    return out.toByteArray();
+  }
+
+  /** JPEG 에 EXIF(APP1) 넣기 - 회전값 + 위치처럼 보이는 문자열. */
+  private static byte[] withExif(byte[] jpeg, int orientation, String secret) {
+    byte[] text = secret.getBytes(StandardCharsets.US_ASCII);
+    java.nio.ByteBuffer tiff = java.nio.ByteBuffer.allocate(8 + 2 + 12 + 4 + text.length);
+    tiff.put(new byte[] {'M', 'M', 0, 42, 0, 0, 0, 8});
+    tiff.putShort((short) 1);
+    tiff.putShort((short) 0x0112).putShort((short) 3).putInt(1).putShort((short) orientation)
+        .putShort((short) 0);
+    tiff.putInt(0);
+    tiff.put(text);
+    byte[] payload = tiff.array();
+    int length = 2 + 6 + payload.length;
+    ByteArrayOutputStream out = new ByteArrayOutputStream();
+    out.write(jpeg, 0, 2);
+    out.write(0xFF);
+    out.write(0xE1);
+    out.write(length >> 8);
+    out.write(length & 0xFF);
+    out.writeBytes(new byte[] {'E', 'x', 'i', 'f', 0, 0});
+    out.writeBytes(payload);
+    out.write(jpeg, 2, jpeg.length - 2);
+    return out.toByteArray();
+  }
+
+  /** PNG 머리(IHDR)의 가로·세로만 바꾸기 (CRC 다시 계산). */
+  private static byte[] withSize(byte[] png, int width, int height) {
+    byte[] out = png.clone();
+    java.nio.ByteBuffer.wrap(out, 16, 8).putInt(width).putInt(height);
+    java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+    crc.update(out, 12, 17);
+    java.nio.ByteBuffer.wrap(out, 29, 4).putInt((int) crc.getValue());
+    return out;
   }
 
   @Nested

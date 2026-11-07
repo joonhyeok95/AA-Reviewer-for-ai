@@ -61,6 +61,9 @@ public class BulletinController {
   static final Set<String> EDITOR_AUTHORITIES =
       Set.of("SCOPE_bulletin.add", "SCOPE_bulletin.edit", "ROLE_SYS_ADMIN");
 
+  /** 남이 등록한 주보의 사진까지 바꿀 수 있는 권한. */
+  static final Set<String> MODIFY_AUTHORITIES = Set.of("SCOPE_bulletin.edit", "ROLE_SYS_ADMIN");
+
   private final BulletinService bulletinService;
   private final BulletinPhotoService photoService;
   private final BulletinPdfService pdfService;
@@ -151,17 +154,21 @@ public class BulletinController {
   }
 
   /**
-   * 대표사진 올리기 (있으면 바꾸기). JPG·PNG·GIF·WEBP, 최대 10MB - 형식은 내용으로 판별.
+   * 대표사진 올리기 (있으면 바꾸기). JPG·PNG·GIF·WEBP, 최대 10MB - 형식은 내용으로 판별, 다시 그려 저장.
+   * 수정 권한이 없으면 본인이 등록한 주보만.
    *
    * @param id 주보 ID
    * @param file 이미지 (multipart "file")
+   * @param authentication 인증
    * @return 성공
    */
   @Operation(summary = "주보 대표사진 올리기 (등록·수정 권한)")
   @PostMapping(value = "/{id}/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ResponseEntity<MessageResponse<Void>> uploadPhoto(
-      @PathVariable("id") @Positive Long id, @RequestPart("file") MultipartFile file) {
-    photoService.upload(id, file);
+      @PathVariable("id") @Positive Long id, @RequestPart("file") MultipartFile file,
+      Authentication authentication) {
+    photoService.upload(id, file, hasAny(authentication, MODIFY_AUTHORITIES),
+        authentication == null ? null : authentication.getName());
     return messageHttpResponse.success();
   }
 
@@ -222,7 +229,11 @@ public class BulletinController {
   }
 
   private static boolean isEditor(Authentication authentication) {
+    return hasAny(authentication, EDITOR_AUTHORITIES);
+  }
+
+  private static boolean hasAny(Authentication authentication, Set<String> authorities) {
     return authentication != null && authentication.getAuthorities().stream()
-        .map(GrantedAuthority::getAuthority).anyMatch(EDITOR_AUTHORITIES::contains);
+        .map(GrantedAuthority::getAuthority).anyMatch(authorities::contains);
   }
 }

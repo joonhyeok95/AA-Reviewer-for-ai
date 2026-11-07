@@ -199,8 +199,11 @@ public class NoticeController {
   @Operation(summary = "첨부파일 등록", description = "허용 확장자, 공지당 최대 개수 제한")
   @PostMapping(value = "/{id}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ResponseEntity<MessageResponse<List<NoticeFileResponse>>> uploadFiles(
-      @PathVariable("id") @Positive Long id, @RequestPart("files") List<MultipartFile> files) {
-    return messageHttpResponse.success(noticeFileService.upload(id, files));
+      @PathVariable("id") @Positive Long id, @RequestPart("files") List<MultipartFile> files,
+      Authentication authentication, Locale locale) {
+    boolean canUpdate = viewerResolver.resolve(authentication, locale).manager();
+    return messageHttpResponse.success(noticeFileService.upload(id, files, canUpdate,
+        authentication.getName()));
   }
 
   /**
@@ -213,8 +216,10 @@ public class NoticeController {
   @Operation(summary = "첨부파일 다운로드")
   @GetMapping("/{id}/files/{fileId}")
   public ResponseEntity<Resource> downloadFile(
-      @PathVariable("id") @Positive Long id, @PathVariable("fileId") @Positive Long fileId) {
-    NoticeFileService.Download download = noticeFileService.download(id, fileId);
+      @PathVariable("id") @Positive Long id, @PathVariable("fileId") @Positive Long fileId,
+      Authentication authentication, Locale locale) {
+    NoticeFileService.Download download = noticeFileService.download(id, fileId,
+        viewerResolver.resolve(authentication, locale).manager());
     return ResponseEntity.ok()
         .contentType(MediaType.APPLICATION_OCTET_STREAM)
         .contentLength(download.size())

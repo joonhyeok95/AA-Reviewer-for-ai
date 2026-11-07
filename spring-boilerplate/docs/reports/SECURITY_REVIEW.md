@@ -135,6 +135,60 @@
 - **검증**: `AdminApiIntegrationTest.delegatedAdmin_cannotTouchSysAdmin`
 - **남은 과제**: `role.edit` 보유자는 자기 권한에 다른 메뉴 접근을 줄 수 있어 사실상 관리자 → 시스템관리자 외 부여 비권장(설계 01 6-1). 관리 변경 이력(감사 로그) 미구현
 
+## 추가 점검 (2026-11-07, 생일·교회·영속 DB 추가분 - 첨부·업로드 중심)
+
+대상 : 공지 첨부, 주보 대표사진 업로드, 주보 PDF 생성, 교회(주보·교리문답·전례문)·생일 API, 영속 DB(Oracle 볼륨).
+7건 도출 → 전건 조치. 검증 : 기본 188/188 (보안 테스트 9건 추가), 화면 E2E 70/70, 실데이터 저장 사진 정리 확인
+
+### 23. 예약(게시 전) 공지의 첨부를 누구나 내려받음 (🔴 높음)
+- **현상**: 공지 상세는 게시일시 전이면 관리 권한자만 보지만, 첨부 다운로드(`GET /notices/{id}/files/{fileId}`)는 삭제 여부만 확인 →
+  board.list 만 있으면 ID 를 바꿔 가며 공개 전 자료를 받을 수 있었음 (파일 ID 는 순번)
+- **조치**: 다운로드도 상세와 같은 규칙 - 게시 전 공지는 관리 권한자(board.update)만, 아니면 B2001(404)
+- **검증**: `NoticeApiIntegrationTest.scheduledNoticeFileHidden`
+
+### 24. 등록 권한만으로 남의 게시물에 파일을 붙이거나 바꿈 (🟠 중간)
+- **현상**: 첨부 등록은 board.write 또는 board.update, 주보 사진은 bulletin.add 또는 bulletin.edit 로 열어 두어
+  쓰기(등록) 권한만 있는 사용자가 수정 권한 없이 **다른 사람의 공지에 파일을 추가**하거나 **다른 주보의 대표사진을 교체**할 수 있었음
+- **조치**: 수정 권한(board.update / bulletin.edit, 시스템관리자)이 없으면 **본인이 등록한 게시물만** (CREATED_BY = 요청자) - B2017 / B8015 (403)
+- **검증**: `NoticeApiIntegrationTest.writerCannotAttachToOthersNotice`, `ChurchApiIntegrationTest.photoOwnership`
+- **남은 과제**: 소유 판단은 감사 컬럼(CREATED_BY = 로그인 ID). Keycloak 에서 사용자명을 바꾸면 이전 게시물 소유가 끊긴다
+
+### 25. 사진의 촬영 위치(EXIF GPS)·기기 정보 노출 (🟠 중간)
+- **현상**: 휴대폰 사진을 그대로 저장·제공 → 주보를 보는 모든 사람, PDF 를 받은 사람이 촬영 위치(GPS)·기기 정보를 볼 수 있음.
+  실데이터 점검 시 저장된 사진 2장 모두 EXIF 포함
+- **조치**: `ImageNormalizer` 로 **다시 그려 저장** - 메타데이터(EXIF·XMP·주석·PNG 텍스트) 제거, 회전값은 픽셀에 반영(세로 사진 유지),
+  결과는 JPEG/PNG. 이미 저장된 사진은 기동 시 `BulletinPhotoMaintenance` 가 정리 (메타데이터 없는 사진은 건너뜀 - 2건 정리, 원본 삭제 확인)
+- **검증**: `ChurchApiIntegrationTest.photoStripsMetadata` (GPS 문자열·Exif 사라짐, 8x4 → 4x8 회전), `UploadSecurityTest`
+
+### 26. 이미지 해상도 폭탄 (🟠 중간)
+- **현상**: 수 KB 파일이 2만 x 2만 화소를 주장하면 화면·PDF 생성(이미지 디코딩) 때 수 GB 메모리 → 서버 장애
+- **조치**: 픽셀을 풀기 전에 헤더의 가로·세로로 **최대 4천만 화소**(B8014), 저장 시 긴 변 2560px 로 축소. 손상된 이미지(CRC·압축 오류)도 거부
+- **검증**: `ChurchApiIntegrationTest.photoRejectsPixelBomb`, `UploadSecurityTest.limits`
+
+### 27. 확장자만 바꾼 위장 파일 (🟡 미비)
+- **현상**: 첨부는 확장자 허용 목록만 확인 → 실행 파일·HTML 을 `.pdf`·`.png` 로 이름만 바꿔 올리면 통과 (내려받은 사람이 다른 프로그램으로 열 위험)
+- **조치**: `FileSignatures` - 내용이 확장자와 맞아야 등록 (PDF `%PDF-`, Office/한글 OOXML·HWPX = ZIP, 구 Office·HWP = OLE, 이미지 시그니처, txt/csv 는 NUL 없음), B2016.
+  사진은 시그니처 확인 후 다시 그려 저장하므로 이미지에 끼운 HTML·스크립트(폴리글랏)도 사라짐. 응답은 기존대로 attachment + nosniff
+- **검증**: `NoticeApiIntegrationTest.rejectDisguisedFile`, `UploadSecurityTest.signatures`
+- **남은 과제**: 악성 코드 검사(백신 연동)는 미구현 - 외부 공개 시 ClamAV 등 연동 권장. ZIP 은 내용 검사 없이 그대로 보관(서버가 풀지 않음)
+
+### 28. PDF 생성 자원 고갈 (🟠 중간)
+- **현상**: 주보 PDF 는 단마다 맞춤 렌더링(최대 수십 회)으로 CPU 사용이 커서, 조회 권한만으로 연속 요청 시 서버가 느려짐
+- **조치**: 동시 생성 2건(공정 대기 20초, 초과 시 B8016/429). Gateway Rate Limit(초당 20, 순간 40)은 그대로 적용
+- **검증**: 코드 리뷰 + PDF 테스트 (`ChurchApiIntegrationTest.pdf`, `pdfFitsLongContent`)
+
+### 29. PDF 렌더러의 외부 자원 접근 (🟡 미비, 방어 심화)
+- **현상**: 사용자 입력은 모두 이스케이프해 현재 경로는 없으나, 렌더러는 기본적으로 `file:`·`http:` 자원을 읽을 수 있음 (SSRF·로컬 파일 노출 잠재 위험)
+- **조치**: `useExternalResourceAccessControl` 로 `data:` URI(대표사진)만 허용 (URI 해석 전·후 모두)
+- **검증**: 코드 리뷰, PDF 테스트
+
+### 점검했으나 이상 없음
+- 첨부 경로 조작 (저장 키는 서버 UUID, 저장소 밖 경로 거부), 다운로드 파일명 (제어문자 제거 + RFC 5987)
+- 사진 응답 Content-Type 은 서버가 판별한 형식 + nosniff, SVG 불허. 작성 중 주보의 사진·PDF 는 편집 권한자만
+- 주보·교리문답·전례문·생일 화면 : 사용자 입력은 텍스트 보간만 (v-html 없음), PDF 는 XML 이스케이프
+- 영속 DB : 1521 은 localhost 에만, 비밀번호 기본값은 local 전용. 개인정보 이관 파일·실주보 PDF 캡처는 gitignore
+- 업로드 요청은 CSRF(세션) 적용, 크기 제한 (파일 20MB / 요청 100MB, 사진 10MB)
+
 ---
 
 ## 남은 과제 요약
@@ -147,3 +201,5 @@
 | 운영 | 세션 키 교체 = 전체 재로그인, 인스턴스 간 동일 키 |
 | 운영 | 운영 realm 구성, LB 헤더 정리, Redis ACL/TLS, 관리 포트 접근 제한, IDP_SUBJECT 매핑 절차 |
 | local | E2E 무차별 대입 시나리오가 guest01 을 일시 잠금 |
+| 미구현 | 첨부 악성 코드 검사(백신 연동) - 외부 공개 시 권장 (27) |
+| 운영 | 게시물 소유 = CREATED_BY(로그인 ID) - IdP 사용자명 변경 시 소유 끊김 (24) |

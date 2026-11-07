@@ -381,7 +381,7 @@ await step('교회 - 대시보드 · 주보 등록([+] 예배순서·소식 3단
   // 1x1 PNG
   await admin.setInputFiles('[data-test="bulletin-photo-input"]', {
     name: 'cover.png', mimeType: 'image/png',
-    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkaPhfDwAEhgGAeN3WbgAAAABJRU5ErkJggg==', 'base64'),
+    buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGNwav3yHwAFgwK74sCXXQAAAABJRU5ErkJggg==', 'base64'),
   })
   await admin.waitForSelector('[data-test="bulletin-photo-preview"]')
   await shot(admin, '07e-church-form')

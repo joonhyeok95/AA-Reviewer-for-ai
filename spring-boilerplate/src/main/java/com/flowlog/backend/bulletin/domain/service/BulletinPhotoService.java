@@ -7,6 +7,8 @@ import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.exception.BusinessException;
 import com.flowlog.backend.global.storage.FileStorage;
 import com.flowlog.backend.global.storage.FileStorageException;
+import com.flowlog.backend.global.storage.FileSignatures;
+import com.flowlog.backend.global.storage.ImageNormalizer;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,8 +25,11 @@ import org.springframework.web.multipart.MultipartFile;
  *
  * <ul>
  *   <li>저장 : 공지 첨부와 같은 {@link FileStorage} (local 디렉터리 / db BLOB). 주보에는 저장 키·형식만</li>
- *   <li>형식은 파일명·Content-Type 이 아니라 <b>내용(시그니처)</b>으로 판별 - JPG, PNG, GIF, WEBP 만.
- *       응답 Content-Type 도 판별한 형식으로 내려 다른 내용(HTML·SVG 스크립트)이 이미지로 위장하지 못하게 한다</li>
+ *   <li>형식은 파일명·Content-Type 이 아니라 <b>내용(시그니처)</b>으로 판별 - JPG, PNG, GIF, WEBP 만</li>
+ *   <li><b>다시 그려 저장</b> ({@link ImageNormalizer}) : 촬영 위치(GPS) 등 EXIF 메타데이터 제거(회전은 반영),
+ *       최대 {@value #MAX_PIXELS} 화소(압축 폭탄 차단), 긴 변 {@value #MAX_SIDE}px, 결과는 JPEG/PNG.
+ *       이미지에 끼워 넣은 HTML·스크립트도 사라진다</li>
+ *   <li>권한 : 수정 권한(bulletin.edit) 또는 <b>본인이 등록한 주보</b> (등록 권한만 있으면 남의 주보 사진을 못 바꿈)</li>
  *   <li>최대 {@value #MAX_MB}MB. 바꾸거나 지우면 이전 파일은 커밋 후 저장소에서 지운다</li>
  * </ul>
  *
@@ -41,6 +46,12 @@ public class BulletinPhotoService {
   public static final int MAX_MB = 10;
 
   private static final long MAX_BYTES = MAX_MB * 1024L * 1024L;
+
+  /** 최대 화소 (4천만 - 휴대폰 원본 사진 여유 있게). */
+  public static final long MAX_PIXELS = 40_000_000L;
+
+  /** 저장할 때 긴 변 최대 (px). */
+  public static final int MAX_SIDE = 2560;
 
   private final BulletinRepository bulletinRepository;
   private final FileStorage fileStorage;
@@ -61,11 +72,17 @@ public class BulletinPhotoService {
    *
    * @param bulletinId 주보 ID
    * @param file 이미지
-   * @throws BusinessException 주보 없음(B8001), 형식(B8009), 크기(B8010), 저장 실패(B8012)
+   * @param canEdit 수정 권한 여부 (없으면 본인이 등록한 주보만)
+   * @param user 요청자 (등록자와 비교 - 감사 컬럼 CREATED_BY 와 같은 값)
+   * @throws BusinessException 주보 없음(B8001), 형식(B8009), 크기(B8010), 화소(B8014), 권한(B8015),
+   *     저장 실패(B8012)
    */
   @Transactional
-  public void upload(Long bulletinId, MultipartFile file) {
+  public void upload(Long bulletinId, MultipartFile file, boolean canEdit, String user) {
     Bulletin bulletin = findBulletin(bulletinId);
+    if (!canEdit && (user == null || !user.equals(bulletin.getCreatedBy()))) {
+      throw new BusinessException(BulletinErrorCode.PHOTO_FORBIDDEN);
+    }
     if (file == null || file.isEmpty()) {
       throw new BusinessException(BulletinErrorCode.PHOTO_INVALID);
     }
@@ -79,13 +96,21 @@ public class BulletinPhotoService {
       log.error("[BulletinPhoto] 읽기 실패 bulletinId={}", bulletinId, e);
       throw new BusinessException(BulletinErrorCode.PHOTO_IO_FAILED);
     }
-    String type = imageType(content);
-    if (type == null) {
+    if (FileSignatures.imageKind(content) == null) {
       throw new BusinessException(BulletinErrorCode.PHOTO_INVALID);
     }
+    ImageNormalizer.Result image;
+    try {
+      image = ImageNormalizer.normalize(content, MAX_PIXELS, MAX_SIDE);
+    } catch (ImageNormalizer.Rejected e) {
+      throw e.reason() == ImageNormalizer.Rejected.Reason.TOO_MANY_PIXELS
+          ? new BusinessException(BulletinErrorCode.PHOTO_PIXELS, String.valueOf(MAX_PIXELS / 1_000_000))
+          : new BusinessException(BulletinErrorCode.PHOTO_INVALID);
+    }
+    String type = image.contentType();
     String key;
     try {
-      key = fileStorage.store(new ByteArrayInputStream(content), content.length);
+      key = fileStorage.store(new ByteArrayInputStream(image.content()), image.content().length);
     } catch (FileStorageException e) {
       log.error("[BulletinPhoto] 저장 실패 bulletinId={}", bulletinId, e);
       throw new BusinessException(BulletinErrorCode.PHOTO_IO_FAILED);
@@ -135,6 +160,39 @@ public class BulletinPhotoService {
   }
 
   /**
+   * 이미 저장된 사진 정리 - 메타데이터(촬영 위치 등)가 남은 사진을 다시 그려 바꾼다. (정규화 도입 전 업로드분, 여러 번 실행해도 같음)
+   *
+   * @return 정리한 사진 수
+   */
+  @Transactional
+  public int normalizeStoredPhotos() {
+    int changed = 0;
+    for (Bulletin bulletin : bulletinRepository.findByPhotoKeyIsNotNull()) {
+      try {
+        byte[] content;
+        try (InputStream in = fileStorage.load(bulletin.getPhotoKey()).getInputStream()) {
+          content = in.readAllBytes();
+        }
+        if (!ImageNormalizer.hasMetadata(content)) {
+          continue;
+        }
+        ImageNormalizer.Result image = ImageNormalizer.normalize(content, MAX_PIXELS, MAX_SIDE);
+        String key = fileStorage.store(new ByteArrayInputStream(image.content()),
+            image.content().length);
+        deleteAfterCommit(bulletin.changePhoto(key, image.contentType()));
+        changed++;
+      } catch (IOException | RuntimeException e) {
+        log.warn("[BulletinPhoto] 저장 사진 정리 실패 bulletinId={} ({})", bulletin.getId(),
+            e.getMessage());
+      }
+    }
+    if (changed > 0) {
+      log.info("[BulletinPhoto] 저장 사진 {}건 메타데이터 제거", changed);
+    }
+    return changed;
+  }
+
+  /**
    * 저장 파일을 커밋 후 지운다. (롤백되면 그대로 둔다)
    *
    * @param key 저장 키 (null 이면 무시)
@@ -153,44 +211,6 @@ public class BulletinPhotoService {
         fileStorage.delete(key);
       }
     });
-  }
-
-  /**
-   * 내용으로 이미지 형식 판별.
-   *
-   * @param content 파일 내용
-   * @return MIME 형식, 허용 형식이 아니면 null
-   */
-  static String imageType(byte[] content) {
-    if (startsWith(content, 0, 0xFF, 0xD8, 0xFF)) {
-      return "image/jpeg";
-    }
-    if (startsWith(content, 0, 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A)) {
-      return "image/png";
-    }
-    if (startsWith(content, 0, 'G', 'I', 'F', '8')) {
-      return "image/gif";
-    }
-    if (startsWith(content, 0, 'R', 'I', 'F', 'F') && startsWith(content, 8, 'W', 'E', 'B', 'P')) {
-      return "image/webp";
-    }
-    return null;
-  }
-
-  private static boolean startsWith(byte[] content, int offset, int... signature) {
-    if (content.length < offset + signature.length) {
-      return false;
-    }
-    return matches(content, offset, signature);
-  }
-
-  private static boolean matches(byte[] content, int offset, int[] signature) {
-    for (int i = 0; i < signature.length; i++) {
-      if ((content[offset + i] & 0xFF) != signature[i]) {
-        return false;
-      }
-    }
-    return true;
   }
 
   private Bulletin findBulletin(Long id) {

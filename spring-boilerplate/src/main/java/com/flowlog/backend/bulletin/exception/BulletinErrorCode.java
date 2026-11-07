@@ -40,7 +40,13 @@ public enum BulletinErrorCode implements ErrorCode {
   /** 대표사진 저장·읽기 실패. */
   PHOTO_IO_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B8012"),
   /** 주보 PDF 생성 실패. */
-  PDF_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B8013");
+  PDF_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B8013"),
+  /** 대표사진 화소 초과 (압축 폭탄 차단). */
+  PHOTO_PIXELS(HttpStatus.BAD_REQUEST, "B8014"),
+  /** 대표사진 권한 없음 (수정 권한 없이 남이 등록한 주보). */
+  PHOTO_FORBIDDEN(HttpStatus.FORBIDDEN, "B8015"),
+  /** PDF 동시 생성 한도 초과. */
+  PDF_BUSY(HttpStatus.TOO_MANY_REQUESTS, "B8016");
 
   private final HttpStatus status;
   private final String messageId;

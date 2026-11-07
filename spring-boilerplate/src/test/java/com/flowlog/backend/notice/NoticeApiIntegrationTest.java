@@ -20,6 +20,7 @@ import com.flowlog.backend.code.domain.model.CodeLang;
 import com.flowlog.backend.code.domain.repository.CodeLangRepository;
 import com.flowlog.backend.code.domain.repository.CodeRepository;
 import com.jayway.jsonpath.JsonPath;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -453,6 +454,52 @@ class NoticeApiIntegrationTest {
           .andExpect(status().isOk());
       perform(get(URL + "/1/files/" + fileId), "admin", ALL_NOTICE)
           .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("보안 - 내용이 확장자와 다른 위장 파일 거부 (실행 파일·HTML 을 .pdf/.png 로) - B2016")
+    void rejectDisguisedFile() throws Exception {
+      MockMultipartFile exe = new MockMultipartFile("files", "manual.pdf", "application/pdf",
+          "MZ\u0090\u0000 fake executable".getBytes(StandardCharsets.ISO_8859_1));
+      perform(multipart(URL + "/1/files").file(exe), "admin", ALL_NOTICE)
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.messageId").value("B2016"));
+      MockMultipartFile html = new MockMultipartFile("files", "photo.png", "image/png",
+          "<html><script>alert(1)</script></html>".getBytes(StandardCharsets.UTF_8));
+      perform(multipart(URL + "/1/files").file(html), "admin", ALL_NOTICE)
+          .andExpect(status().isBadRequest())
+          .andExpect(jsonPath("$.messageId").value("B2016"));
+      MockMultipartFile pdf = new MockMultipartFile("files", "real.pdf", "application/pdf",
+          "%PDF-1.7\n%".getBytes(StandardCharsets.ISO_8859_1));
+      perform(multipart(URL + "/1/files").file(pdf), "admin", ALL_NOTICE)
+          .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("보안 - 수정 권한 없이 쓰기 권한만 있으면 남의 공지에 첨부 불가 - B2017")
+    void writerCannotAttachToOthersNotice() throws Exception {
+      MockMultipartFile file = new MockMultipartFile("files", "a.txt", "text/plain",
+          "hello".getBytes());
+      perform(multipart(URL + "/1/files").file(file), "tx.manager", "board.list board.write")
+          .andExpect(status().isForbidden())
+          .andExpect(jsonPath("$.messageId").value("B2017"));
+    }
+
+    @Test
+    @DisplayName("보안 - 게시 전(예약) 공지의 첨부는 일반 사용자가 내려받을 수 없다 (공지 상세와 같은 규칙)")
+    void scheduledNoticeFileHidden() throws Exception {
+      MockMultipartFile file = new MockMultipartFile("files", "secret.txt", "text/plain",
+          "not yet".getBytes());
+      String response = perform(multipart(URL + "/4/files").file(file), "admin", ALL_NOTICE)
+          .andExpect(status().isCreated())
+          .andReturn().getResponse().getContentAsString();
+      long fileId = ((Number) JsonPath.read(response, "$.result[0].fileId")).longValue();
+
+      perform(get(URL + "/4/files/" + fileId), "tx.viewer", "board.list")
+          .andExpect(status().isNotFound())
+          .andExpect(jsonPath("$.messageId").value("B2001"));
+      perform(get(URL + "/4/files/" + fileId), "admin", ALL_NOTICE)
+          .andExpect(status().isOk());
     }
 
     @Test
