@@ -2,7 +2,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 상태 | 구현 완료 · 테스트 통과 (기본 175/175, Oracle 3/3, 화면 단위 46/46, 화면 E2E 68/68) |
+| 상태 | 구현 완료 · 테스트 통과 (기본 178/178, Oracle 3/3, 화면 단위 46/46, 화면 E2E 70/70) |
 | 작성일 | 2026-11-08 |
 | 원본 | 교회 주보 PDF (2026-11-08, 통권 9권 45호) 분석 |
 | DDL (Oracle) | [`db/ddl/05_church.sql`](../../src/main/resources/db/ddl/05_church.sql) - 테이블 13개 |
@@ -92,11 +92,12 @@ erDiagram
 | 리소스 | 경로 | 권한 |
 |---|---|---|
 | 주보 | `GET /api/v1/bulletins` (목록), `GET /current` (이번 주), `GET/PUT/DELETE /{id}`, `POST` | bulletin.* |
+| 주보 PDF | `GET /{id}/pdf` (A4 가로 3단 2장, 첨부 `주보_{예배일}.pdf`) | bulletin.list |
 | 주보 대표사진 | `GET /{id}/photo` (조회), `POST /{id}/photo` multipart `file` (등록 또는 수정), `DELETE /{id}/photo` (수정) | bulletin.list / add·edit / edit |
 | 교리문답 | `GET /api/v1/catechisms` (단위 트리 + 단위별 문 범위), `POST/PUT/DELETE /{id}`, `GET/PUT/DELETE /units/{unitId}`, `POST /{id}/units` | catechism.* |
 | 전례문 | `GET/POST /api/v1/liturgy-texts`, `GET/PUT/DELETE /{id}` | liturgy.* |
 
-오류 : B8001~B8012 (주보, 사진 B8009~B8012), B9001~B9009 (교리문답), B9501~B9503 (전례문)
+오류 : B8001~B8013 (주보, 사진 B8009~B8012, PDF B8013), B9001~B9009 (교리문답), B9501~B9503 (전례문)
 
 ## 4. 메뉴 · 권한
 
@@ -118,6 +119,10 @@ erDiagram
 - **교리문답 주차 자동** : 새 주보는 예배일이 그해 n번째 주일이면 제n주일 (2026-11-08 = 제45주일, 53번째 주일은 제52주일).
   템플릿에 있던 "주일" 단위를 같은 교리문답의 제n주일로 바꾸고, 없으면 하이델베르크 제n주일을 넣는다. 예배일을 바꾸면 다시 맞춤
   (직접 고친 교리문답은 그대로)
+- **PDF 다운로드 (권장)** : `GET /api/v1/bulletins/{id}/pdf` - 원본 주보와 같은 **A4 가로 3단 접지 2장**
+  (1장 교회소식·섬김위원 | 예배순서·말씀메모 | 표지, 2장 사도신경 | 주기도문 | 교리문답). 서버가 만들어(openhtmltopdf, 나눔고딕 OFL)
+  아이패드·휴대폰 등 어느 기기에서도 같은 결과. 단마다 1쪽을 넘으면 글자 배율을 이분 탐색으로 줄인다 (최소 0.45).
+  주보 보기·대시보드에 [PDF 다운로드]. 브라우저 인쇄는 Safari 가 @page·다단·zoom 을 따르지 않아 기기마다 다르다
 - **인쇄 = A4 세로 딱 2장** : 1장 표지·예배순서·말씀메모·전례문, 2장 교회소식·섬김위원·교리문답 (장마다 2단).
   보기 화면이 body 에 인쇄용 사본을 두고 장마다 넘치면 글자 배율(zoom)을 줄여 맞춘다 (`beforeprint` 에 다시 계산).
   인쇄할 때는 앱 화면을 숨기고 `@page A4, 여백 0`. E2E 가 PDF 로 찍어 2장인지 확인

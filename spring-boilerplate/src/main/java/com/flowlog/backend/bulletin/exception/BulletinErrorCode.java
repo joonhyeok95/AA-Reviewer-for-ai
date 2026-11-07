@@ -38,7 +38,9 @@ public enum BulletinErrorCode implements ErrorCode {
   /** 대표사진 없음. */
   PHOTO_NOT_FOUND(HttpStatus.NOT_FOUND, "B8011"),
   /** 대표사진 저장·읽기 실패. */
-  PHOTO_IO_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B8012");
+  PHOTO_IO_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B8012"),
+  /** 주보 PDF 생성 실패. */
+  PDF_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "B8013");
 
   private final HttpStatus status;
   private final String messageId;

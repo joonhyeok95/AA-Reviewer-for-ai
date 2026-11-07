@@ -382,6 +382,7 @@ const en: MessageSchema = {
     templated: 'Filled in with everything from the latest bulletin. Change only what differs. (date +7 days, issue +1, draft)',
     nextWeek: 'Next week from this',
     print: 'Print',
+    pdf: 'Download PDF',
     empty: 'No bulletins.',
     deleteConfirm: 'Delete the bulletin of {date} with its order, news and duties.',
     news: {

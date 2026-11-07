@@ -10,7 +10,7 @@ import { fetchOccurrences } from '@/calendar/api'
 import { parseIso } from '@/calendar/dates'
 import type { CalendarOccurrence } from '@/calendar/types'
 import { qaRange, unitLabel } from '@/catechism/labels'
-import { bulletinPhotoUrl, fetchCurrentBulletin } from '@/bulletin/api'
+import { bulletinPdfUrl, bulletinPhotoUrl, fetchCurrentBulletin } from '@/bulletin/api'
 import { toGrid, weekOf } from '@/bulletin/form'
 import type { BulletinDetail, NewsNode } from '@/bulletin/types'
 
@@ -115,8 +115,12 @@ onMounted(load)
         <blockquote v-if="bulletin.themeVerse" class="hero-verse">
           {{ bulletin.themeVerse }} <cite v-if="bulletin.themeVerseRef">({{ bulletin.themeVerseRef }})</cite>
         </blockquote>
-        <RouterLink class="btn btn-primary hero-link" data-test="dashboard-open"
-          :to="{ name: 'bulletin-detail', params: { id: bulletin.bulletinId } }">{{ $t('bulletin.dashboard.open') }}</RouterLink>
+        <div class="hero-actions">
+          <RouterLink class="btn btn-primary" data-test="dashboard-open"
+            :to="{ name: 'bulletin-detail', params: { id: bulletin.bulletinId } }">{{ $t('bulletin.dashboard.open') }}</RouterLink>
+          <a class="btn" :href="bulletinPdfUrl(bulletin.bulletinId)" download
+            data-test="dashboard-pdf">{{ $t('bulletin.pdf') }}</a>
+        </div>
       </section>
 
       <div class="cards">
@@ -212,6 +216,12 @@ onMounted(load)
   max-height: 320px;
   border-radius: var(--radius-md);
   object-fit: cover;
+}
+
+.hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 
 .hero-date {

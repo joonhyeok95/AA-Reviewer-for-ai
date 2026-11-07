@@ -7,7 +7,7 @@ import { useCodeStore } from '@/code/store'
 import ConfirmDialog from '@/global/components/ConfirmDialog.vue'
 import { useApiFeedback } from '@/global/composables/useApiFeedback'
 import { formatDate } from '@/global/util/format'
-import { deleteBulletin, fetchBulletin } from '@/bulletin/api'
+import { bulletinPdfUrl, deleteBulletin, fetchBulletin } from '@/bulletin/api'
 import BulletinPaper from '@/bulletin/components/BulletinPaper.vue'
 import type { BulletinDetail } from '@/bulletin/types'
 
@@ -69,6 +69,8 @@ onMounted(load)
             {{ code.codeName('BULLETIN_STATUS', bulletin.statusCd) }}</span></h1>
       </div>
       <div v-if="bulletin" class="page-actions no-print">
+        <a class="btn btn-primary" :href="bulletinPdfUrl(bulletin.bulletinId)" download
+          data-test="bulletin-pdf">{{ $t('bulletin.pdf') }}</a>
         <button type="button" class="btn" @click="print">{{ $t('bulletin.print') }}</button>
         <RouterLink v-if="canAdd" class="btn" data-test="bulletin-next-week"
           :to="{ name: 'bulletin-new', query: { from: bulletin.bulletinId } }">{{ $t('bulletin.nextWeek') }}</RouterLink>

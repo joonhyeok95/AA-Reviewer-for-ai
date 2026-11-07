@@ -1,5 +1,7 @@
 package com.flowlog.backend.bulletin.web;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
@@ -15,6 +17,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.jayway.jsonpath.JsonPath;
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.text.PDFTextStripper;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -182,6 +188,58 @@ class ChurchApiIntegrationTest {
       editor.perform(get("/api/v1/bulletins"))
           .andExpect(jsonPath("$.result.totalElements").value(2));
       editor.perform(get("/api/v1/bulletins/" + id)).andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("PDF - 원본 주보처럼 A4 가로 2장 (1장 교회소식·예배순서·표지, 2장 전례문·교리문답), 첨부 파일 이름")
+    void pdf() throws Exception {
+      byte[] pdf = admin.perform(get("/api/v1/bulletins/1/pdf"))
+          .andExpect(status().isOk())
+          .andExpect(header().string("Content-Type", "application/pdf"))
+          .andExpect(header().string("Content-Disposition", containsString("attachment")))
+          .andExpect(header().string("Content-Disposition", containsString("2026-11-08.pdf")))
+          .andReturn().getResponse().getContentAsByteArray();
+
+      try (PDDocument doc = Loader.loadPDF(pdf)) {
+        assertThat(doc.getNumberOfPages()).isEqualTo(2);
+        PDRectangle box = doc.getPage(0).getMediaBox();
+        assertThat(box.getWidth()).isCloseTo(PDRectangle.A4.getHeight(), org.assertj.core.data.Offset.offset(2f));
+        assertThat(box.getHeight()).isCloseTo(PDRectangle.A4.getWidth(), org.assertj.core.data.Offset.offset(2f));
+        PDFTextStripper stripper = new PDFTextStripper();
+        stripper.setStartPage(1);
+        stripper.setEndPage(1);
+        assertThat(stripper.getText(doc)).contains("교회소식", "예배순서", "말씀메모", "섬김위원");
+        stripper.setStartPage(2);
+        stripper.setEndPage(2);
+        assertThat(stripper.getText(doc)).contains("사도신경", "주기도문", "제 116 문");
+      }
+    }
+
+    @Test
+    @DisplayName("PDF - 내용이 아주 많아도 단마다 글자를 줄여 2장, 작성 중은 편집 권한자만")
+    void pdfFitsLongContent() throws Exception {
+      String section = "{\"title\": \"긴 소식\", \"content\": \"" + "내용이 아주 긴 교회 소식입니다. ".repeat(12)
+          + "\", \"children\": [{\"title\": \"항목\", \"content\": \"하위 내용\"}]}";
+      String news = String.join(",", java.util.Collections.nCopies(25, section));
+      String body = BULLETIN_BODY.formatted("2026-11-22", 47, "DRAFT")
+          .replaceFirst("(?s)\"news\": \\[.*?\\],\\s*\"duties\"", "\"news\": [" + news + "], \"duties\"");
+      String created = admin.perform(post("/api/v1/bulletins").contentType(MediaType.APPLICATION_JSON)
+              .content(body))
+          .andExpect(status().isCreated())
+          .andExpect(jsonPath("$.result.news.length()").value(25))
+          .andReturn().getResponse().getContentAsString();
+      long id = ((Number) JsonPath.read(created, "$.result.bulletinId")).longValue();
+
+      byte[] pdf = admin.perform(get("/api/v1/bulletins/" + id + "/pdf"))
+          .andExpect(status().isOk())
+          .andReturn().getResponse().getContentAsByteArray();
+      try (PDDocument doc = Loader.loadPDF(pdf)) {
+        assertThat(doc.getNumberOfPages()).isEqualTo(2);
+      }
+
+      mvc("viewer", "SCOPE_bulletin.list").perform(get("/api/v1/bulletins/" + id + "/pdf"))
+          .andExpect(status().isNotFound())
+          .andExpect(jsonPath("$.messageId").value("B8001"));
     }
 
     @Test

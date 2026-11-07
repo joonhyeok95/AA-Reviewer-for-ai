@@ -30,6 +30,11 @@ export function deleteBulletin(id: number): Promise<MessageResponse<null>> {
   return deleteResult(`${BASE}/${id}`)
 }
 
+/** 주보 PDF 주소 (원본 주보와 같은 A4 가로 3단 2장, 서버가 만든다 - 기기·브라우저와 관계없이 같은 결과) */
+export function bulletinPdfUrl(id: number): string {
+  return `${API_BASE}${BASE}/${id}/pdf`
+}
+
 /** 대표사진 최대 크기 (서버 BulletinPhotoService.MAX_MB 와 같게) */
 export const PHOTO_MAX_MB = 10
 export const PHOTO_ACCEPT = 'image/jpeg,image/png,image/gif,image/webp'

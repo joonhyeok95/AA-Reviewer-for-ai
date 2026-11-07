@@ -332,6 +332,17 @@ await step('교회 - 대시보드 · 주보 등록([+] 예배순서·소식 3단
   const zooms = await admin.locator('[data-test="bulletin-print"] .page-flow')
     .evaluateAll((flows) => flows.map((flow) => flow.style.zoom || '1'))
   check('주보 인쇄 → A4 딱 2장', pdfPages === 2, `pages=${pdfPages} zoom=${zooms.join('/')}`)
+  // PDF 다운로드 (서버 생성, 원본 주보와 같은 A4 가로 3단 2장 - 아이패드 등 어느 기기든 같은 결과)
+  const [download] = await Promise.all([
+    admin.waitForEvent('download'), admin.click('[data-test="bulletin-pdf"]')])
+  const pdfPath = `${SHOTS}/07h-bulletin-download.pdf`
+  await download.saveAs(pdfPath)
+  // 쪽 수·크기는 백엔드 통합 테스트(ChurchApiIntegrationTest.pdf, PDFBox)가 확인 - 여기서는 내려받기 흐름
+  const downloaded = await import('node:fs').then((fs) => fs.readFileSync(pdfPath))
+  check('주보 PDF 다운로드 (파일 이름 주보_예배일.pdf)',
+    downloaded.subarray(0, 5).toString() === '%PDF-' && downloaded.length > 10_000
+      && /^주보_\d{4}-\d{2}-\d{2}\.pdf$/.test(download.suggestedFilename()),
+    `size=${downloaded.length} name=${download.suggestedFilename()}`)
   await admin.goto(`${BASE}/church/dashboard`)
   await admin.waitForSelector('[data-test="dashboard-hero"]')
   await admin.click('[data-test="dashboard-catechism-link"] >> nth=0')

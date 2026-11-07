@@ -1,10 +1,12 @@
 package com.flowlog.backend.bulletin.web;
 
+import com.flowlog.backend.bulletin.domain.service.BulletinPdfService;
 import com.flowlog.backend.bulletin.domain.service.BulletinPhotoService;
 import com.flowlog.backend.bulletin.domain.service.BulletinService;
 import com.flowlog.backend.bulletin.domain.service.dto.BulletinDtos.BulletinDetail;
 import com.flowlog.backend.bulletin.domain.service.dto.BulletinDtos.BulletinSaveRequest;
 import com.flowlog.backend.bulletin.domain.service.dto.BulletinDtos.BulletinSummary;
+import com.flowlog.backend.code.domain.service.LangService;
 import com.flowlog.backend.global.aop.Logging;
 import com.flowlog.backend.global.common.domain.service.dto.PageResponse;
 import com.flowlog.backend.global.common.model.MessageResponse;
@@ -18,7 +20,9 @@ import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.Locale;
 import org.springframework.core.io.Resource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
@@ -59,6 +63,8 @@ public class BulletinController {
 
   private final BulletinService bulletinService;
   private final BulletinPhotoService photoService;
+  private final BulletinPdfService pdfService;
+  private final LangService langService;
   private final MessageHttpResponse messageHttpResponse;
 
   /**
@@ -190,6 +196,29 @@ public class BulletinController {
   public ResponseEntity<MessageResponse<Void>> deletePhoto(@PathVariable("id") @Positive Long id) {
     photoService.delete(id);
     return messageHttpResponse.success();
+  }
+
+  /**
+   * 주보 PDF 내려받기 - 원본 주보와 같은 A4 가로 3단 2장. (작성 중 주보는 편집 권한자만)
+   *
+   * @param id 주보 ID
+   * @param authentication 인증
+   * @param locale 요청 Locale
+   * @return PDF (첨부)
+   */
+  @Operation(summary = "주보 PDF (A4 가로 3단 접지 2장)")
+  @GetMapping("/{id}/pdf")
+  public ResponseEntity<byte[]> getPdf(
+      @PathVariable("id") @Positive Long id, Authentication authentication, Locale locale) {
+    BulletinPdfService.Pdf pdf = pdfService.create(id, isEditor(authentication),
+        langService.resolveUserLang(authentication, locale), locale);
+    return ResponseEntity.ok()
+        .contentType(MediaType.APPLICATION_PDF)
+        .cacheControl(CacheControl.noStore())
+        .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+            .filename(pdf.fileName(), StandardCharsets.UTF_8).build().toString())
+        .header("X-Content-Type-Options", "nosniff")
+        .body(pdf.content());
   }
 
   private static boolean isEditor(Authentication authentication) {
