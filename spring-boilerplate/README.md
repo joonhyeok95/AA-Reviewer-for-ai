@@ -29,6 +29,19 @@ Flowlog Backend API Boilerplate (Spring Boot 4.1 / Java 17 / Maven)
 ```
 접속은 http://localhost:9909 (Gateway). 화면 개발 서버 5173 에 직접 접속하지 않는다.
 
+#### 데이터 보존 (영속 DB - 기본)
+
+`dev-up` 은 Docker Oracle Free(`infra/oracle`, 볼륨 **`flowlog-oracle-data`**)를 띄우고 앱을 `local,localdb` 프로필로 실행한다.
+끄고 다시 켜도(PC 재부팅, `dev-down -Infra` 포함) 등록·수정한 데이터가 남는다.
+
+- 첫 기동(빈 볼륨)에만 앱이 DDL + 초기 데이터(`db/ddl`, `db/data`, 있으면 `data/*-import.sql`)를 넣는다 (`InitOnceDatabaseConfig`, 완료 표시 `TB_DB_INIT`)
+- 처음부터 다시 : `./scripts/dev-up.ps1 -ResetDb` (`--reset-db`) - 볼륨을 지우고 초기 데이터로 새로 만든다. **등록한 데이터가 모두 사라진다**
+- DDL 을 바꾼 경우 : 기존 볼륨에는 `ALTER` 를 직접 실행하거나 `-ResetDb`
+- 예전처럼 메모리 H2 : `-InMemory` (`--in-memory`) - 종료하면 데이터 사라짐
+- 첨부·주보 사진 파일은 `data/notice-files/` (디스크) 에 저장되어 그대로 남는다
+- 직접 접속 : `jdbc:oracle:thin:@//localhost:1521/FREEPDB1` 사용자 `flowlog` (비밀번호는 `infra/oracle/docker-compose.yml` 의 local 기본값, 1521 은 localhost 에만 열림)
+- 백업 : `docker run --rm -v flowlog-oracle-data:/d -v ${PWD}:/b alpine tar czf /b/oracle-backup.tgz -C /d .` (Oracle 을 멈춘 상태에서)
+
 #### 같은 네트워크의 다른 PC·모바일에서 접속 (LAN 모드 - 기본)
 
 `dev-up` 은 기본으로 LAN 모드로 실행한다. 이 PC 에서만 쓰려면 `-Local` (`--local`).

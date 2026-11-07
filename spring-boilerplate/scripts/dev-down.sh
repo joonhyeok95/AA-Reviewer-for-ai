@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-up.sh 로 띄운 앱·Gateway·화면 종료. --infra 면 Redis·Keycloak 컨테이너도 중지
+# dev-up.sh 로 띄운 앱·Gateway·화면 종료. --infra 면 Redis·Keycloak·Oracle 컨테이너도 중지 (DB 볼륨은 유지)
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -24,5 +24,6 @@ fi
 if [ "${1:-}" = "--infra" ]; then
   docker compose -f "$ROOT/infra/keycloak/docker-compose.yml" stop >/dev/null
   docker compose -f "$ROOT/infra/redis/docker-compose.yml" stop >/dev/null
-  echo "[dev-down] Redis / Keycloak 컨테이너 중지"
+  docker compose -f "$ROOT/infra/oracle/docker-compose.yml" stop >/dev/null 2>&1 || true
+  echo "[dev-down] Redis / Keycloak / Oracle 컨테이너 중지 (DB 데이터는 볼륨에 유지)"
 fi

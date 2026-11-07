@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-  로컬 전체 실행 : Redis + Keycloak(Docker) → 앱(9091[, 9092]) → Gateway(9909) → 화면(5173)
+  로컬 전체 실행 : Redis + Keycloak + Oracle(Docker) → 앱(9091[, 9092]) → Gateway(9909) → 화면(5173)
 
 .DESCRIPTION
   저장소 3개가 같은 폴더 아래 나란히 있어야 한다.
@@ -27,6 +27,13 @@
 .PARAMETER SkipFirewall
   방화벽 규칙 확인·추가(관리자 승인 창)를 건너뛴다. (관리자 권한이 없거나 이미 다른 방법으로 열어 둔 경우)
 
+.PARAMETER InMemory
+  영속 DB(Docker Oracle) 대신 메모리 H2 로 실행한다. 끄면 등록한 데이터가 사라진다 (이전 동작).
+
+.PARAMETER ResetDb
+  영속 DB 볼륨(flowlog-oracle-data)을 지우고 처음부터 다시 만든다 - 초기 데이터·이관 파일(data/*-import.sql)로 새로 채움.
+  등록·수정한 데이터가 모두 사라지므로 이관 스크립트를 다시 돌렸거나 DDL 이 바뀌었을 때만 사용.
+
 .PARAMETER LanHost
   LAN 모드에서 사용할 이 PC 의 IP. 생략하면 기본 경로(인터넷 연결)의 IPv4 를 쓴다.
 
@@ -34,6 +41,7 @@
   ./scripts/dev-up.ps1
   ./scripts/dev-up.ps1 -Instances 2
   ./scripts/dev-up.ps1 -Local
+  ./scripts/dev-up.ps1 -ResetDb
 #>
 param(
   [ValidateRange(1, 2)][int]$Instances = 1,
@@ -41,6 +49,8 @@ param(
   [switch]$Local,
   [string]$LanHost,
   [switch]$SkipFirewall,
+  [switch]$InMemory,
+  [switch]$ResetDb,
   # 이전 옵션 호환 (LAN 이 기본)
   [switch]$Lan
 )
@@ -185,6 +195,25 @@ try {
 }
 Wait-Http 'http://localhost:7000/realms/flowlog/.well-known/openid-configuration' 'Keycloak' 240
 
+# 영속 DB : Docker Oracle + 볼륨 flowlog-oracle-data (빈 DB 일 때만 앱이 스키마·초기 데이터 생성)
+if (-not $InMemory) {
+  $oracleCompose = Join-Path $root 'infra/oracle/docker-compose.yml'
+  if ($ResetDb) {
+    Write-Step '영속 DB 초기화 (볼륨 flowlog-oracle-data 삭제)'
+    docker compose -f $oracleCompose down -v | Out-Null
+  }
+  Write-Step 'Oracle (Docker, 볼륨 flowlog-oracle-data)'
+  docker compose -f $oracleCompose up -d | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Oracle 컨테이너를 시작하지 못했습니다 (docker compose -f infra/oracle/docker-compose.yml up)' }
+  $deadline = (Get-Date).AddSeconds(300)
+  while ((docker inspect -f '{{.State.Health.Status}}' flowlog-oracle 2>$null) -ne 'healthy') {
+    if ((Get-Date) -gt $deadline) { throw 'Oracle 이 5분 안에 준비되지 않았습니다 (docker logs flowlog-oracle)' }
+    Start-Sleep -Seconds 3
+  }
+  Write-Step 'Oracle 준비됨'
+  $appEnv['SPRING_PROFILES_ACTIVE'] = 'local,localdb'
+}
+
 # ------------------------------------------------------------------ 앱 / Gateway / 화면
 Start-Background 'app-9091' $root (Join-Path $root 'mvnw.cmd') @('-q', 'spring-boot:run') $appEnv
 if ($Instances -eq 2) {
@@ -210,4 +239,8 @@ Write-Host ''
 Write-Host "접속 : $publicUrl   (Swagger $publicUrl/cm/swagger-ui.html)" -ForegroundColor Green
 if ($Lan) { Write-Host '참고 : LAN 모드는 이 PC 에서도 위 IP 주소로 접속하세요 (localhost 와 로그인 세션이 따로 잡힘)' }
 Write-Host '종료 : ./scripts/dev-down.ps1' -ForegroundColor Green
-Write-Host '참고 : local 프로필은 인스턴스마다 H2 메모리 DB 를 따로 쓴다 (2대 실행 시 데이터는 공유되지 않음)'
+if ($InMemory) {
+  Write-Host '참고 : 메모리 H2 - 종료하면 데이터가 사라진다 (인스턴스마다 DB 따로)'
+} else {
+  Write-Host '참고 : 영속 DB (Docker 볼륨 flowlog-oracle-data) - 재시작해도 데이터 유지. 처음부터 다시: -ResetDb'
+}

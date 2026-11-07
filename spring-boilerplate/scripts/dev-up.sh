@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # =====================================================================
 # 로컬 전체 실행 (macOS / Linux / Git Bash) - Windows PowerShell 은 dev-up.ps1
-#   Redis + Keycloak(Docker) → 앱(9091[, 9092]) → Gateway(9909) → 화면(5173)
+#   Redis + Keycloak + Oracle(Docker) → 앱(9091[, 9092]) → Gateway(9909) → 화면(5173)
 #   사용 : ./scripts/dev-up.sh [--instances 2] [--no-frontend] [--local] [--lan-host 192.168.x.x]
+#          [--in-memory] [--reset-db]
+#   DB : 기본은 영속 DB (Docker Oracle, 볼륨 flowlog-oracle-data - 재시작해도 데이터 유지)
+#        --in-memory : 메모리 H2 (종료하면 데이터 사라짐) / --reset-db : 볼륨을 지우고 초기 데이터로 다시 생성
 #   기본은 LAN 모드 : 같은 네트워크의 다른 기기에서 http://{IP}:9909 로 접속 (로그인 화면도 Gateway 경유, 9909 만 개방)
 #   --local : 이 PC 에서만 (http://localhost:9909)
 #   종료 : ./scripts/dev-down.sh [--infra]
@@ -14,6 +17,8 @@ INSTANCES=1
 FRONTEND=1
 LAN=1
 LAN_HOST=""
+IN_MEMORY=0
+RESET_DB=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --instances) INSTANCES="$2"; shift 2 ;;
@@ -21,6 +26,8 @@ while [ $# -gt 0 ]; do
     --local) LAN=0; shift ;;
     --lan) LAN=1; shift ;;
     --lan-host) LAN=1; LAN_HOST="$2"; shift 2 ;;
+    --in-memory) IN_MEMORY=1; shift ;;
+    --reset-db) RESET_DB=1; shift ;;
     *) echo "알 수 없는 옵션: $1" >&2; exit 2 ;;
   esac
 done
@@ -113,6 +120,24 @@ else
 fi
 wait_http "http://localhost:7000/realms/flowlog/.well-known/openid-configuration" "Keycloak" 240
 
+# 영속 DB : Docker Oracle + 볼륨 flowlog-oracle-data (빈 DB 일 때만 앱이 스키마·초기 데이터 생성)
+if [ "$IN_MEMORY" = 0 ]; then
+  ORACLE_COMPOSE="$ROOT/infra/oracle/docker-compose.yml"
+  if [ "$RESET_DB" = 1 ]; then
+    step "영속 DB 초기화 (볼륨 flowlog-oracle-data 삭제)"
+    docker compose -f "$ORACLE_COMPOSE" down -v >/dev/null 2>&1 || true
+  fi
+  step "Oracle (Docker, 볼륨 flowlog-oracle-data)"
+  docker compose -f "$ORACLE_COMPOSE" up -d >/dev/null
+  waited=0
+  until [ "$(docker inspect -f '{{.State.Health.Status}}' flowlog-oracle 2>/dev/null)" = healthy ]; do
+    if [ "$waited" -ge 300 ]; then echo "Oracle 이 5분 안에 준비되지 않았습니다 (docker logs flowlog-oracle)" >&2; exit 1; fi
+    sleep 3; waited=$((waited + 3))
+  done
+  step "Oracle 준비됨"
+  APP_ENV+=(SPRING_PROFILES_ACTIVE=local,localdb)
+fi
+
 start_bg app-9091 "$ROOT" env "${APP_ENV[@]}" ./mvnw -q spring-boot:run
 if [ "$INSTANCES" = 2 ]; then
   start_bg app-9092 "$ROOT" env "${APP_ENV[@]}" ./mvnw -q spring-boot:run \
@@ -135,3 +160,8 @@ wait_http "http://127.0.0.1:9910/actuator/health" "Gateway"
 echo
 echo "접속 : $PUBLIC_URL   (Swagger $PUBLIC_URL/cm/swagger-ui.html)"
 echo "종료 : ./scripts/dev-down.sh"
+if [ "$IN_MEMORY" = 1 ]; then
+  echo "참고 : 메모리 H2 - 종료하면 데이터가 사라진다"
+else
+  echo "참고 : 영속 DB (Docker 볼륨 flowlog-oracle-data) - 재시작해도 데이터 유지. 처음부터 다시: --reset-db"
+fi

@@ -1,0 +1,37 @@
+# ============================================================
+# Oracle Free - local 영속 DB (재시작해도 데이터 유지)
+#  - 실행 : docker compose -f infra/oracle/docker-compose.yml up -d   (scripts/dev-up 이 자동 실행)
+#  - 데이터 : Docker 볼륨 flowlog-oracle-data (/opt/oracle/oradata). 컨테이너를 지워도 볼륨은 남는다
+#  - 초기화 : 볼륨이 비어 있을 때만 앱이 DDL + 초기 데이터(db/ddl, db/data, data/*-import.sql)를 넣는다
+#             처음부터 다시 : docker compose -f infra/oracle/docker-compose.yml down -v  (또는 dev-up -ResetDb)
+#  - 접속 : jdbc:oracle:thin:@//localhost:1521/FREEPDB1  사용자 flowlog / ORACLE_APP_PASSWORD (기본값은 local 전용)
+#  - 이미지는 Oracle 스키마 테스트(-Poracle-it)와 같은 gvenzl/oracle-free
+# ============================================================
+name: flowlog-oracle
+
+services:
+  oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: flowlog-oracle
+    restart: unless-stopped
+    # 종료 시 DB 를 정상 종료(shutdown)할 시간 - 기본 10초면 강제 종료(137)되어 다음 기동 때 복구가 돈다
+    stop_grace_period: 2m
+    ports:
+      # localhost 에만 바인딩 (DB 를 외부 네트워크에 노출하지 않는다)
+      - "127.0.0.1:1521:1521"
+    environment:
+      ORACLE_PASSWORD: ${ORACLE_PASSWORD:-flowlog-local-sys}
+      APP_USER: flowlog
+      APP_USER_PASSWORD: ${ORACLE_APP_PASSWORD:-flowlog-local}
+    volumes:
+      - flowlog-oracle-data:/opt/oracle/oradata
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+
+volumes:
+  flowlog-oracle-data:
+    name: flowlog-oracle-data

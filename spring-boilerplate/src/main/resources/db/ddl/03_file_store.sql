@@ -7,12 +7,12 @@
 -- =====================================================================
 
 CREATE TABLE TB_FILE_STORE (
-    FILE_KEY        VARCHAR2(64)    NOT NULL,
+    FILE_KEY        VARCHAR2(64 CHAR)    NOT NULL,
     FILE_SIZE       NUMBER(19)      NOT NULL,
     FILE_DATA       BLOB            NOT NULL,
-    CREATED_BY      VARCHAR2(50)    NOT NULL,
+    CREATED_BY      VARCHAR2(50 CHAR)    NOT NULL,
     CREATED_AT      TIMESTAMP(6)    NOT NULL,
-    UPDATED_BY      VARCHAR2(50)    NOT NULL,
+    UPDATED_BY      VARCHAR2(50 CHAR)    NOT NULL,
     UPDATED_AT      TIMESTAMP(6)    NOT NULL,
     CONSTRAINT PK_FILE_STORE PRIMARY KEY (FILE_KEY)
 );

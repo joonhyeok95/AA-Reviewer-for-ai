@@ -5,13 +5,13 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 
 ## Commands
 - 빌드/테스트: `./mvnw test` (Windows: `mvnw.cmd test`)
-- 실행 (local, H2): `./mvnw spring-boot:run` → :9091 (직접). 외부 진입점은 `../spring-gateway` (:9909, `/cm/**` → 9091, `/cm` 제거)
+- 실행 (local, H2 메모리): `./mvnw spring-boot:run` → :9091 (직접). 영속 DB 는 `SPRING_PROFILES_ACTIVE=local,localdb` + `infra/oracle` (Docker Oracle Free, 볼륨 `flowlog-oracle-data`, 빈 DB 일 때만 스키마·초기 데이터 생성 - `InitOnceDatabaseConfig`). 외부 진입점은 `../spring-gateway` (:9909, `/cm/**` → 9091, `/cm` 제거)
 - Swagger: `http://localhost:9909/cm/swagger-ui.html` (Gateway) / `http://localhost:9091/swagger-ui.html` (직접), H2 `http://localhost:9091/h2-console` (Gateway 는 차단)
 - Actuator 는 관리 포트 `127.0.0.1:9191` (health, info, prometheus). 서비스 포트·Gateway 로 노출 금지
 - Gateway 뒤에서 동작: `TrustedForwardedHeaderFilter` 가 `app.security.trusted-proxies`(Gateway IP)에서 온 X-Forwarded-* 만 반영 (`server.forward-headers-strategy=none` 유지). 앱에서 절대 URL 을 하드코딩하지 말 것
 - 작업 후 항상 `./mvnw test` 통과 확인. DDL/초기데이터/Entity 변경 시 `./mvnw test -Poracle-it` (실제 Oracle, Docker 필요)
 - 노션: 저장소 docs 가 원본, `scripts/notion-sync` 로 동기화 (노션에서 직접 고치지 말 것, 새 문서는 pages.json 에 매핑)
-- 전체 실행: `scripts/dev-up.ps1` (Windows) / `scripts/dev-up.sh` → 종료 `dev-down`. 포트 충돌 시 시작 안 함. 기본 LAN 모드(`http://{IP}:9909`, 로그인도 Gateway 경유), 이 PC 전용은 `-Local`/`--local`
+- 전체 실행: `scripts/dev-up.ps1` (Windows) / `scripts/dev-up.sh` → 종료 `dev-down`. 기본은 영속 DB(재시작해도 데이터 유지), 메모리 H2 는 `-InMemory`/`--in-memory`, 초기 데이터로 다시 만들기 `-ResetDb`/`--reset-db`. 포트 충돌 시 시작 안 함. 기본 LAN 모드(`http://{IP}:9909`, 로그인도 Gateway 경유), 이 PC 전용은 `-Local`/`--local`
 - 인프라: `docker compose -f infra/redis/docker-compose.yml up -d` (:6379), `docker compose -f infra/keycloak/docker-compose.yml up -d` (:7000)
 - 인증 E2E: `python infra/keycloak/e2e/auth_e2e.py` (Gateway·앱(9091)·두 번째 인스턴스(9092) 실행 상태에서, `--quick` 은 refresh 대기 생략)
 
@@ -34,7 +34,7 @@ Spring Boot 4.1 / Java 17 / Maven API 서버 (`com.flowlog.backend`).
 - Oracle 호환 유지 (H2 Oracle 모드). Oracle 예약어 금지
 - LIKE 검색: `LikePatterns.contains(입력)` + 쿼리에 `ESCAPE '\'` 명시 (생략 시 H2 Oracle 모드에서 0건). 예: `SampleRepository.search`
 - 영속성: 기본 JPA. DB 종속/복잡 조회(동적 조건, CLOB 검색, 통계)는 MyBatis (`@Mapper` 인터페이스 + `resources/mapper/{domain}/*.xml`, 결과 DTO record, 조회 전용). 예: `NoticeSearchMapper`
-- 스키마 기준은 `src/main/resources/db/ddl/*.sql` (Oracle DDL). 테이블 추가 = DDL 파일 + `application-local.yml` schema/data-locations 등록 + `OracleSchemaTest` 의 `spring.sql.init.*-locations` 에도 등록 + Entity + 테스트. local 초기 데이터는 `db/data/*.sql`. 시퀀스 재설정은 Oracle 문법 `ALTER SEQUENCE ... RESTART START WITH n`
+- 스키마 기준은 `src/main/resources/db/ddl/*.sql` (Oracle DDL). 문자열은 **`VARCHAR2(n CHAR)`** (문자 길이 - 바이트 기본값이면 한글이 @Size 보다 먼저 넘침, H2 도 지원). 테이블 추가 = DDL 파일 + `application-local.yml` schema/data-locations 등록 + `OracleSchemaTest` 의 `spring.sql.init.*-locations` 에도 등록 + Entity + 테스트. local 초기 데이터는 `db/data/*.sql`. 시퀀스 재설정은 Oracle 문법 `ALTER SEQUENCE ... RESTART START WITH n`
 - 설계 문서는 `docs/design/` (ERD, 컬럼 정의). 자연키/복합키 Entity 는 `AssignedIdEntity` 상속 + `@EmbeddedId`
 - 코드 스타일: Google Java Style, 2칸 들여쓰기, 100자, 와일드카드 import 금지, switch default 필수
 - `java.time` 만 사용, null 체크는 Apache Commons Utils

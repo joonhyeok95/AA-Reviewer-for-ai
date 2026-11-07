@@ -1,0 +1,18 @@
+# ============================================================
+# localdb : local + 영속 DB (Docker Oracle Free, infra/oracle) - 재시작해도 데이터 유지
+#  - 실행 : SPRING_PROFILES_ACTIVE=local,localdb  (scripts/dev-up 기본값. 메모리 H2 는 -InMemory / --in-memory)
+#  - 스키마·초기 데이터는 DB 가 비어 있을 때만 넣는다 (InitOnceDatabaseConfig - TB_MENU 유무로 판단).
+#    local 의 schema/data-locations 를 그대로 쓰므로 DDL 을 바꾸면 기존 DB 에는 ALTER 를 직접 실행하거나 dev-up -ResetDb
+#  - 비밀번호 기본값은 local 전용 (infra/oracle/docker-compose.yml 과 같은 값)
+# ============================================================
+spring:
+  datasource:
+    url: ${LOCAL_DB_URL:jdbc:oracle:thin:@//localhost:1521/FREEPDB1}
+    username: ${LOCAL_DB_USERNAME:flowlog}
+    password: ${ORACLE_APP_PASSWORD:flowlog-local}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 10
+  h2:
+    console:
+      enabled: false
