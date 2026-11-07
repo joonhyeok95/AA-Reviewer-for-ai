@@ -1,5 +1,7 @@
 # 운영 배포 - AWS EC2 1대 + ALB (H2 파일 DB)
 
+> 처음 세팅부터 오픈·보안 점검까지 단계별 런북 : [spring-boilerplate/docs/operations/EC2_DEPLOY_RUNBOOK.md](../spring-boilerplate/docs/operations/EC2_DEPLOY_RUNBOOK.md) (노션 「09. EC2 운영 배포 런북」으로 동기화)
+
 ```
 사용자 ─ HTTPS 443 ─▶ ALB (ACM 인증서, TLS 종료) ─ HTTP 80 ─▶ EC2 (Docker Compose)
                                                               gateway ─┬─▶ backend (H2 파일 DB · 첨부/사진 · 매일 백업)

@@ -189,6 +189,23 @@
 - 영속 DB : 1521 은 localhost 에만, 비밀번호 기본값은 local 전용. 개인정보 이관 파일·실주보 PDF 캡처는 gitignore
 - 업로드 요청은 CSRF(세션) 적용, 크기 제한 (파일 20MB / 요청 100MB, 사진 10MB)
 
+## 추가 점검 (2026-11-07, 운영 배포 구성 - EC2 + ALB)
+
+운영 구성(ALB TLS 종료 → EC2:80)을 로컬에서 그대로 재현(Caddy 가 ALB 역할)해 검증하며 도출. 상세 런북 [EC2_DEPLOY_RUNBOOK](../operations/EC2_DEPLOY_RUNBOOK.md) 9장
+
+### 30. TLS 종료 LB 뒤에서 Gateway 의 `Forwarded` 헤더 (🟠 중간)
+- **현상**: Gateway 가 RFC 7239 `Forwarded: proto=http` 를 백엔드에 보내고, 백엔드(ForwardedHeaderFilter)는 이를 `X-Forwarded-Proto: https` 보다 우선 →
+  ALB 뒤에서 로그인 콜백이 `http://` 로 만들어져 로그인 불가. 또 신뢰 프록시(LB) 경로에서 클라이언트가 보낸 `Forwarded` 가 그대로 전달되면 host·proto 위조 가능
+- **조치**: Gateway `forwarded.enabled: false` + `ForwardedHeaderSanitizerGlobalFilter` 가 `Forwarded` 를 출처와 무관하게 항상 제거 (X-Forwarded-* 만 사용)
+- **검증**: `GatewayRoutingTest.forwardedHeaders_tlsTerminatingLoadBalancer`, `forwardedHeaders_spoofedFromTrustedProxy`, 운영 구성 E2E 70/70
+
+### 31. 운영 기본 하드닝 (🟡 미비 → 조치)
+- **조치**: EC2 - IMDSv2 필수·홉 제한 1(컨테이너의 역할 자격 증명 탈취 차단), SSH 미개방(Session Manager), EBS 암호화, 보안 패치 자동(dnf-automatic).
+  컨테이너 - 비루트, `no-new-privileges`(데몬·compose), 로그 크기 제한, 내부망 전용 포트. Keycloak - 운영 client secret·콜백 교체, 테스트 계정 비활성화,
+  **비밀번호 정책**(12자 이상·사용자명/이메일 금지·최근 3개 재사용 금지), admin 비밀번호는 첫 기동 때만 설정
+- **검증**: 운영 구성 기동(no-new-privileges 상태에서 전 서비스 healthy), 정책 위반 비밀번호 거부 확인, E2E 70/70
+- **남은 과제**: WAF·GuardDuty·CloudWatch 경보는 AWS 콘솔 작업 (런북 9-7)
+
 ---
 
 ## 남은 과제 요약

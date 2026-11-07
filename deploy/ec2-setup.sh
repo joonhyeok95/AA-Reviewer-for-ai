@@ -1,19 +1,38 @@
 #!/usr/bin/env bash
 # =====================================================================
-# EC2 처음 준비 (Amazon Linux 2023, root 또는 sudo) - 한 번만
+# EC2 처음 준비 (Amazon Linux 2023) - 한 번만, root 권한으로
 #   sudo bash deploy/ec2-setup.sh
-#  - Docker + Compose 플러그인 + buildx, 부팅 시 자동 시작
-#  - 스왑 2GB (빌드·Keycloak 기동 때 메모리 여유)
-#  - ec2-user 를 docker 그룹에 (다시 로그인하면 sudo 없이 docker)
+#  - Docker + Compose 플러그인 + Buildx, 부팅 시 자동 시작
+#  - Docker 데몬 보안 기본값 : 컨테이너 권한 상승 차단(no-new-privileges), 로그 크기 제한, 데몬 재시작 시 컨테이너 유지
+#  - OS 보안 업데이트 자동 적용 (dnf-automatic, 보안 패치만)
+#  - 스왑 2GB (빌드·Keycloak 기동 때 메모리 여유), 시간대 Asia/Seoul
+#  - docker 그룹 : ec2-user, ssm-user(Session Manager 기본 사용자), sudo 로 실행한 사용자
+#  - 앱 폴더 /opt/flowlog (실행한 사용자 소유) - 저장소를 여기에 먼저 clone 한 뒤 이 스크립트를 실행
 # =====================================================================
 set -euo pipefail
+[ "$(id -u)" = 0 ] || { echo "sudo bash $0 로 실행하세요" >&2; exit 1; }
 
-if ! command -v docker >/dev/null 2>&1; then
-  dnf install -y docker git
+step() { echo "[ec2-setup] $*"; }
+
+step "패키지 (docker, git, dnf-automatic)"
+dnf install -y docker git dnf-automatic >/dev/null
+
+step "Docker 데몬 설정 (/etc/docker/daemon.json)"
+mkdir -p /etc/docker
+if [ ! -f /etc/docker/daemon.json ]; then
+  cat > /etc/docker/daemon.json <<'JSON'
+{
+  "no-new-privileges": true,
+  "live-restore": true,
+  "log-driver": "json-file",
+  "log-opts": { "max-size": "20m", "max-file": "5" }
+}
+JSON
 fi
 systemctl enable --now docker
+systemctl restart docker
 
-# Compose / Buildx 플러그인 (Amazon Linux 2023 패키지에 없을 수 있어 GitHub 릴리스에서)
+step "Compose / Buildx 플러그인"
 PLUGINS=/usr/local/lib/docker/cli-plugins
 mkdir -p "$PLUGINS"
 ARCH=$(uname -m)
@@ -30,16 +49,29 @@ if ! docker buildx version >/dev/null 2>&1; then
   chmod +x "$PLUGINS/docker-buildx"
 fi
 
+step "OS 보안 업데이트 자동 적용 (매일, 보안 패치만)"
+sed -i 's/^upgrade_type.*/upgrade_type = security/; s/^apply_updates.*/apply_updates = yes/' \
+  /etc/dnf/automatic.conf
+systemctl enable --now dnf-automatic.timer
+
+step "스왑 2GB"
 if [ ! -f /swapfile ]; then
   fallocate -l 2G /swapfile
   chmod 600 /swapfile
-  mkswap /swapfile
+  mkswap /swapfile >/dev/null
   swapon /swapfile
   echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
 
-id ec2-user >/dev/null 2>&1 && usermod -aG docker ec2-user
+step "시간대 / docker 그룹 / 앱 폴더"
 timedatectl set-timezone Asia/Seoul || true
+OWNER="${SUDO_USER:-ec2-user}"
+for user in ec2-user ssm-user "$OWNER"; do
+  if id "$user" >/dev/null 2>&1; then usermod -aG docker "$user"; fi
+done
+mkdir -p /opt/flowlog
+chown -R "$OWNER":"$OWNER" /opt/flowlog
 
 docker compose version
-echo "[ec2-setup] 완료 - 다시 로그인 후: git clone … && cd repo/deploy && ./gen-secrets.sh <도메인> && docker compose up -d --build"
+step "완료 - 세션을 닫았다가 다시 접속(docker 그룹 적용) 후 :"
+step "  cd /opt/flowlog/deploy && ./gen-secrets.sh <도메인> && docker compose up -d --build"

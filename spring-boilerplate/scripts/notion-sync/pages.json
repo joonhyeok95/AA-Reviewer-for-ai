@@ -8,6 +8,7 @@
     { "file": "docs/design/03_notice.md", "pageId": "40f4d4d8-7956-812b-8173-f4119feeec37" },
     { "file": "docs/reports/TEST_REPORT.md", "pageId": "40f4d4d8-7956-81e0-b0d2-cf43a36d4130" },
     { "file": "docs/reports/AUTH_E2E_REPORT.md", "pageId": "40f4d4d8-7956-81f2-9889-c445c276d288" },
-    { "file": "docs/reports/SECURITY_REVIEW.md", "pageId": "40f4d4d8-7956-810e-b881-fa8b92843ffb" }
+    { "file": "docs/reports/SECURITY_REVIEW.md", "pageId": "40f4d4d8-7956-810e-b881-fa8b92843ffb" },
+    { "file": "docs/operations/EC2_DEPLOY_RUNBOOK.md", "pageId": "4114d4d8-7956-81fb-bf9d-d6ec8b5f853b" }
   ]
 }

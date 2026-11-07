@@ -23,7 +23,7 @@ Flowlog 업무 시스템 모노레포. 아래 3개 프로젝트를 커밋 이력
 
 ## 운영 배포 (AWS EC2 1대 + ALB)
 
-[deploy/README.md](deploy/README.md) - ALB 가 HTTPS 를 끝내고 EC2 는 80(HTTP)만, H2 파일 DB, Docker Compose
+[deploy/README.md](deploy/README.md) · 단계별 런북 [EC2_DEPLOY_RUNBOOK](spring-boilerplate/docs/operations/EC2_DEPLOY_RUNBOOK.md) - ALB 가 HTTPS 를 끝내고 EC2 는 80(HTTP)만, H2 파일 DB, Docker Compose
 (Gateway · 백엔드 · 화면 · Keycloak(PostgreSQL) · Redis). 지금 PC 데이터 이전(`deploy/migrate/oracle-to-h2.sh`),
 매일 백업, 로컬 운영 구성 검증(`deploy/verify`, Caddy 가 ALB 역할) 포함.
 

@@ -54,7 +54,7 @@ ensure_scope() {
 BFF=$(client_uuid flowlog-bff)
 BATCH=$(client_uuid flowlog-batch)
 
-for entry in "sample.list:샘플 조회" "sample.add:샘플 등록" "sample.edit:샘플 수정" "sample.del:샘플 삭제" \
+SCOPES=("sample.list:샘플 조회" "sample.add:샘플 등록" "sample.edit:샘플 수정" "sample.del:샘플 삭제" \
     "code.list:공통코드 조회" "code.add:공통코드 등록" "code.edit:공통코드 수정" "code.del:공통코드 삭제" \
     "menu.list:메뉴 조회" "menu.add:메뉴 등록" "menu.edit:메뉴 수정" "menu.del:메뉴 삭제" \
     "role.list:권한 조회" "role.add:권한 등록" "role.edit:권한 수정" "role.del:권한 삭제" \
@@ -63,7 +63,17 @@ for entry in "sample.list:샘플 조회" "sample.add:샘플 등록" "sample.edit
     "calendar.list:캘린더 조회" "calendar.add:캘린더 등록" "calendar.edit:캘린더 수정" "calendar.del:캘린더 삭제" \
     "bulletin.list:주보 조회" "bulletin.add:주보 등록" "bulletin.edit:주보 수정" "bulletin.del:주보 삭제" \
     "catechism.list:교리문답 조회" "catechism.add:교리문답 등록" "catechism.edit:교리문답 수정" "catechism.del:교리문답 삭제" \
-    "liturgy.list:전례문 조회" "liturgy.add:전례문 등록" "liturgy.edit:전례문 수정" "liturgy.del:전례문 삭제"; do
+    "liturgy.list:전례문 조회" "liturgy.add:전례문 등록" "liturgy.edit:전례문 수정" "liturgy.del:전례문 삭제")
+
+# 같은 scope 목록이면 건너뛴다 (scope 마다 kcadm(JVM) 을 4번 띄워 수 분 걸림 → 재기동·업데이트 때 백엔드가 그만큼 늦게 뜬다).
+# 목록 서명 = 개수 + 전체 길이, realm 속성 flowlogScopes 에 저장. scope 를 추가·변경하면 서명이 바뀌어 다시 실행
+joined=$(IFS="|"; echo "${SCOPES[*]}")
+SCOPES_SIG="scopes-v1-${#SCOPES[@]}-${#joined}"
+realm_attrs=$(kc get "realms/${REALM}")
+if [[ "$realm_attrs" == *"$SCOPES_SIG"* ]]; then
+  echo "[setup] client scopes unchanged (${SCOPES_SIG}) - skip"
+else
+for entry in "${SCOPES[@]}"; do
   name="${entry%%:*}"
   sid=$(ensure_scope "$name" "${entry#*:}")
   # scope 를 같은 이름의 realm 역할에 매핑 → 해당 역할이 있는 사용자/서비스계정에게만 scope 발급
@@ -75,6 +85,8 @@ for entry in "sample.list:샘플 조회" "sample.add:샘플 등록" "sample.edit
   kc update "clients/${BFF}/optional-client-scopes/${sid}" -r "$REALM"
   kc update "clients/${BATCH}/optional-client-scopes/${sid}" -r "$REALM"
 done
+kc update "realms/${REALM}" -s "attributes.flowlogScopes=${SCOPES_SIG}"
+fi
 
 # 같은 네트워크의 다른 기기에서 IP 로 접속 (scripts/dev-up -Lan → PUBLIC_HOST)
 #  - Gateway 공개 URL http://{IP}:9909 의 로그인 콜백을 redirect URI 에 추가 (localhost 항목은 realm JSON 과 동일하게 유지)
@@ -89,7 +101,7 @@ fi
 # ---------------------------------------------------------------------------------------------
 # 운영 (deploy/docker-compose.yml → PUBLIC_URL=https://도메인) - local 개발에는 영향 없음
 #  - 로그인 콜백·SAML SP 를 공개 URL 로, client secret 을 운영 값으로 (realm JSON 의 local secret 무효화)
-#  - 앱 관리자(admin) 비밀번호를 APP_ADMIN_PASSWORD 로, 테스트 계정은 비활성화 (KEEP_TEST_USERS=true 면 유지)
+#  - 비밀번호 정책(KC_PASSWORD_POLICY), 앱 관리자(admin) 비밀번호를 APP_ADMIN_PASSWORD 로, 테스트 계정은 비활성화 (KEEP_TEST_USERS=true 면 유지)
 #  - 매 기동 시 다시 적용 (같은 값이면 변화 없음)
 # ---------------------------------------------------------------------------------------------
 user_id() {
@@ -112,7 +124,21 @@ if [ -n "${PUBLIC_URL:-}" ]; then
     kc update "clients/${SAML}" -r "$REALM" -s "clientId=${SAML_ID}"       -s "redirectUris=[\"${PUBLIC_URL}/cm/login/saml2/sso/keycloak\"]"       -s "attributes.\"saml_assertion_consumer_url_post\"=${PUBLIC_URL}/cm/login/saml2/sso/keycloak"
   fi
 
-  kc set-password -r "$REALM" --username admin --new-password "$APP_ADMIN_PASSWORD"
+  # 비밀번호 정책 (기본 : 12자 이상, 사용자명·이메일과 다르게, 최근 3개 재사용 금지). 비우면 바꾸지 않음
+  if [ -n "${KC_PASSWORD_POLICY:-}" ]; then
+    kc update "realms/${REALM}" -s "passwordPolicy=${KC_PASSWORD_POLICY}"
+  fi
+  # admin 비밀번호는 처음 한 번만 (realm 속성 flowlogAdminPasswordSet 로 표시) - 이후 Keycloak 에서 바꾼 비밀번호를
+  # 기동마다 덮어쓰지 않고, 비밀번호 이력 정책(같은 비밀번호 재설정 거부)으로 setup 이 실패하지 않게.
+  # 다시 .env 값으로 맞추려면 RESET_ADMIN_PASSWORD=true 로 한 번 기동
+  realm_json=$(kc get "realms/${REALM}")
+  if [[ "$realm_json" != *flowlogAdminPasswordSet* ]] || [ "${RESET_ADMIN_PASSWORD:-false}" = "true" ]; then
+    kc set-password -r "$REALM" --username admin --new-password "$APP_ADMIN_PASSWORD"
+    kc update "realms/${REALM}" -s 'attributes.flowlogAdminPasswordSet=true'
+    echo "[setup] admin password set from APP_ADMIN_PASSWORD"
+  else
+    echo "[setup] admin password already initialized - unchanged (RESET_ADMIN_PASSWORD=true to reset)"
+  fi
   for name in tx.master tx.manager tx.viewer emp01 partner01 guest01       board.manager board.writer board.reader board.limited; do
     uid=$(user_id "$name")
     if [ -n "$uid" ]; then
@@ -123,7 +149,7 @@ if [ -n "${PUBLIC_URL:-}" ]; then
       fi
     fi
   done
-  echo "[setup] production: redirect URIs -> ${PUBLIC_URL}, client secrets rotated, admin password set, test users enabled=${KEEP_TEST_USERS:-false}"
+  echo "[setup] production: redirect URIs -> ${PUBLIC_URL}, client secrets rotated, test users enabled=${KEEP_TEST_USERS:-false}"
 fi
 
 echo "[setup] done - client scopes(role-restricted) linked to flowlog-bff, flowlog-batch (optional)"
