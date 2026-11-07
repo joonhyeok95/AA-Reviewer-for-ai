@@ -372,6 +372,7 @@ const en: MessageSchema = {
     pickUnit: 'Choose a unit (with questions)',
     pickText: 'Choose a liturgy text',
     clearForm: 'Start blank',
+    weeklyCatechism: 'The catechism follows the week of the worship date (nth Sunday of the year = Lord’s Day n) and updates when the date changes.',
     photo: 'Cover photo',
     photoAdd: 'Upload photo',
     photoChange: 'Change photo',

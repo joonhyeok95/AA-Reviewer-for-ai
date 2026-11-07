@@ -79,6 +79,10 @@ onMounted(load)
       </div>
     </header>
     <BulletinPaper v-if="bulletin" :bulletin="bulletin" />
+    <!-- 인쇄용 A4 2장 사본 (화면 밖, 인쇄할 때만 보임) -->
+    <Teleport to="body">
+      <BulletinPaper v-if="bulletin" :bulletin="bulletin" print />
+    </Teleport>
     <ConfirmDialog :open="deleting" :title="$t('common.delete')"
       :message="t('bulletin.deleteConfirm', { date: bulletin ? formatDate(bulletin.worshipDt) : '' })"
       :confirm-label="$t('common.delete')" danger :busy="busy"

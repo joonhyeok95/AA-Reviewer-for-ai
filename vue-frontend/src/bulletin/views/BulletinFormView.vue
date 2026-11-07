@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/auth/store'
@@ -26,7 +26,7 @@ import DutyGridEditor from '@/bulletin/components/DutyGridEditor.vue'
 import NewsTreeEditor from '@/bulletin/components/NewsTreeEditor.vue'
 import {
   type BulletinForm, celebrationNews, emptyForm, emptyOrder, formFromDetail, templateForm,
-  toSaveRequest, weekOf,
+  toSaveRequest, weekOf, weeklyCatechismUnits,
 } from '@/bulletin/form'
 
 /**
@@ -107,6 +107,7 @@ async function load(): Promise<void> {
       } else {
         form.value.liturgyTextIds = textList.filter((text) => text.useYn === 'Y').map((text) => text.textId)
       }
+      applyWeeklyCatechism()
     }
   } catch (error) {
     feedback.failure(error)
@@ -119,7 +120,22 @@ function clearForm(): void {
   blank.liturgyTextIds = texts.value.filter((text) => text.useYn === 'Y').map((text) => text.textId)
   form.value = blank
   templated.value = false
+  applyWeeklyCatechism()
 }
+
+/** 새 주보 : 교리문답을 예배일 주차(그해 n번째 주일 = 제n주일)에 맞춘다 */
+const autoUnitIds = ref<number[] | null>(null)
+function applyWeeklyCatechism(): void {
+  form.value.catechismUnitIds = weeklyCatechismUnits(form.value.catechismUnitIds, catechisms.value,
+    form.value.worshipDt)
+  autoUnitIds.value = [...form.value.catechismUnitIds]
+}
+
+// 예배일을 바꾸면 다시 맞춘다 (직접 고친 교리문답은 건드리지 않음)
+watch(() => form.value.worshipDt, (date, before) => {
+  if (editing.value || !date || date === before || autoUnitIds.value === null) return
+  if (autoUnitIds.value.join() === form.value.catechismUnitIds.join()) applyWeeklyCatechism()
+})
 
 /** 사진 고르기 : 형식·크기는 화면에서 먼저 거르고, 서버가 내용으로 다시 판별 */
 function pickPhoto(event: Event): void {
@@ -227,6 +243,7 @@ onMounted(load)
         <h1>{{ editing ? $t('bulletin.editTitle') : $t('bulletin.createTitle') }}</h1>
         <p class="lede">{{ $t('bulletin.formLede') }}</p>
         <p v-if="!editing && templated" class="lede" data-test="bulletin-templated">{{ $t('bulletin.templated') }}</p>
+        <p v-if="!editing" class="lede">{{ $t('bulletin.weeklyCatechism') }}</p>
       </div>
       <div class="page-actions">
         <button v-if="!editing && templated" type="button" class="btn"

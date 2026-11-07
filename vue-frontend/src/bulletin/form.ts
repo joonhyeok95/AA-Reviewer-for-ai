@@ -1,5 +1,7 @@
 import { addDays } from '@/calendar/dates'
 import type { CalendarOccurrence } from '@/calendar/types'
+import { flattenUnits } from '@/catechism/labels'
+import type { Catechism } from '@/catechism/types'
 import type {
   BulletinDetail, BulletinSaveRequest, DutyGrid, DutyItem, NewsNode, OrderItem,
 } from './types'
@@ -69,6 +71,51 @@ export function toSaveRequest(form: BulletinForm): BulletinSaveRequest {
     news: cleanNews(form.news),
     duties: fromGrid(form.duties),
   }
+}
+
+// ------------------------------------------------------------------ 이번 주 교리문답 (주일 단위)
+
+export const LORDS_DAY = 'LORDS_DAY'
+
+/**
+ * 예배일이 그해 몇 번째 주일인지 (1 ~ 52). 하이델베르크는 1년 52주일로 나뉘어 n번째 주일에 제n주일을 다룬다.
+ * 예배일이 주일이 아니면 그 주의 주일(직전) 기준, 53번째 주일은 제52주일.
+ */
+export function lordsDayNo(worshipDt: string): number {
+  const sunday = addDays(worshipDt, -new Date(`${worshipDt}T00:00:00`).getDay())
+  const year = Number(sunday.slice(0, 4))
+  const jan1 = new Date(year, 0, 1)
+  const firstSunday = addDays(`${year}-01-01`, (7 - jan1.getDay()) % 7)
+  const weeks = Math.round((Date.parse(sunday) - Date.parse(firstSunday)) / (7 * 86_400_000))
+  return Math.min(52, Math.max(1, weeks + 1))
+}
+
+/**
+ * 교리문답 단위를 예배일 주차에 맞춘다.
+ *  - 이미 고른 "주일" 단위는 같은 교리문답의 제n주일로 바꾸고, 부·장 등 다른 단위는 그대로 둔다
+ *  - 주일 단위가 하나도 없으면 주일 단위가 있는 첫 교리문답(하이델베르크)의 제n주일을 앞에 넣는다
+ */
+export function weeklyCatechismUnits(unitIds: number[], catechisms: Catechism[], worshipDt: string)
+  : number[] {
+  const no = lordsDayNo(worshipDt)
+  const units = catechisms.map((catechism) => ({
+    catechism, all: flattenUnits(catechism.units).map(({ unit }) => unit),
+  }))
+  const lordsDayOf = (all: (typeof units)[number]['all']): number | undefined =>
+    all.find((unit) => unit.unitTypeCd === LORDS_DAY && unit.unitNo === no)?.unitId
+  let replaced = false
+  const result = unitIds.map((unitId) => {
+    const owner = units.find(({ all }) => all.some((unit) => unit.unitId === unitId))
+    const unit = owner?.all.find((each) => each.unitId === unitId)
+    if (!owner || unit?.unitTypeCd !== LORDS_DAY) return unitId
+    replaced = true
+    return lordsDayOf(owner.all) ?? unitId
+  })
+  if (!replaced) {
+    const first = units.find(({ all }) => lordsDayOf(all) !== undefined)
+    if (first) result.unshift(lordsDayOf(first.all)!)
+  }
+  return [...new Set(result)]
 }
 
 // ------------------------------------------------------------------ 섬김위원 표

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { CalendarOccurrence } from '@/calendar/types'
 import {
-  celebrationNews, cleanNews, emptyNews, fromGrid, templateForm, shiftGrid, toGrid, weekOf,
+  celebrationNews, cleanNews, emptyNews, fromGrid, lordsDayNo, templateForm, weeklyCatechismUnits, shiftGrid, toGrid, weekOf,
 } from './form'
 import type { BulletinDetail, DutyItem } from './types'
+import type { Catechism, UnitNode } from '@/catechism/types'
 
 const duties: DutyItem[] = [
   { roleNm: '식사', dutyDt: '2026-11-01', members: '가람' },
@@ -54,6 +55,30 @@ describe('주보 화면 변환', () => {
   it('지난 주보 템플릿 : 지난 주보가 오래됐으면 예배일은 다가오는 주일', () => {
     expect(templateForm(detail(), '2026-12-06').worshipDt).toBe('2026-12-06')
     expect(templateForm(detail(), '2026-11-01').worshipDt).toBe('2026-11-15')
+  })
+
+  it('주일 번호 : 그해 n번째 주일 (2026-11-08 = 제45주일), 평일은 그 주 주일, 53번째는 52', () => {
+    expect(lordsDayNo('2026-01-04')).toBe(1)
+    expect(lordsDayNo('2026-11-08')).toBe(45)
+    expect(lordsDayNo('2026-11-11')).toBe(45)
+    expect(lordsDayNo('2026-11-15')).toBe(46)
+    expect(lordsDayNo('2027-01-03')).toBe(1)
+    expect(lordsDayNo('2023-12-31')).toBe(52)
+  })
+
+  it('교리문답 주차 맞춤 : 주일 단위는 제n주일로 바꾸고, 없으면 하이델베르크 제n주일을 넣는다', () => {
+    const node = (unitId: number, unitTypeCd: string, unitNo: number, children: UnitNode[] = []): UnitNode => ({
+      unitId, parentUnitId: null, unitTypeCd, unitNo, title: null, sortOrder: unitNo, qaCount: 1,
+      firstQuestionNo: null, lastQuestionNo: null, children,
+    })
+    const catechisms: Catechism[] = [{
+      catechismId: 1, catechismCd: 'HEIDELBERG', title: '하이델베르크', description: null, sortOrder: 1,
+      useYn: 'Y', units: [node(1, 'PART', 3, [node(4, 'LORDS_DAY', 45), node(5, 'LORDS_DAY', 46)])],
+    }]
+    expect(weeklyCatechismUnits([4], catechisms, '2026-11-15')).toEqual([5])
+    expect(weeklyCatechismUnits([], catechisms, '2026-11-08')).toEqual([4])
+    expect(weeklyCatechismUnits([1], catechisms, '2026-11-15')).toEqual([5, 1])
+    expect(weeklyCatechismUnits([4], catechisms, '2026-01-04')).toEqual([4])
   })
 
   it('교회소식 정리 : 제목·내용·하위가 모두 빈 항목은 뺀다 (하위부터)', () => {

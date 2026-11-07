@@ -660,3 +660,16 @@
     max-height: 360px;
   }
 }
+
+/* 주보 인쇄 : 보기 화면이 body 에 둔 A4 사본(BulletinPaper print)만 인쇄 */
+@media print {
+  html.bulletin-printing,
+  html.bulletin-printing body {
+    margin: 0;
+    background: #fff;
+  }
+
+  html.bulletin-printing #app {
+    display: none !important;
+  }
+}

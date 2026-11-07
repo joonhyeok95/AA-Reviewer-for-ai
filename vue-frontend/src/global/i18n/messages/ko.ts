@@ -374,6 +374,7 @@ const ko = {
     pickUnit: '단위 선택 (문답이 있는 단위)',
     pickText: '전례문 선택',
     clearForm: '빈 양식으로',
+    weeklyCatechism: '교리문답은 예배일 주차에 맞춰 자동으로 고릅니다. (그해 n번째 주일 = 제n주일, 예배일을 바꾸면 다시 맞춤)',
     photo: '대표사진',
     photoAdd: '사진 올리기',
     photoChange: '사진 바꾸기',
