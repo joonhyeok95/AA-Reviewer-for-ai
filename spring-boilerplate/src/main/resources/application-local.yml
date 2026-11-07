@@ -46,6 +46,8 @@ spring:
         - optional:file:./data/calendar-import.sql
         # 실제 주보 (개인정보 - 저장소에 올리지 않음). 있으면 샘플 주보·교회 정보를 바꾼다
         - optional:file:./data/church-import.sql
+        # 하이델베르크 요리문답 전체 (scripts/catechism-import, 저작권 본문 - 저장소에 올리지 않음)
+        - optional:file:./data/catechism-import.sql
 
 logging:
   level:

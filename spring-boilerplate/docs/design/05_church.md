@@ -104,3 +104,27 @@ erDiagram
 - **지난 주보 불러오기 / 다음 주 주보 만들기** : 예배일 +7, 호 +1, 작성 중, 설교 제목·메모·교리문답 비움, 섬김위원 표를 한 주 밀기(가장 오래된 날짜 빼고 +7일 열 추가)
 - **달력에서 축하 가져오기** : 그 주(일~토)의 생일·결혼기념일(생일 메뉴의 달력)을 교회소식 "축하" 섹션으로 (`이름(15 일)` 형식)
 - 모든 반복 입력은 `RowTools`(위로·아래로·삭제) 로 순서 변경
+
+## 6. 하이델베르크 요리문답 전체 이관 (`scripts/catechism-import/import_heidelberg.py`)
+
+원본 : 북미개혁교회(CRC) 한글 번역 PDF (2012, 심재승 역 - crcna.org). PDF 표지에 "연구와 교육, 그리고 검토의 목적 외에 …
+서면 허락없이 복사되지 말아야 한다" 는 저작권 고지가 있어 **본문은 저장소에 올리지 않는다**.
+결과 `data/catechism-import.sql` (/data/ gitignore) 을 local 프로필이 optional 로 읽는다.
+
+```bash
+python -m venv .venv && .venv/Scripts/pip install pypdf
+.venv/Scripts/python -I scripts/catechism-import/import_heidelberg.py <PDF> --dry-run --show 1 80 117
+.venv/Scripts/python -I scripts/catechism-import/import_heidelberg.py <PDF>      # → data/catechism-import.sql, 앱 재시작
+```
+
+| PDF | 교리문답 5단계 |
+|---|---|
+| `제 n 부: 제목` | 부 1~3 (기존 단위 ID 1~3 의 제목 변경) |
+| 구분선 뒤 소제목 (성부 하나님, 성례, 십계명, 주의 기도 …) | 그 다음 주일의 제목 |
+| `제 n 주일` | 주일 (제1주일은 서론이라 최상위·맨 앞, 제45주일은 단위 ID 4 재사용 - 주보 연결 유지) |
+| `제 n 문 : 질문` | 문답 (질문 속 각주 번호 제거) |
+| `답 :` 빈 줄로 나뉜 문단 | 답 단락 (본문 속 각주 번호 제거, `제 1 계명` 같은 숫자는 유지) |
+| `1) 성경 구절` | 근거 성구 - 번호가 나온 단락(질문에 있으면 첫 단락)에 |
+| `*`, `**` 편집 주 (문 80) | `※` 로 시작하는 마지막 단락 |
+
+2026-11-08 결과 : 부 3, 주일 52, 문답 129, 답 단락 223, 근거 성구 356.
